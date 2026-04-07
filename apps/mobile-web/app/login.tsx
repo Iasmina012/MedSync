@@ -86,9 +86,9 @@ export default function LoginScreen() {
           </Pressable>
 
           <Text style={styles.footerText}>
-            Nu ai cont?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/signup" style={styles.link}>
-              Creează unul
+              Create one
             </Link>
           </Text>
         </View>

@@ -110,9 +110,9 @@ export default function SignupScreen() {
           </Pressable>
 
           <Text style={styles.footerText}>
-            Ai deja cont?{' '}
+            Already have an account?{' '}
             <Link href="/login" style={styles.link}>
-              Autentifică-te
+              Login
             </Link>
           </Text>
         </View>

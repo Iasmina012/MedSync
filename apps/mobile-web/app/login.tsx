@@ -2,14 +2,19 @@ import React, { useState } from 'react';
 import { Link, router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import { supabase } from '../src/lib/supabase';
 import WebFooter from '../src/components/layout/WebFooter';
+import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 
 export default function LoginScreen() {
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [identifierError, setIdentifierError] = useState('');
+
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -18,20 +23,91 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       setError('');
+      setIdentifierError('');
+      setPasswordError('');
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+      const input = identifier.trim().toLowerCase();
+
+      let hasError = false;
+
+      if (!input) {
+        setIdentifierError('Please enter your username or email');
+        hasError = true;
+      }
+
+      if (!password) {
+        setPasswordError('Please enter your password');
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      let loginEmail = input;
+      const isEmail = input.includes('@');
+
+      if (!isEmail) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', input)
+          .maybeSingle();
+
+        if (profileError) {
+          setError(profileError.message);
+          return;
+        }
+
+        if (!profile?.email) {
+          setError('No account was found with this username or email');
+          return;
+        }
+
+        loginEmail = profile.email;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
         password,
       });
 
-      if (error) {
-        setError(error.message);
+      if (signInError) {
+        setError('Invalid login credentials');
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError('Unable to retrieve user information');
+        return;
+      }
+
+      const { data: profile, error: profileFetchError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileFetchError) {
+        setError(profileFetchError.message);
+        return;
+      }
+
+      if (profile.role === 'admin') {
+        router.replace('/admin');
+        return;
+      }
+
+      if (profile.role === 'doctor') {
+        router.replace('/doctor');
         return;
       }
 
       router.replace('/main');
     } catch {
-      setError('There has been an error.');
+      setError('An error occurred while logging in');
     } finally {
       setLoading(false);
     }
@@ -51,32 +127,51 @@ export default function LoginScreen() {
 
           <Text style={styles.title}>Login</Text>
           <Text style={styles.subtitle}>
-            Login to continue
+            Log in with your username or email to continue
           </Text>
 
           <TextInput
-            placeholder="Email"
+            placeholder="Username or Email"
             placeholderTextColor="#94A3B8"
             autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
+            value={identifier}
+            onChangeText={(value) => {
+              setIdentifier(value);
+              if (value.trim()) setIdentifierError('');
+            }}
             style={styles.input}
           />
+          {!!identifierError && <Text style={styles.inlineError}>{identifierError}</Text>}
 
-          <TextInput
-            placeholder="Password"
-            placeholderTextColor="#94A3B8"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            style={styles.input}
-          />
+          <View style={styles.passwordWrapper}>
+            <TextInput
+              placeholder="Password"
+              placeholderTextColor="#94A3B8"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={(value) => {
+                setPassword(value);
+                if (value) setPasswordError('');
+              }}
+              style={styles.passwordInput}
+            />
+            <Pressable
+              onPress={() => setShowPassword((prev) => !prev)}
+              style={styles.eyeButton}
+            >
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color="#64748B"
+              />
+            </Pressable>
+          </View>
+          {!!passwordError && <Text style={styles.inlineError}>{passwordError}</Text>}
 
           {!!error && <Text style={styles.error}>{error}</Text>}
-
+          
           <Pressable
-            style={styles.button}
+            style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleLogin}
             disabled={loading}
           >
@@ -102,7 +197,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-
+  
   container: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -158,10 +253,39 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 15,
-    marginBottom: 14,
+    marginBottom: 6,
     backgroundColor: '#FFFFFF',
     fontSize: 15,
     color: '#0F172A',
+  },
+
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 18,
+    marginBottom: 6,
+    backgroundColor: '#FFFFFF',
+  },
+
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    fontSize: 15,
+    color: '#0F172A',
+  },
+
+  eyeButton: {
+    paddingHorizontal: 14,
+  },
+
+  inlineError: {
+    color: '#DC2626',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
   },
 
   button: {
@@ -170,6 +294,10 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
     marginTop: 4,
+  },
+
+  buttonDisabled: {
+    opacity: 0.7,
   },
 
   buttonText: {

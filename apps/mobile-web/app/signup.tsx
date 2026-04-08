@@ -83,6 +83,7 @@ export default function SignupScreen() {
   const handleSignup = async () => {
 
     try {
+      setLoading(true);
       setFirstNameTouched(true);
       setLastNameTouched(true);
       setUsernameTouched(true);
@@ -92,39 +93,18 @@ export default function SignupScreen() {
       setError('');
       setMessage('');
 
-      const { data: existingUsername, error: usernameCheckError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', normalizedUsername)
-        .maybeSingle();
-
-      if (usernameCheckError) {
-        setError(usernameCheckError.message);
+      if (
+        firstNameError ||
+        lastNameError ||
+        usernameError ||
+        emailError ||
+        passwordError ||
+        confirmPasswordError
+      ) {
         return;
       }
 
-      if (existingUsername) {
-        setError('This username is already taken');
-        return;
-      }
-
-      const { data: existingEmail, error: emailCheckError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', normalizedEmail)
-        .maybeSingle();
-
-      if (emailCheckError) {
-        setError(emailCheckError.message);
-        return;
-      }
-
-      if (existingEmail) {
-        setError('An account with this email already exists');
-        return;
-      }
-
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
         options: {
@@ -132,43 +112,22 @@ export default function SignupScreen() {
             first_name: firstName.trim(),
             last_name: lastName.trim(),
             username: normalizedUsername,
-            full_name: `${firstName.trim()} ${lastName.trim()}`,
             role: 'patient',
           },
         },
       });
 
       if (signUpError) {
-        setError(signUpError.message);
-        return;
-      }
-
-      const userId = signUpData.user?.id;
-
-      if (!userId) {
-        setError('Unable to create the account');
-        return;
-      }
-
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: userId,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        username: normalizedUsername,
-        email: normalizedEmail,
-        role: 'patient',
-      });
-
-      if (profileError) {
-        setError(profileError.message);
+        if (signUpError.message.toLowerCase().includes('duplicate')) {
+          setError('Username or email already exists');
+        } else {
+          setError(signUpError.message);
+        }
         return;
       }
 
       setMessage('Account created. Check your email for confirmation, if necessary.');
-
-      setTimeout(() => {
-        router.replace('/login');
-      }, 1200);
+      router.replace('/login');
     } catch {
       setError('An error occurred while creating your account');
     } finally {

@@ -3,6 +3,7 @@ import { Link, router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
+import { getCurrentUserProfile } from '../src/lib/auth';
 import WebFooter from '../src/components/layout/WebFooter';
 import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 
@@ -75,23 +76,10 @@ export default function LoginScreen() {
         return;
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { profile, error: profileError } = await getCurrentUserProfile();
 
-      if (!user) {
-        setError('Unable to retrieve user information');
-        return;
-      }
-
-      const { data: profile, error: profileFetchError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (profileFetchError) {
-        setError(profileFetchError.message);
+      if (profileError || !profile) {
+        setError('Unable to load your profile');
         return;
       }
 
@@ -106,6 +94,7 @@ export default function LoginScreen() {
       }
 
       router.replace('/main');
+
     } catch {
       setError('An error occurred while logging in');
     } finally {

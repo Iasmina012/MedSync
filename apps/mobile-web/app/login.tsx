@@ -65,7 +65,7 @@ export default function LoginScreen() {
           />
 
           <TextInput
-            placeholder="Parolă"
+            placeholder="Password"
             placeholderTextColor="#94A3B8"
             secureTextEntry
             value={password}
@@ -81,14 +81,14 @@ export default function LoginScreen() {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Loading...' : 'Authentication'}
+              {loading ? 'Loading...' : 'Log In'}
             </Text>
           </Pressable>
 
           <Text style={styles.footerText}>
             Don&apos;t have an account?{' '}
             <Link href="/signup" style={styles.link}>
-              Create one
+              Sign Up
             </Link>
           </Text>
         </View>

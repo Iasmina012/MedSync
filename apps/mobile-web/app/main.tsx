@@ -17,7 +17,7 @@ export default function MainScreen() {
       <View style={styles.card}>
         <Text style={styles.title}>Main Page</Text>
         <Text style={styles.subtitle}>
-          Authentication success. This is the main dashboard.
+          Login successful. This is the main dashboard.
         </Text>
 
         <Pressable style={styles.button} onPress={handleLogout}>

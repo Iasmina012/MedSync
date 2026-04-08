@@ -76,7 +76,7 @@ const secondaryFeatures: FeatureCard[] = [
     icon: 'stats-chart-outline',
     title: 'AI summaries and analytics',
     description:
-      'You can later add automatic summaries for analyses, onboarding, and documents.',
+      'Later add automatic summaries for analyses, onboarding, and documents.',
   },
 
 ];
@@ -421,7 +421,7 @@ export default function IndexScreen() {
           <View style={styles.contactBox}>
             <Text style={styles.contactTitle}>Contact</Text>
             <Text style={styles.contactText}>Email: contact@medsync.com</Text>
-            <Text style={styles.contactText}>Telefon: +40 777 777 777</Text>
+            <Text style={styles.contactText}>Phone: +40 777 777 777</Text>
             <Text style={styles.contactText}>
               Schedule: Mon - Fri · 08:00 - 18:00
             </Text>

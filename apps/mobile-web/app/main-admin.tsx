@@ -1,15 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { supabase } from '../src/lib/supabase';
 import { getCurrentUserProfile } from '../src/lib/auth';
 
-export default function DoctorDashboardScreen() {
+export default function AdminDashboard() {
+
+  const { clinicId, clinicName } = useLocalSearchParams<{
+    clinicId?: string;
+    clinicName?: string;
+  }>();
 
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
 
   useEffect(() => {
+
     const checkAccess = async () => {
       const { user, profile } = await getCurrentUserProfile();
 
@@ -18,8 +24,8 @@ export default function DoctorDashboardScreen() {
         return;
       }
 
-      if (profile?.role !== 'doctor') {
-        router.replace('/main');
+      if (profile?.role !== 'admin') {
+        router.replace('/main-patient');
         return;
       }
 
@@ -28,11 +34,16 @@ export default function DoctorDashboardScreen() {
     };
 
     checkAccess();
+  
   }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.replace('/login');
+  };
+
+  const handleChangeClinic = () => {
+    router.replace('/clinic-selection');
   };
 
   if (loading) {
@@ -49,27 +60,37 @@ export default function DoctorDashboardScreen() {
 
       <View style={styles.card}>
 
-        <Text style={styles.title}>Doctor Dashboard</Text>
-        <Text style={styles.subtitle}>You are logged in as a doctor.</Text>
+        <Text style={styles.title}>Admin Dashboard</Text>
+        <Text style={styles.subtitle}>You are logged in as an admin.</Text>
 
         <View style={styles.infoBox}>
           <Text style={styles.label}>Name</Text>
-          <Text style={styles.value}>{fullName || 'Doctor User'}</Text>
+          <Text style={styles.value}>{fullName || 'Admin User'}</Text>
         </View>
 
         <View style={styles.infoBox}>
           <Text style={styles.label}>Role</Text>
-          <Text style={styles.value}>doctor</Text>
+          <Text style={styles.value}>admin</Text>
+        </View>
+
+        <View style={styles.infoBox}>
+          <Text style={styles.label}>Selected clinic</Text>
+          <Text style={styles.value}>{clinicName || 'No clinic selected'}</Text>
         </View>
 
         <Text style={styles.note}>
-          This is a temporary dashboard just to verify that role-based login works correctly.
+          This is a temporary dashboard just to verify that clinic selection and role-based login work correctly.
         </Text>
 
-        <Pressable style={styles.button} onPress={handleLogout}>
-          <Text style={styles.buttonText}>Log Out</Text>
-        </Pressable>
-      
+        <View style={styles.actions}>
+          <Pressable style={styles.secondaryButton} onPress={handleChangeClinic}>
+            <Text style={styles.secondaryButtonText}>Change Clinic</Text>
+          </Pressable>
+
+          <Pressable style={styles.button} onPress={handleLogout}>
+            <Text style={styles.buttonText}>Logout</Text>
+          </Pressable>
+        </View>
       </View>
 
     </ScrollView>
@@ -79,7 +100,7 @@ export default function DoctorDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  
+
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -146,6 +167,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
+  actions: {
+    gap: 12,
+  },
+
   button: {
     backgroundColor: '#1D4ED8',
     borderRadius: 999,
@@ -156,6 +181,21 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontWeight: '800',
+    fontSize: 15,
+  },
+
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+
+  secondaryButtonText: {
+    color: '#0F172A',
+    fontWeight: '700',
     fontSize: 15,
   },
 

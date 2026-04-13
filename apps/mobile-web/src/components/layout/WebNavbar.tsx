@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { router, usePathname } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../lib/supabase';
 
 const BRAND = {
   primary: '#1D4ED8',
@@ -43,9 +44,10 @@ function NavItem({label, active, onPress,}: {label: string; active?: boolean; on
 }
 
 export default function WebNavbar() {
-  
+
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
 
@@ -63,6 +65,39 @@ export default function WebNavbar() {
     };
 
   }, []);
+
+  useEffect(() => {
+
+    const loadSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      setIsAuthenticated(!!session);
+    };
+
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+
+  }, []);
+
+  const handleLogout = async () => {
+
+    await supabase.auth.signOut();
+    router.replace('/login');
+
+  };
+
+  const isClinicsActive = pathname === '/clinic-selection';
 
   return (
 
@@ -85,37 +120,64 @@ export default function WebNavbar() {
         </Pressable>
 
         <View style={styles.linksRow}>
+
           <NavItem
             label="Home"
             active={pathname === '/'}
             onPress={() => router.push('/')}
           />
+
           <NavItem
             label="About"
             active={pathname === '/about'}
             onPress={() => router.push('/about')}
           />
+
           <NavItem
             label="Contact"
             active={pathname === '/contact'}
             onPress={() => router.push('/contact')}
           />
-          <NavItem
-            label="Login"
-            active={pathname === '/login'}
-            onPress={() => router.push('/login')}
-          />
 
-          <Pressable
-            onPress={() => router.push('/signup')}
-            style={({ pressed }) => [
-              styles.signupButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.signupButtonText}>Sign Up</Text>
-          </Pressable>
-        </View>
+          {isAuthenticated && (
+            <NavItem
+              label="Clinics"
+              active={isClinicsActive}
+              onPress={() => router.push('/clinic-selection')}
+            />
+          )}
+
+          {isAuthenticated ? (
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => [
+                styles.actionButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.actionButtonText}>Logout</Text>
+            </Pressable>
+          ) : (
+            <>
+              <NavItem
+                label="Login"
+                active={pathname === '/login'}
+                onPress={() => router.push('/login')}
+              />
+
+              <Pressable
+                onPress={() => router.push('/signup')}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={styles.actionButtonText}>Sign Up</Text>
+              </Pressable>
+            </>
+          )}
+
+        </View> 
       </View>
     
     </View>
@@ -233,14 +295,14 @@ const styles = StyleSheet.create({
     color: BRAND.primary,
   },
 
-  signupButton: {
+  actionButton: {
     backgroundColor: BRAND.primary,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 999,
   },
 
-  signupButtonText: {
+  actionButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',

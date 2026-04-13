@@ -67,9 +67,7 @@ export default function SignupScreen() {
   const passwordError = useMemo(() => {
     if (!passwordTouched) return '';
     if (!password) return 'Password is required';
-    if (!passwordRegex.test(password)) {
-      return 'Password must be at least 8 characters long, include one uppercase letter and one special character.';
-    }
+    if (!passwordRegex.test(password)) return 'Password must be at least 8 characters long, include one uppercase letter and one special character.';
     return '';
   }, [password, passwordTouched]);
 
@@ -118,7 +116,13 @@ export default function SignupScreen() {
       });
 
       if (signUpError) {
-        if (signUpError.message.toLowerCase().includes('duplicate')) {
+        const lowerMessage = signUpError.message.toLowerCase();
+
+        if (
+          lowerMessage.includes('duplicate') ||
+          lowerMessage.includes('already registered') ||
+          lowerMessage.includes('already been registered')
+        ) {
           setError('Username or email already exists');
         } else {
           setError(signUpError.message);
@@ -133,7 +137,7 @@ export default function SignupScreen() {
     } finally {
       setLoading(false);
     }
-  
+
   };
 
   return (
@@ -148,9 +152,7 @@ export default function SignupScreen() {
           </View>
 
           <Text style={styles.title}>Sign Up</Text>
-          <Text style={styles.subtitle}>
-            Create an account to get started
-          </Text>
+          <Text style={styles.subtitle}>Create an account to get started</Text>
 
           <TextInput
             placeholder="First Name"
@@ -264,8 +266,7 @@ export default function SignupScreen() {
           </Text>
         </View>
 
-      { Platform.OS === 'web' && <WebFooter/> }
-      
+        {Platform.OS === 'web' && <WebFooter />}
       </ScrollView>
 
     </PublicPageLayout>

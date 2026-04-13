@@ -83,17 +83,7 @@ export default function LoginScreen() {
         return;
       }
 
-      if (profile.role === 'admin') {
-        router.replace('/admin');
-        return;
-      }
-
-      if (profile.role === 'doctor') {
-        router.replace('/doctor');
-        return;
-      }
-
-      router.replace('/main');
+      router.replace('/clinic-selection');
 
     } catch {
       setError('An error occurred while logging in');
@@ -105,7 +95,7 @@ export default function LoginScreen() {
 
   return (
 
-    <PublicPageLayout >
+    <PublicPageLayout>
 
       <ScrollView contentContainerStyle={styles.container}>
        
@@ -130,6 +120,7 @@ export default function LoginScreen() {
             }}
             style={styles.input}
           />
+
           {!!identifierError && <Text style={styles.inlineError}>{identifierError}</Text>}
 
           <View style={styles.passwordWrapper}>
@@ -155,6 +146,7 @@ export default function LoginScreen() {
               />
             </Pressable>
           </View>
+
           {!!passwordError && <Text style={styles.inlineError}>{passwordError}</Text>}
 
           {!!error && <Text style={styles.error}>{error}</Text>}
@@ -178,15 +170,17 @@ export default function LoginScreen() {
         </View>
 
       { Platform.OS === 'web' && <WebFooter/> }
-      
+
       </ScrollView>
 
     </PublicPageLayout>
+
   );
+
 }
 
 const styles = StyleSheet.create({
-  
+
   container: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -313,5 +307,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
   },
-  
+
 });

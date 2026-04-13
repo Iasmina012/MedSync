@@ -67,7 +67,7 @@ export default function FloatingChatButton() {
 const styles = StyleSheet.create({
 
   floatingButton: {
-    position: 'fixed' as any,
+    position: 'absolute',
     right: 24,
     bottom: 24,
     width: 64,

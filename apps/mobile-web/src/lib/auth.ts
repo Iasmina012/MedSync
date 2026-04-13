@@ -8,7 +8,7 @@ export async function getCurrentUserProfile() {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return { user: null, profile: null, error: userError };
+    return { user: null, profile: null, error: userError ?? new Error('No authenticated user'), };
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -17,10 +17,14 @@ export async function getCurrentUserProfile() {
     .eq('id', user.id)
     .maybeSingle();
 
+  if (profileError) {
+    return { user, profile: null, error: profileError, };
+  }
+
   return {
     user,
     profile,
-    error: profileError,
+    error: null,
   };
 
 }

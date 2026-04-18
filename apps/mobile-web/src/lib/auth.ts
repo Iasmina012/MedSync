@@ -8,7 +8,11 @@ export async function getCurrentUserProfile() {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return { user: null, profile: null, error: userError ?? new Error('No authenticated user'), };
+    return {
+      user: null,
+      profile: null,
+      error: userError ?? new Error('No authenticated user'),
+    };
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -18,7 +22,11 @@ export async function getCurrentUserProfile() {
     .maybeSingle();
 
   if (profileError) {
-    return { user, profile: null, error: profileError, };
+    return {
+      user,
+      profile: null,
+      error: profileError,
+    };
   }
 
   return {
@@ -27,4 +35,13 @@ export async function getCurrentUserProfile() {
     error: null,
   };
 
+}
+
+export function getRoleHomeRoute(role?: string | null) {
+
+  if (role === 'doctor') return '/main-doctor';
+  if (role === 'clinic_admin') return '/main-admin';
+  if (role === 'platform_admin') return '/main-platform-admin';
+  return '/main-patient';
+  
 }

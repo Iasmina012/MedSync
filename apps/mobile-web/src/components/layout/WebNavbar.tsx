@@ -5,12 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 
 const BRAND = {
+
   primary: '#1D4ED8',
   secondary: '#0F172A',
-  border: 'rgba(226,232,240,0.9)',
+  border: 'rgba(226,232,240,0.55)',
   text: '#0F172A',
   muted: '#475569',
-  glass: 'rgba(255,255,255,0.78)',
+  glass: 'rgba(255,255,255,0.56)',
+  glassScrolled: 'rgba(255,255,255,0.68)',
+
 };
 
 function NavItem({label, active, onPress,}: {label: string; active?: boolean; onPress: () => void;}) {
@@ -46,8 +49,10 @@ function NavItem({label, active, onPress,}: {label: string; active?: boolean; on
 export default function WebNavbar() {
 
   const pathname = usePathname();
+
   const [scrolled, setScrolled] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
 
@@ -82,6 +87,7 @@ export default function WebNavbar() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
+      setMenuOpen(false);
     });
 
     return () => {
@@ -91,10 +97,9 @@ export default function WebNavbar() {
   }, []);
 
   const handleLogout = async () => {
-
+    setMenuOpen(false);
     await supabase.auth.signOut();
     router.replace('/login');
-
   };
 
   const isClinicsActive = pathname === '/clinic-selection';
@@ -102,7 +107,7 @@ export default function WebNavbar() {
   return (
 
     <View style={[styles.outer, scrolled && styles.outerScrolled]}>
-      
+
       <View style={[styles.wrapper, scrolled && styles.wrapperScrolled]}>
         <Pressable style={styles.brandWrap} onPress={() => router.push('/')}>
           <View style={styles.logoCircle}>
@@ -114,7 +119,7 @@ export default function WebNavbar() {
           <View>
             <Text style={styles.brandTitle}>MedSync</Text>
             <Text style={styles.brandSubtitle}>
-              Multi-Clinic Medical Platform
+              Connected care, smarter clinics
             </Text>
           </View>
         </Pressable>
@@ -147,17 +152,7 @@ export default function WebNavbar() {
             />
           )}
 
-          {isAuthenticated ? (
-            <Pressable
-              onPress={handleLogout}
-              style={({ pressed }) => [
-                styles.actionButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.actionButtonText}>Logout</Text>
-            </Pressable>
-          ) : (
+          {!isAuthenticated ? (
             <>
               <NavItem
                 label="Login"
@@ -175,9 +170,96 @@ export default function WebNavbar() {
                 <Text style={styles.actionButtonText}>Sign Up</Text>
               </Pressable>
             </>
-          )}
+          ) : (
+            <View style={styles.menuWrap}>
+              <Pressable
+                onPress={() => setMenuOpen((prev) => !prev)}
+                style={({ pressed }) => [
+                  styles.menuTrigger,
+                  menuOpen && styles.menuTriggerActive,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="person-circle-outline"
+                  size={18}
+                  color={menuOpen ? BRAND.primary : BRAND.text}
+                />
+                <Text
+                  style={[
+                    styles.menuTriggerText,
+                    menuOpen && styles.menuTriggerTextActive,
+                  ]}
+                >
+                  Menu
+                </Text>
+                <Ionicons
+                  name={menuOpen ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={menuOpen ? BRAND.primary : BRAND.muted}
+                />
+              </Pressable>
 
-        </View> 
+              {menuOpen && (
+                <View style={styles.dropdown}>
+                  <Pressable
+                    style={styles.dropdownItem}
+                    onPress={() => setMenuOpen(false)}
+                  >
+                    <Ionicons
+                      name="person-outline"
+                      size={18}
+                      color="#0F172A"
+                    />
+                    <Text style={styles.dropdownItemText}>
+                      My Profile / Edit Account
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.dropdownItem}
+                    onPress={() => setMenuOpen(false)}
+                  >
+                    <Ionicons
+                      name="document-text-outline"
+                      size={18}
+                      color="#0F172A"
+                    />
+                    <Text style={styles.dropdownItemText}>Policies</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.dropdownItem}
+                    onPress={() => setMenuOpen(false)}
+                  >
+                    <Ionicons
+                      name="shield-checkmark-outline"
+                      size={18}
+                      color="#0F172A"
+                    />
+                    <Text style={styles.dropdownItemText}>Privacy</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.dropdownItem}
+                    onPress={handleLogout}
+                  >
+                    <Ionicons
+                      name="log-out-outline"
+                      size={18}
+                      color="#DC2626"
+                    />
+                    <Text
+                      style={[styles.dropdownItemText, { color: '#DC2626' }]}
+                    >
+                      Logout
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
       </View>
     
     </View>
@@ -208,24 +290,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.80)',
+    backgroundColor: BRAND.glass,
     borderWidth: 1,
     borderColor: BRAND.border,
     borderRadius: 999,
     paddingHorizontal: 18,
     paddingVertical: 14,
     shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
     elevation: 3,
   },
 
   wrapperScrolled: {
-    backgroundColor: BRAND.glass,
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 12 },
+    backgroundColor: BRAND.glassScrolled,
+    shadowOpacity: 0.1,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 16 },
   },
 
   brandWrap: {
@@ -238,7 +320,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 999,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: 'rgba(219,234,254,0.75)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -277,7 +359,7 @@ const styles = StyleSheet.create({
   },
 
   navItemHover: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(239,246,255,0.95)',
     transform: [{ translateY: -1 }],
   },
 
@@ -306,6 +388,68 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
+  },
+
+  menuWrap: {
+    position: 'relative',
+  },
+
+  menuTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.78)',
+    borderWidth: 1,
+    borderColor: BRAND.border,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+
+  menuTriggerActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+
+  menuTriggerText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND.text,
+  },
+
+  menuTriggerTextActive: {
+    color: BRAND.primary,
+  },
+
+  dropdown: {
+    position: 'absolute',
+    top: 56,
+    right: 0,
+    width: 290,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    paddingVertical: 8,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 6,
+  },
+
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+
+  dropdownItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
   },
 
   pressed: {

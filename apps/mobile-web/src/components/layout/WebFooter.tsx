@@ -1,5 +1,6 @@
 import React from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function WebFooter() {
 
@@ -8,11 +9,27 @@ export default function WebFooter() {
     <View style={styles.footer}>
 
       <View style={styles.inner}>
+
         <View style={styles.brandBlock}>
           <Text style={styles.brandTitle}>MedSync</Text>
           <Text style={styles.brandText}>
-            Medical Platform
+            Connected care, smarter clinics.
           </Text>
+          <Text style={styles.brandSubtext}>
+            A modern multi-clinic medical platform for patients, doctors, and administrators.
+          </Text>
+
+          <View style={styles.storeRow}>
+            <Pressable style={styles.storeButton}>
+              <Ionicons name="logo-apple" size={18} color="#FFFFFF"/>
+              <Text style={styles.storeButtonText}>App Store</Text>
+            </Pressable>
+
+            <Pressable style={styles.storeButton}>
+              <Ionicons name="logo-google-playstore" size={18} color="#FFFFFF"/>
+              <Text style={styles.storeButtonText}>Google Play</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.linksBlock}>
@@ -20,6 +37,13 @@ export default function WebFooter() {
           <Text style={styles.linkText}>contact@medsync.com</Text>
           <Text style={styles.linkText}>+40 777 777 777</Text>
           <Text style={styles.linkText}>Mon - Fri · 08:00 - 18:00</Text>
+
+          <Pressable
+            style={styles.contactButton}
+            onPress={() => Linking.openURL('mailto:contact@medsync.com')}
+          >
+            <Text style={styles.contactButtonText}>Send email</Text>
+          </Pressable>
         </View>
 
         <View style={styles.linksBlock}>
@@ -35,19 +59,22 @@ export default function WebFooter() {
 
           <Pressable
             style={styles.linkButton}
-            onPress={() => Linking.openURL('mailto:iasmina.putina012@yahoo.com')}
+            onPress={() => Linking.openURL('mailto:contact@medsync.com')}
           >
             <Text style={styles.linkText}>Support</Text>
           </Pressable>
         </View>
+      
       </View>
 
       <View style={styles.bottomBar}>
-        <Text style={styles.bottomText}>
-          © 2026 MedSync. Demo.
-        </Text>
-      </View>
 
+        <Text style={styles.bottomText}>
+          © 2026 MedSync. All rights reserved.
+        </Text>
+      
+      </View>
+    
     </View>
   
   );
@@ -57,13 +84,13 @@ export default function WebFooter() {
 const styles = StyleSheet.create({
   
   footer: {
-  backgroundColor: '#1E293B',
-  marginTop: 40,
-  width: '100%',
-  borderTopLeftRadius: 28,
-  borderTopRightRadius: 28,
-  overflow: 'hidden',
-},
+    backgroundColor: '#1E293B',
+    marginTop: 40,
+    width: '100%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
 
   inner: {
     maxWidth: 1380,
@@ -79,8 +106,8 @@ const styles = StyleSheet.create({
   },
 
   brandBlock: {
-    flex: 1.1,
-    minWidth: 260,
+    flex: 1.2,
+    minWidth: 280,
   },
 
   linksBlock: {
@@ -90,15 +117,47 @@ const styles = StyleSheet.create({
 
   brandTitle: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '900',
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   brandText: {
-    color: '#CBD5E1',
+    color: '#E2E8F0',
     fontSize: 15,
     lineHeight: 24,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+
+  brandSubtext: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    lineHeight: 24,
+    maxWidth: 420,
+  },
+
+  storeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 18,
+  },
+
+  storeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#1D4ED8',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+
+  storeButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
   },
 
   sectionTitle: {
@@ -117,6 +176,23 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 14,
     lineHeight: 24,
+  },
+
+  contactButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+
+  contactButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
   },
 
   bottomBar: {

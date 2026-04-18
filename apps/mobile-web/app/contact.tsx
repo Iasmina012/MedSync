@@ -16,12 +16,12 @@ export default function ContactScreen() {
 
           <View style={styles.badge}>
             <Ionicons name="mail-outline" size={16} color="#1D4ED8"/>
-            <Text style={styles.badgeText}>Let&apos;s talk</Text>
+            <Text style={styles.badgeText}>Let&apos;s talk! Contact the MedSync Team</Text>
           </View>
 
-          <Text style={styles.title}>Contact Us</Text>
+          <Text style={styles.title}>Get in touch with the MedSync team</Text>
           <Text style={styles.subtitle}>
-            Some kind of text 
+            This contact page is for the MedSync platform team.
           </Text>
         
         </View>
@@ -61,29 +61,45 @@ export default function ContactScreen() {
 
             <Pressable
               style={styles.primaryButton}
-              onPress={() => Linking.openURL('mailto:iasmina.putina012@yahoo.com')}
+              onPress={() => Linking.openURL('mailto:contact@medsync.com')}
             >
               <Text style={styles.primaryButtonText}>Send email</Text>
             </Pressable>
           </View>
 
           <View style={styles.sideCard}>
-            <Text style={styles.sideTitle}>Text:</Text>
 
-            <View style={styles.bullet}>
-              <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>Text</Text>
+            <Text style={styles.sideTitle}>Headquarters</Text>
+
+            <View style={styles.mapPlaceholder}>
+              <Ionicons name="map-outline" size={28} color="#1D4ED8"/>
+              <Text style={styles.mapPlaceholderTitle}>Map placeholder</Text>
+              <Text style={styles.mapPlaceholderText}>
+                Later, this area can display a Google Map with the MedSync team headquarters.
+              </Text>
             </View>
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>Text</Text>
+              <Text style={styles.bulletText}>
+                Platform-level contact for MedSync
+              </Text>
             </View>
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>Text</Text>
+              <Text style={styles.bulletText}>
+                Clinic-specific maps can be added later
+              </Text>
             </View>
+
+            <View style={styles.bullet}>
+              <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
+              <Text style={styles.bulletText}>
+                Support, collaboration, and platform inquiries
+              </Text>
+            </View>
+           
           </View>
 
         </View>
@@ -236,6 +252,33 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  mapPlaceholder: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    minHeight: 180,
+  },
+
+  mapPlaceholderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 10,
+    marginBottom: 8,
+  },
+
+  mapPlaceholderText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+  },
+
   bullet: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -247,6 +290,7 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontSize: 15,
     lineHeight: 24,
+    flex: 1,
   },
-  
+
 });

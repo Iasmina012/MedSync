@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Platform, Pressable} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import WebFooter from '../src/components/layout/WebFooter';
@@ -13,64 +13,71 @@ export default function AboutScreen() {
       <ScrollView contentContainerStyle={styles.container}>
 
         <View style={styles.hero}>
-          
+
           <View style={styles.badge}>
             <Ionicons name="information-circle-outline" size={16} color="#1D4ED8"/>
-            <Text style={styles.badgeText}>About our Platform</Text>
+            <Text style={styles.badgeText}>About MedSync</Text>
           </View>
 
-          <Text style={styles.title}>One medical platform for multiple clinics</Text>
+          <Text style={styles.title}>A digital medical platform built for modern clinics</Text>
           <Text style={styles.subtitle}>
-            MedSync is a web and mobile app template built for clinics, doctors and patients, with a focus on scalability, personalized branding and gradual integration of AI functionality.
+            MedSync is a multi-platform medical system designed for clinics, doctors, patients, and administrators, with a strong base for future AI-powered workflows.
           </Text>
         
         </View>
 
         <View style={styles.grid}>
-          
+
           <View style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="business-outline" size={22} color="#1D4ED8"/>
             </View>
-
-            <Text style={styles.cardTitle}>Multi-Clinic</Text>
+            <Text style={styles.cardTitle}>Multi-Clinic Ready</Text>
             <Text style={styles.cardText}>
-              The application can be reused for multiple medical centers, each with its own doctors, patients and settings.
+              One system can support multiple clinics, each with its own users, data, branding, and workflows.
             </Text>
           </View>
 
           <View style={styles.card}>
             <View style={styles.iconWrap}>
-              <Ionicons name="color-palette-outline" size={22} color="#1D4ED8"/>
+              <Ionicons name="phone-portrait-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Personalised Branding</Text>
+            <Text style={styles.cardTitle}>Web + Mobile</Text>
             <Text style={styles.cardText}>
-              Each clinic can have its own name, colors, logo and visual elements displayed consistently across all platforms.
+              Built as a shared experience for web, iOS, and Android, while keeping each platform adapted to its context.
             </Text>
           </View>
 
           <View style={styles.card}>
             <View style={styles.iconWrap}>
-              <Ionicons name="layers-outline" size={22} color="#1D4ED8"/>
+              <Ionicons name="sparkles-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Web + iOS + Android</Text>
+            <Text style={styles.cardTitle}>AI Expansion Path</Text>
             <Text style={styles.cardText}>
-              A single codebase for tailored experiences across desktop, mobile browser and native app.
+              The platform can later include AI summaries, assisted onboarding, triage, chatbot support, and document workflows.
             </Text>
           </View>
 
         </View>
 
-        <View style={styles.section}>
-         
-          <Text style={styles.sectionTitle}>What does the project aim to achieve?</Text>
-          <Text style={styles.sectionText}>
-            The project&apos;s goal is to provide a modern core for managing the relationship between patients, doctors, and administrators, starting from essential functionalities such as authentication, appointments, patient history, and role-based interfaces.
+        <View style={styles.downloadSection}>
+
+          <Text style={styles.downloadTitle}>Download the app</Text>
+          <Text style={styles.downloadSubtitle}>
+            Later, this section will link directly to the published mobile applications.
           </Text>
 
-          <Text style={styles.sectionText}>
-            On this basis, AI components such as chatbot, automatic document summarization, assisted onboarding, and support for information triage can be progressively added.
-          </Text>
+          <View style={styles.downloadButtonsRow}>
+            <Pressable style={styles.storeButton}>
+              <Ionicons name="logo-apple" size={18} color="#FFFFFF"/>
+              <Text style={styles.storeButtonText}>App Store</Text>
+            </Pressable>
+
+            <Pressable style={styles.storeButton}>
+              <Ionicons name="logo-google-playstore" size={18} color="#FFFFFF"/>
+              <Text style={styles.storeButtonText}>Google Play</Text>
+            </Pressable>
+          </View>
 
         </View>
 
@@ -188,6 +195,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     padding: 28,
+    marginBottom: 24,
   },
 
   sectionTitle: {
@@ -202,6 +210,48 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     color: '#475569',
     marginBottom: 12,
+  },
+
+  downloadSection: {
+    backgroundColor: '#0F172A',
+    borderRadius: 30,
+    padding: 28,
+  },
+
+  downloadTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 10,
+  },
+
+  downloadSubtitle: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#CBD5E1',
+    marginBottom: 18,
+  },
+
+  downloadButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+
+  storeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#1D4ED8',
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+
+  storeButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
   },
 
 });

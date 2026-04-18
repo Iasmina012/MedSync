@@ -4,7 +4,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 
-export default function MobileTopRightLogout() {
+export default function MobileClinicsLogout() {
 
   if (Platform.OS === 'web') return null;
 

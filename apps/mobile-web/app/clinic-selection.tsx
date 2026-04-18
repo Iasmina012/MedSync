@@ -3,22 +3,31 @@ import { router } from 'expo-router';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
-import { getCurrentUserProfile } from '../src/lib/auth';
+import { getCurrentUserProfile, getRoleHomeRoute } from '../src/lib/auth';
 import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import WebFooter from '../src/components/layout/WebFooter';
-import MobileTopRightLogout from '../src/common/MobileClinicsLogout';
+import MobileClinicsLogout from '../src/common/MobileClinicsLogout';
 import FloatingChatButton from '../src/common/FloatingChatButton';
 
 type Clinic = {
+
   id: string;
   name: string;
   slug: string | null;
   description: string | null;
   primary_color: string | null;
   is_active: boolean | null;
+
 };
 
-export default function SelectClinicScreen() {
+type MembershipClinicRow = {
+
+  clinic_id: string;
+  clinics: | Clinic | Clinic[] | null;
+
+};
+
+export default function ClinicSelectionScreen() {
 
   const [loading, setLoading] = useState(true);
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -33,25 +42,116 @@ export default function SelectClinicScreen() {
         setLoading(true);
         setError('');
 
-        const { user, profile } = await getCurrentUserProfile();
+        const { user, profile, error: profileError } = await getCurrentUserProfile();
 
-        if (!user || !profile) {
+        if (profileError || !user || !profile) {
           router.replace('/login');
           return;
         }
 
-        const { data, error } = await supabase
-          .from('clinics')
-          .select('id, name, slug, description, primary_color, is_active')
-          .eq('is_active', true)
-          .order('name', { ascending: true });
+        if (profile.role === 'platform_admin') {
+          const { data, error: clinicsError } = await supabase
+            .from('clinics')
+            .select('id, name, slug, description, primary_color, is_active')
+            .eq('is_active', true)
+            .order('name', { ascending: true });
 
-        if (error) {
-          setError(error.message);
+          if (clinicsError) {
+            setError(clinicsError.message);
+            return;
+          }
+
+          setClinics(data ?? []);
           return;
         }
 
-        setClinics(data ?? []);
+        if (profile.role === 'patient') {
+          const { data, error: clinicsError } = await supabase
+            .from('clinics')
+            .select('id, name, slug, description, primary_color, is_active')
+            .eq('is_active', true)
+            .order('name', { ascending: true });
+
+          if (clinicsError) {
+            setError(clinicsError.message);
+            return;
+          }
+
+          setClinics(data ?? []);
+          return;
+        }
+
+        if (profile.role === 'doctor' || profile.role === 'clinic_admin') {
+          const membershipRole = profile.role;
+
+          const { data, error: membershipsError } = await supabase
+            .from('clinic_memberships')
+            .select(`
+              clinic_id,
+              clinics (
+                id,
+                name,
+                slug,
+                description,
+                primary_color,
+                is_active
+              )
+            `)
+            .eq('profile_id', user.id)
+            .eq('role', membershipRole)
+            .eq('is_active', true);
+
+          if (membershipsError) {
+            setError(membershipsError.message);
+            return;
+          }
+
+          const assignedClinics: Clinic[] = (data as MembershipClinicRow[] | null ?? [])
+            .map((item) => {
+              if (Array.isArray(item.clinics)) {
+                return item.clinics[0] ?? null;
+              }
+              return item.clinics ?? null;
+            })
+            .filter((clinic): clinic is Clinic => Boolean(clinic));
+
+          if (assignedClinics.length === 0) {
+            setError(
+              membershipRole === 'doctor'
+                ? 'No clinics are assigned to this doctor yet.'
+                : 'No clinics are assigned to this clinic admin yet.'
+            );
+            return;
+          }
+
+          if (assignedClinics.length === 1) {
+            const onlyClinic = assignedClinics[0];
+
+            const { error: updateProfileError } = await supabase
+              .from('profiles')
+              .update({ active_clinic_id: onlyClinic.id })
+              .eq('id', user.id);
+
+            if (updateProfileError) {
+              setError(updateProfileError.message);
+              return;
+            }
+
+            router.replace({
+              pathname: getRoleHomeRoute(profile.role) as any,
+              params: {
+                clinicId: onlyClinic.id,
+                clinicName: onlyClinic.name,
+              },
+            });
+            return;
+          }
+
+          setClinics(assignedClinics);
+          return;
+        }
+
+        setError('Unsupported role for clinic selection.');
       } catch {
         setError('Unable to load clinics.');
       } finally {
@@ -69,86 +169,73 @@ export default function SelectClinicScreen() {
   };
 
   const handleConfirmClinic = async () => {
+
     if (!selectedClinic) return;
 
     try {
-      const { user, profile } = await getCurrentUserProfile();
 
-      if (!user || !profile) {
+      setError('');
+
+      const { user, profile, error: profileError } = await getCurrentUserProfile();
+
+      if (profileError || !user || !profile) {
         router.replace('/login');
         return;
       }
 
-      const { data: existingMembership, error: membershipCheckError } =
-        await supabase
-          .from('profile_clinics')
-          .select('id')
-          .eq('profile_id', user.id)
-          .eq('clinic_id', selectedClinic.id)
-          .maybeSingle();
+      if (profile.role === 'patient') {
+        const { error: upsertError } = await supabase
+          .from('clinic_memberships')
+          .upsert(
+            {
+              profile_id: user.id,
+              clinic_id: selectedClinic.id,
+              role: 'patient',
+            },
+            {
+              onConflict: 'clinic_id,profile_id',
+            }
+          );
 
-      if (membershipCheckError) {
-        setError(membershipCheckError.message);
-        setConfirmOpen(false);
-        return;
-      }
-
-      if (!existingMembership) {
-        const { error: insertError } = await supabase
-          .from('profile_clinics')
-          .insert({
-            profile_id: user.id,
-            clinic_id: selectedClinic.id,
-          });
-
-        if (insertError) {
-          setError(insertError.message);
+        if (upsertError) {
+          setError(upsertError.message);
           setConfirmOpen(false);
           return;
         }
       }
 
+      const { error: updateProfileError } = await supabase
+        .from('profiles')
+        .update({ active_clinic_id: selectedClinic.id })
+        .eq('id', user.id);
+
+      if (updateProfileError) {
+        setError(updateProfileError.message);
+        setConfirmOpen(false);
+        return;
+      }
+
       setConfirmOpen(false);
 
-      if (profile.role === 'admin') {
-        router.replace({
-          pathname: '/main-admin',
-          params: {
-            clinicId: selectedClinic.id,
-            clinicName: selectedClinic.name,
-          },
-        });
-        return;
-      }
-
-      if (profile.role === 'doctor') {
-        router.replace({
-          pathname: '/main-doctor',
-          params: {
-            clinicId: selectedClinic.id,
-            clinicName: selectedClinic.name,
-          },
-        });
-        return;
-      }
-
       router.replace({
-        pathname: '/main-patient',
+        pathname: getRoleHomeRoute(profile.role) as any,
         params: {
           clinicId: selectedClinic.id,
           clinicName: selectedClinic.name,
         },
       });
+    
     } catch {
       setError('Unable to continue with this clinic.');
       setConfirmOpen(false);
     }
+
   };
 
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#1D4ED8"/>
       </View>
     );
   }
@@ -159,12 +246,12 @@ export default function SelectClinicScreen() {
 
       <ScrollView contentContainerStyle={styles.container}>
 
-        <MobileTopRightLogout/>
+        <MobileClinicsLogout/>
 
         <View style={styles.headerCard}>
 
           <View style={styles.headerIcon}>
-            <Ionicons name="business-outline" size={24} color="#1D4ED8" />
+            <Ionicons name="business-outline" size={24} color="#1D4ED8"/>
           </View>
 
           <Text style={styles.title}>Choose Your Clinic</Text>
@@ -176,39 +263,47 @@ export default function SelectClinicScreen() {
         
         </View>
 
-        <View style={styles.grid}>
-
-          {clinics.map((clinic) => (
-            <Pressable
-              key={clinic.id}
-              onPress={() => openConfirm(clinic)}
-              style={({ pressed }) => [
-                styles.clinicCard,
-                { borderColor: clinic.primary_color || '#E2E8F0' },
-                pressed && styles.pressed,
-              ]}
-            >
-              <View
-                style={[
-                  styles.colorDot,
-                  { backgroundColor: clinic.primary_color || '#1D4ED8' },
+        {clinics.length > 0 ? (
+          <View style={styles.grid}>
+            {clinics.map((clinic) => (
+              <Pressable
+                key={clinic.id}
+                onPress={() => openConfirm(clinic)}
+                style={({ pressed }) => [
+                  styles.clinicCard,
+                  { borderColor: clinic.primary_color || '#E2E8F0' },
+                  pressed && styles.pressed,
                 ]}
-              />
+              >
+                <View
+                  style={[
+                    styles.colorDot,
+                    { backgroundColor: clinic.primary_color || '#1D4ED8' },
+                  ]}
+                />
 
-              <Text style={styles.clinicName}>{clinic.name}</Text>
+                <Text style={styles.clinicName}>{clinic.name}</Text>
 
-              <Text style={styles.clinicDescription}>
-                {clinic.description || 'Clinic available in the platform.'}
-              </Text>
+                <Text style={styles.clinicDescription}>
+                  {clinic.description || 'Clinic available in the platform.'}
+                </Text>
 
-              <View style={styles.cardBottom}>
-                <Text style={styles.cardBottomText}>Continue</Text>
-                <Ionicons name="arrow-forward" size={18} color="#1D4ED8" />
-              </View>
-            </Pressable>
-          ))}
-        
-        </View>
+                <View style={styles.cardBottom}>
+                  <Text style={styles.cardBottomText}>Continue</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#1D4ED8"/>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : !error ? (
+          <View style={styles.emptyCard}>
+            <Ionicons name="alert-circle-outline" size={24} color="#F59E0B"/>
+            <Text style={styles.emptyTitle}>No clinics available</Text>
+            <Text style={styles.emptyText}>
+              There are no clinics available for your account right now.
+            </Text>
+          </View>
+        ) : null}
 
         {Platform.OS === 'web' && <WebFooter />}
       
@@ -252,6 +347,7 @@ export default function SelectClinicScreen() {
       </Modal>
     
     </PublicPageLayout>
+
   );
 
 }
@@ -312,6 +408,7 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     marginTop: 12,
     fontSize: 14,
+    lineHeight: 22,
   },
 
   grid: {
@@ -361,6 +458,31 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
     fontWeight: '700',
     fontSize: 15,
+  },
+
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+
+  emptyText: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
   },
 
   modalOverlay: {
@@ -445,5 +567,5 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.9,
   },
-  
+
 });

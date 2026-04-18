@@ -287,12 +287,17 @@ export default function LoginScreen() {
             </View>
           </Pressable>
         </Pressable>
+
       </Modal>
+
     </PublicPageLayout>
+
   );
+
 }
 
 const styles = StyleSheet.create({
+
   container: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -550,4 +555,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
+
 });

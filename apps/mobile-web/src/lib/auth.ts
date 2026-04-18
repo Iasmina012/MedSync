@@ -40,7 +40,7 @@ export async function getCurrentUserProfile() {
 export function getRoleHomeRoute(role?: string | null) {
 
   if (role === 'doctor') return '/main-doctor';
-  if (role === 'clinic_admin') return '/main-admin';
+  if (role === 'clinic_admin') return '/main-clinic-admin';
   if (role === 'platform_admin') return '/main-platform-admin';
   return '/main-patient';
   

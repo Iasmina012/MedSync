@@ -1,95 +1,69 @@
 import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { supabase } from '../src/lib/supabase';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getCurrentUserProfile } from '../src/lib/auth';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
+import FeaturesCard from '../src/common/FeaturesCard';
 
 export default function DoctorDashboard() {
 
-  const { clinicId, clinicName } = useLocalSearchParams<{
-    clinicId?: string;
-    clinicName?: string;
-  }>();
+  const { clinicName } = useLocalSearchParams<{ clinicId?: string; clinicName?: string }>();
 
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
 
   useEffect(() => {
 
-    const checkAccess = async () => {
+    const check = async () => {
       const { user, profile } = await getCurrentUserProfile();
-
-      if (!user) {
-        router.replace('/login');
-        return;
-      }
-
-      if (profile?.role !== 'doctor') {
-        router.replace('/main-patient');
-        return;
-      }
-
+      if (!user) return router.replace('/login');
+      if (profile?.role !== 'doctor') return router.replace('/main-patient');
       setFullName(`${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim());
       setLoading(false);
     };
+    check();
 
-    checkAccess();
-  
   }, []);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.replace('/login');
-  };
-
-  const handleChangeClinic = () => {
-    router.replace('/clinic-selection');
-  };
-
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <View style={styles.centered}><ActivityIndicator size="large"/></View>;
   }
 
   return (
 
     <ScrollView contentContainerStyle={styles.container}>
 
-      <View style={styles.card}>
+      <ClinicNavbar
+        clinicName={clinicName}
+        primaryColor="#1D4ED8"
+        roleLabel="Doctor"
+        onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
+      />
 
-        <Text style={styles.title}>Doctor Dashboard</Text>
-        <Text style={styles.subtitle}>You are logged in as a doctor.</Text>
-
-        <View style={styles.infoBox}>
-          <Text style={styles.label}>Name</Text>
-          <Text style={styles.value}>{fullName || 'Doctor User'}</Text>
-        </View>
-
-        <View style={styles.infoBox}>
-          <Text style={styles.label}>Role</Text>
-          <Text style={styles.value}>doctor</Text>
-        </View>
-
-        <View style={styles.infoBox}>
-          <Text style={styles.label}>Selected clinic</Text>
-          <Text style={styles.value}>{clinicName || 'No clinic selected'}</Text>
-        </View>
-
-        <Text style={styles.note}>
-          This is a temporary dashboard just to verify that clinic selection and role-based login work correctly.
+      <View style={styles.hero}>
+        <Text style={styles.heroEyebrow}>Doctor Dashboard</Text>
+        <Text style={styles.heroTitle}>Welcome back{fullName ? `, Dr. ${fullName}` : ''}</Text>
+        <Text style={styles.heroSubtitle}>
+          See only your patients, your appointments, your notes, and your chat activity.
         </Text>
+      </View>
 
-        <View style={styles.actions}>
-          <Pressable style={styles.secondaryButton} onPress={handleChangeClinic}>
-            <Text style={styles.secondaryButtonText}>Change Clinic</Text>
-          </Pressable>
+      <View style={styles.statsGrid}>
+        <AnimatedStatsCard label="Appointments Today" value={8} icon="calendar-outline" />
+        <AnimatedStatsCard label="My Patients" value={22} icon="people-outline" />
+        <AnimatedStatsCard label="Pending Notes" value={3} icon="create-outline" />
+        <AnimatedStatsCard label="Unread Chats" value={4} icon="chatbubble-ellipses-outline" />
+      </View>
 
-          <Pressable style={styles.button} onPress={handleLogout}>
-            <Text style={styles.buttonText}>Logout</Text>
-          </Pressable>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Feature Access</Text>
+        <View style={styles.featuresGrid}>
+          <FeaturesCard title="Todays Appointments" icon="calendar-outline" description="Clinic schedule and patient flow." />
+          <FeaturesCard title="Patients List" icon="people-outline" description="Only your assigned patients." />
+          <FeaturesCard title="Patient History" icon="document-text-outline" description="Review conditions and controls." />
+          <FeaturesCard title="Add Notes" icon="create-outline" description="Save medical notes efficiently." />
+          <FeaturesCard title="Chat with Patients" icon="chatbubbles-outline" description="Direct communication frontend." />
         </View>
 
       </View>
@@ -102,102 +76,73 @@ export default function DoctorDashboard() {
 
 const styles = StyleSheet.create({
 
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  centered: { 
+    flex: 1, 
+    backgroundColor: '#F8FAFC', 
+    alignItems: 'center', 
+    justifyContent: 'center' 
   },
-
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 24,
+  
+  container: { 
+    flexGrow: 1, 
+    backgroundColor: '#F8FAFC', 
+    padding: 24, 
+    gap: 20 
   },
-
-  card: {
-    width: '100%',
-    maxWidth: 520,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  
+  hero: { 
+    backgroundColor: '#EFF6FF', 
+    borderWidth: 1, 
+    borderColor: '#BFDBFE', 
+    borderRadius: 28, 
+    padding: 24 
   },
-
-  title: {
-    fontSize: 30,
-    fontWeight: '900',
-    color: '#0F172A',
-    marginBottom: 8,
+  
+  heroEyebrow: { 
+    fontSize: 13, 
+    fontWeight: '800', 
+    color: '#1D4ED8', 
+    marginBottom: 8 
   },
-
-  subtitle: {
-    fontSize: 15,
-    color: '#475569',
-    marginBottom: 22,
+  
+  heroTitle: { 
+    fontSize: 30, 
+    fontWeight: '900', 
+    color: '#0F172A', 
+    marginBottom: 8 
   },
-
-  infoBox: {
-    marginBottom: 14,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  
+  heroSubtitle: { 
+    fontSize: 15, 
+    lineHeight: 24, 
+    color: '#475569' 
   },
-
-  label: {
-    fontSize: 13,
-    color: '#64748B',
-    marginBottom: 4,
+  
+  statsGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    gap: 16 
   },
-
-  value: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
+  
+  section: { 
+    backgroundColor: '#FFF', 
+    borderRadius: 28, 
+    borderWidth: 1, 
+    borderColor: '#E2E8F0', 
+    padding: 24 
   },
-
-  note: {
-    marginTop: 8,
-    marginBottom: 20,
-    color: '#475569',
-    fontSize: 14,
-    lineHeight: 22,
+  
+  sectionTitle: { 
+    fontSize: 22, 
+    fontWeight: '900', 
+    color: '#0F172A', 
+    marginBottom: 18 
   },
-
-  actions: {
-    gap: 12,
-  },
-
-  button: {
-    backgroundColor: '#1D4ED8',
-    borderRadius: 999,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 15,
-  },
-
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 999,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-
-  secondaryButtonText: {
-    color: '#0F172A',
-    fontWeight: '700',
-    fontSize: 15,
+  
+  featuresGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    gap: 16 
   },
 
 });

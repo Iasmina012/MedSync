@@ -51,7 +51,7 @@ export default function FeaturesCard({
     >
       <Animated.View style={[styles.card, compact && styles.compactCard, { transform: [{ scale }] }]}>
         <View style={[styles.iconWrap, { backgroundColor: `${color}15` }]}>
-          <Ionicons name={icon} size={22} color={color} />
+          <Ionicons name={icon} size={22} color={color}/>
         </View>
         <Text style={styles.title}>{title}</Text>
         {!compact && !!description && <Text style={styles.description}>{description}</Text>}

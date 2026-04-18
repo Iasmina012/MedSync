@@ -13,7 +13,7 @@ type Props = {
 
 };
 
-export default function ClinicRoleTopBar({clinicName, primaryColor = '#1D4ED8', roleLabel, onChangeClinic,}: Props) {
+export default function ClinicNavbar({clinicName, primaryColor = '#1D4ED8', roleLabel, onChangeClinic,}: Props) {
 
   const [menuOpen, setMenuOpen] = useState(false);
 

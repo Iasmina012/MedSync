@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform, Modal } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform, Modal, ActivityIndicator, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
 import { getCurrentUserProfile } from '../src/lib/auth';
@@ -233,23 +233,23 @@ export default function LoginScreen() {
         onRequestClose={closeForgotModal}
       >
         <Pressable style={styles.modalOverlay} onPress={closeForgotModal}>
+
           <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Pressable onPress={closeForgotModal} style={styles.closeButton}>
+              <Ionicons name="close" size={20} color="#64748B"/>
+            </Pressable>
+
             <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderLeft}>
-                <View style={styles.modalIconWrap}>
-                  <Ionicons name="mail-open-outline" size={20} color="#1D4ED8" />
-                </View>
-                <View>
-                  <Text style={styles.modalTitle}>Reset your password</Text>
-                  <Text style={styles.modalSubtitle}>
-                    Enter your email and we will send reset instructions.
-                  </Text>
-                </View>
+              <View style={styles.modalIconWrap}>
+                <Ionicons name="mail-open-outline" size={20} color="#1D4ED8"/>
               </View>
 
-              <Pressable onPress={closeForgotModal} style={styles.closeButton}>
-                <Ionicons name="close" size={20} color="#64748B" />
-              </Pressable>
+              <View style={styles.modalTextWrap}>
+                <Text style={styles.modalTitle}>Reset your password</Text>
+                <Text style={styles.modalSubtitle}>
+                  Enter your email and we will send reset instructions.
+                </Text>
+              </View>
             </View>
 
             <TextInput
@@ -263,29 +263,25 @@ export default function LoginScreen() {
             />
 
             {!!resetError && <Text style={styles.inlineError}>{resetError}</Text>}
-            {!!resetMessage && (
-              <Text style={styles.successMessage}>{resetMessage}</Text>
-            )}
-
-            <View style={styles.modalActions}>
-              <Pressable style={styles.modalSecondaryButton} onPress={closeForgotModal}>
-                <Text style={styles.modalSecondaryButtonText}>Cancel</Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.modalPrimaryButton,
-                  resetLoading && styles.buttonDisabled,
-                ]}
-                onPress={handleForgotPassword}
-                disabled={resetLoading}
-              >
-                <Text style={styles.modalPrimaryButtonText}>
-                  {resetLoading ? 'Sending...' : 'Send reset email'}
-                </Text>
-              </Pressable>
-            </View>
+            
+            {!!resetMessage && <Text style={styles.successMessage}>{resetMessage}</Text>}
+        
+            <Pressable
+              style={[
+                styles.modalPrimaryButton,
+                resetLoading && styles.buttonDisabled,
+              ]}
+              onPress={handleForgotPassword}
+              disabled={resetLoading}
+            >
+              {resetLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF"/>
+              ) : (
+                <Text style={styles.modalPrimaryButtonText}>Send reset email</Text>
+              )}
+            </Pressable>
           </Pressable>
+        
         </Pressable>
 
       </Modal>
@@ -457,24 +453,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     padding: 22,
+    paddingTop: 46,
     shadowColor: '#0F172A',
     shadowOpacity: 0.08,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
     elevation: 4,
+    position: 'relative',
+  },
+
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    zIndex: 2,
   },
 
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
+    gap: 14,
     marginBottom: 18,
-  },
-
-  modalHeaderLeft: {
-    flexDirection: 'row',
-    gap: 12,
-    flex: 1,
+    alignItems: 'flex-start',
+    paddingRight: 52,
   },
 
   modalIconWrap: {
@@ -484,6 +490,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  modalTextWrap: {
+    flex: 1,
   },
 
   modalTitle: {
@@ -499,15 +509,6 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
 
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
-  },
-
   modalInput: {
     borderWidth: 1,
     borderColor: '#CBD5E1',
@@ -520,39 +521,20 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
 
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
-  },
-
-  modalSecondaryButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 999,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-
-  modalSecondaryButtonText: {
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
   modalPrimaryButton: {
-    flex: 1,
+    width: '100%',
     backgroundColor: '#1D4ED8',
     borderRadius: 999,
-    paddingVertical: 14,
+    paddingVertical: 15,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 54,
+    marginTop: 4,
   },
 
   modalPrimaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
   },
 

@@ -1,21 +1,14 @@
 import React from 'react';
-import {
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 type ActionButton = {
+
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   onPress?: () => void;
   primary?: boolean;
+
 };
 
 export default function InfoModal({

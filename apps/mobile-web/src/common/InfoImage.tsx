@@ -1,16 +1,9 @@
 import React, { useRef } from 'react';
-import {
-  Animated,
-  Image,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Animated, Image, Platform, Pressable, StyleSheet, Text, View, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
+
   title: string;
   subtitle?: string;
   description: string;
@@ -18,6 +11,7 @@ type Props = {
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
   onPress?: () => void;
+
 };
 
 export default function InfoImage({

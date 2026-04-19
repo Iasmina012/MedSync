@@ -2,21 +2,25 @@ import React from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+type Props = {
+
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder?: string;
+
+};
+
 export default function InfoSearchBar({
   value,
   onChangeText,
-  placeholder,
-}: {
-  value: string;
-  onChangeText: (value: string) => void;
-  placeholder: string;
-}) {
+  placeholder = 'Search...',
+}: Props) {
 
   return (
 
-    <View style={styles.wrapper}>
+    <View style={styles.container}>
 
-      <Ionicons name="search-outline" size={18} color="#64748B"/>
+      <Ionicons name="search-outline" size={20} color="#64748B"/>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -33,22 +37,25 @@ export default function InfoSearchBar({
 
 const styles = StyleSheet.create({
 
-  wrapper: {
+  container: {
+    height: 56,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
     gap: 10,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
   },
 
   input: {
     flex: 1,
-    fontSize: 15,
+    height: '100%',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#0F172A',
+    outlineStyle: 'none' as any,
   },
   
 });

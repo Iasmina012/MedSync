@@ -65,6 +65,7 @@ export default function PlatformAdminDashboard() {
 
       <ClinicNavbar
         clinicName={clinicName}
+        clinicId={clinicId}
         primaryColor={theme.primary}
         roleLabel="Platform Admin"
         onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}

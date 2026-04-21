@@ -63,6 +63,7 @@ export default function PatientDashboard() {
     { title: 'Doctors Info', icon: 'people-outline' as const, description: 'Doctors and availability.', onPress: () => go('/clinic-doctors') },
     { title: 'Services Info', icon: 'list-outline' as const, description: 'Consultations and procedures.', onPress: () => go('/clinic-services') },
     { title: 'Technology Info', icon: 'hardware-chip-outline' as const, description: 'Clinic innovations.', onPress: () => go('/clinic-tech') },
+    { title: 'Health Tips', icon: 'leaf-outline' as const, description: 'Personalized clinic wellness tips.', onPress: () => go('/health-tips') },
     { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Book, cancel, reschedule.', onPress: () => go('/manage-appointments') },
     { title: 'Self-Diagnosis', icon: 'pulse-outline' as const, description: 'Triage support.', onPress: () => go('/self-diagnosis') },
     { title: 'Documents', icon: 'document-attach-outline' as const, description: 'Onboarding and uploads.', onPress: () => go('/documents') },
@@ -78,9 +79,10 @@ export default function PatientDashboard() {
 
       <ClinicNavbar
         clinicName={clinicName}
+        clinicId={clinicId}
         primaryColor={theme.primary}
         roleLabel="Patient"
-        onChangeClinic={() => router.replace('/clinic-selection')}
+        onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
       />
 
       <View

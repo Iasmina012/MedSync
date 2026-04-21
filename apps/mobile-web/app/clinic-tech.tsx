@@ -119,6 +119,7 @@ export default function ClinicTechnologiesScreen() {
 
       <ClinicNavbar
         clinicName={clinicName}
+        clinicId={clinicId}
         primaryColor={theme.primary}
         roleLabel="Patient"
         showRolePill={false}

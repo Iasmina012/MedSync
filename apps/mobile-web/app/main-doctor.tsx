@@ -90,6 +90,7 @@ export default function DoctorDashboard() {
 
       <ClinicNavbar
         clinicName={clinicName}
+        clinicId={clinicId}
         primaryColor={theme.primary}
         roleLabel="Doctor"
         onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}

@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 
 type Props = {
 
+  clinicId?: string;
   clinicName?: string;
   primaryColor?: string;
   roleLabel: string;
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export default function ClinicNavbar({
+  clinicId,
   clinicName,
   primaryColor = '#1D4ED8',
   roleLabel,
@@ -34,13 +36,22 @@ export default function ClinicNavbar({
   const isMobile = width < 720;
   const isWeb = Platform.OS === 'web';
 
+  const hasClinicContext = Boolean(clinicId || clinicName);
+  const mobileTopPadding = isWeb ? 0 : Math.max(insets.top, 12);
+
+  const goTo = (pathname: string) => {
+    setMenuOpen(false);
+    router.push({
+      pathname: pathname as any,
+      params: { clinicId, clinicName },
+    });
+  };
+
   const handleLogout = async () => {
     setMenuOpen(false);
     await supabase.auth.signOut();
     router.replace('/login');
   };
-
-  const mobileTopPadding = isWeb ? 0 : Math.max(insets.top, 12);
 
   return (
 
@@ -68,12 +79,16 @@ export default function ClinicNavbar({
                 },
               ]}
             >
-              <Ionicons name="business-outline" size={16} color={primaryColor}/>
+              <Ionicons
+                name={hasClinicContext ? 'business-outline' : 'person-circle-outline'}
+                size={16}
+                color={primaryColor}
+              />
               <Text
                 style={[styles.badgeText, { color: primaryColor }]}
                 numberOfLines={1}
               >
-                {clinicName || 'Selected Clinic'}
+                {hasClinicContext ? clinicName : 'My Account'}
               </Text>
             </View>
 
@@ -134,11 +149,9 @@ export default function ClinicNavbar({
             </Pressable>
           </View>
         </View>
-
       </View>
 
       <Modal visible={menuOpen} transparent animationType="fade">
-        
         <Pressable style={styles.overlay} onPress={() => setMenuOpen(false)}>
           <Pressable
             style={[
@@ -170,12 +183,17 @@ export default function ClinicNavbar({
               </Pressable>
             )}
 
-            <Pressable style={styles.menuItem}>
+            <Pressable style={styles.menuItem} onPress={() => goTo('/my-profile')}>
               <Ionicons name="person-outline" size={18} color="#0F172A"/>
-              <Text style={styles.menuItemText}>My Profile / Edit Account</Text>
+              <Text style={styles.menuItemText}>My Profile</Text>
             </Pressable>
 
-            <Pressable style={styles.menuItem}>
+            <Pressable style={styles.menuItem} onPress={() => goTo('/settings')}>
+              <Ionicons name="settings-outline" size={18} color="#0F172A"/>
+              <Text style={styles.menuItemText}>Settings</Text>
+            </Pressable>
+
+            <Pressable style={styles.menuItem} onPress={() => goTo('/policies')}>
               <Ionicons
                 name="document-text-outline"
                 size={18}
@@ -184,7 +202,7 @@ export default function ClinicNavbar({
               <Text style={styles.menuItemText}>Policies</Text>
             </Pressable>
 
-            <Pressable style={styles.menuItem}>
+            <Pressable style={styles.menuItem} onPress={() => goTo('/privacy')}>
               <Ionicons
                 name="shield-checkmark-outline"
                 size={18}
@@ -206,7 +224,7 @@ export default function ClinicNavbar({
     
     </>
   
-);
+  );
 
 }
 

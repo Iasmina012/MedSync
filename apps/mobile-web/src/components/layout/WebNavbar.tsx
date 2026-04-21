@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { router, usePathname } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, View, } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 
@@ -16,14 +16,21 @@ const BRAND = {
 
 };
 
-function NavItem({label, active, onPress,}: {label: string; active?: boolean; onPress: () => void;}) {
-  
+function NavItem({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active?: boolean;
+  onPress: () => void;
+}) {
+
   const [hovered, setHovered] = useState(false);
 
   return (
 
     <Pressable
-
       onPress={onPress}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
@@ -33,13 +40,10 @@ function NavItem({label, active, onPress,}: {label: string; active?: boolean; on
         hovered && styles.navItemHover,
         pressed && styles.pressed,
       ]}
-
     >
-
       <Text style={[styles.navItemText, active && styles.navItemTextActive]}>
         {label}
       </Text>
-
     </Pressable>
   
   );
@@ -102,6 +106,11 @@ export default function WebNavbar() {
     router.replace('/login');
   };
 
+  const goTo = (pathnameToGo: string) => {
+    setMenuOpen(false);
+    router.push(pathnameToGo as any);
+  };
+
   const isClinicsActive = pathname === '/clinic-selection';
 
   return (
@@ -125,7 +134,6 @@ export default function WebNavbar() {
         </Pressable>
 
         <View style={styles.linksRow}>
-
           <NavItem
             label="Home"
             active={pathname === '/'}
@@ -204,21 +212,27 @@ export default function WebNavbar() {
                 <View style={styles.dropdown}>
                   <Pressable
                     style={styles.dropdownItem}
-                    onPress={() => setMenuOpen(false)}
+                    onPress={() => goTo('/my-profile')}
                   >
-                    <Ionicons
-                      name="person-outline"
-                      size={18}
-                      color="#0F172A"
-                    />
-                    <Text style={styles.dropdownItemText}>
-                      My Profile / Edit Account
-                    </Text>
+                    <Ionicons name="person-outline" size={18} color="#0F172A"/>
+                    <Text style={styles.dropdownItemText}>My Profile</Text>
                   </Pressable>
 
                   <Pressable
                     style={styles.dropdownItem}
-                    onPress={() => setMenuOpen(false)}
+                    onPress={() => goTo('/settings')}
+                  >
+                    <Ionicons
+                      name="settings-outline"
+                      size={18}
+                      color="#0F172A"
+                    />
+                    <Text style={styles.dropdownItemText}>Settings</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.dropdownItem}
+                    onPress={() => goTo('/policies')}
                   >
                     <Ionicons
                       name="document-text-outline"
@@ -230,7 +244,7 @@ export default function WebNavbar() {
 
                   <Pressable
                     style={styles.dropdownItem}
-                    onPress={() => setMenuOpen(false)}
+                    onPress={() => goTo('/privacy')}
                   >
                     <Ionicons
                       name="shield-checkmark-outline"
@@ -240,10 +254,7 @@ export default function WebNavbar() {
                     <Text style={styles.dropdownItemText}>Privacy</Text>
                   </Pressable>
 
-                  <Pressable
-                    style={styles.dropdownItem}
-                    onPress={handleLogout}
-                  >
+                  <Pressable style={styles.dropdownItem} onPress={handleLogout}>
                     <Ionicons
                       name="log-out-outline"
                       size={18}
@@ -261,7 +272,6 @@ export default function WebNavbar() {
           )}
         </View>
       </View>
-    
     </View>
   
   );

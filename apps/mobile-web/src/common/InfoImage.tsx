@@ -11,6 +11,9 @@ type Props = {
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
   onPress?: () => void;
+  badgeText?: string;
+  footer?: React.ReactNode;
+  hideSeeMore?: boolean;
 
 };
 
@@ -22,6 +25,9 @@ export default function InfoImage({
   icon,
   color,
   onPress,
+  badgeText,
+  footer,
+  hideSeeMore = false,
 }: Props) {
 
   const scale = useRef(new Animated.Value(1)).current;
@@ -117,7 +123,7 @@ export default function InfoImage({
 
           <View style={styles.imageWrap}>
             {imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={styles.image} />
+              <Image source={{ uri: imageUrl }} style={styles.image}/>
             ) : (
               <View
                 style={[
@@ -125,7 +131,18 @@ export default function InfoImage({
                   { backgroundColor: `${color}12` },
                 ]}
               >
-                <Ionicons name={icon} size={28} color={color} />
+                <Ionicons name={icon} size={28} color={color}/>
+              </View>
+            )}
+
+            {!!badgeText && (
+              <View
+                style={[
+                  styles.badge,
+                  { backgroundColor: `${color}12`, borderColor: `${color}25` },
+                ]}
+              >
+                <Text style={[styles.badgeText, { color }]}>{badgeText}</Text>
               </View>
             )}
           </View>
@@ -144,10 +161,13 @@ export default function InfoImage({
             {description}
           </Text>
 
-          <Text style={[styles.seeMore, { color }]}>
-            See more <Ionicons name="arrow-forward" size={13} color={color} />
-          </Text>
+          {!!footer && <View style={styles.footer}>{footer}</View>}
 
+          {!hideSeeMore && (
+            <Text style={[styles.seeMore, { color }]}>
+              See more <Ionicons name="arrow-forward" size={13} color={color}/>
+            </Text>
+          )}
         </Animated.View>
 
       )}
@@ -184,6 +204,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 14,
     backgroundColor: '#F8FAFC',
+    position: 'relative',
   },
 
   image: {
@@ -195,6 +216,22 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  badge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#FFFFFF',
+  },
+
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
 
   title: {
@@ -215,6 +252,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     color: '#64748B',
+  },
+
+  footer: {
+    marginTop: 12,
   },
 
   seeMore: {

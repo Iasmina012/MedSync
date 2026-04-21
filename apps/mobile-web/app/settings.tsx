@@ -1,15 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View, } from 'react-native';
 import { supabase } from '../src/lib/supabase';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { getBackPathWithClinicFallback } from '../src/lib/navigation';

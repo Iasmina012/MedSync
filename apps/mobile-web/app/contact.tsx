@@ -1,10 +1,64 @@
 import React from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View, Platform} from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View, Platform, Alert, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import WebFooter from '../src/components/layout/WebFooter';
 
+const CONTACT = {
+
+  email: 'contact@medsync.com',
+  phoneDisplay: '+40 777 777 777',
+  phoneLink: '+40777777777',
+  addressLine1: 'MedSync Headquarters',
+  addressLine2: 'Bulevardul Unirii 10, București, România',
+  googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Bulevardul+Unirii+10+Bucuresti+Romania',
+  appleMapsUrl: 'http://maps.apple.com/?q=Bulevardul+Unirii+10+Bucuresti+Romania',
+
+};
+
 export default function ContactScreen() {
+
+  const openEmail = async () => {
+
+    const url = `mailto:${CONTACT.email}`;
+
+    const supported = await Linking.canOpenURL(url);
+    if (!supported) {
+      Alert.alert('Unavailable', 'Email app is not available on this device.');
+      return;
+    }
+
+    await Linking.openURL(url);
+  
+  };
+
+  const openPhone = async () => {
+
+    const url = `tel:${CONTACT.phoneLink}`;
+    const supported = await Linking.canOpenURL(url);
+
+    if (!supported) {
+      Alert.alert('Unavailable', 'Phone calls are not available on this device.');
+      return;
+    }
+
+    await Linking.openURL(url);
+  
+  };
+
+  const openMap = async () => {
+
+    const url = Platform.OS === 'ios' ? CONTACT.appleMapsUrl : CONTACT.googleMapsUrl;
+    const supported = await Linking.canOpenURL(url);
+    
+    if (!supported) {
+      Alert.alert('Unavailable', 'Maps are not available on this device.');
+      return;
+    }
+
+    await Linking.openURL(url);
+  
+  };
 
   return (
 
@@ -29,25 +83,27 @@ export default function ContactScreen() {
         <View style={styles.grid}>
 
           <View style={styles.card}>
-            <View style={styles.row}>
+            <Pressable style={styles.row} onPress={openEmail}>
               <View style={styles.iconWrap}>
                 <Ionicons name="mail-open-outline" size={20} color="#1D4ED8"/>
               </View>
               <View style={styles.rowContent}>
                 <Text style={styles.rowTitle}>Email</Text>
-                <Text style={styles.rowText}>contact@medsync.com</Text>
+                <Text style={styles.rowText}>{CONTACT.email}</Text>
               </View>
-            </View>
+              <Ionicons name="open-outline" size={18} color="#64748B"/>
+            </Pressable>
 
-            <View style={styles.row}>
+            <Pressable style={styles.row} onPress={openPhone}>
               <View style={styles.iconWrap}>
                 <Ionicons name="call-outline" size={20} color="#1D4ED8"/>
               </View>
               <View style={styles.rowContent}>
                 <Text style={styles.rowTitle}>Phone</Text>
-                <Text style={styles.rowText}>+40 777 777 777</Text>
+                <Text style={styles.rowText}>{CONTACT.phoneDisplay}</Text>
               </View>
-            </View>
+              <Ionicons name="open-outline" size={18} color="#64748B"/>
+            </Pressable>
 
             <View style={styles.row}>
               <View style={styles.iconWrap}>
@@ -59,25 +115,50 @@ export default function ContactScreen() {
               </View>
             </View>
 
-            <Pressable
-              style={styles.primaryButton}
-              onPress={() => Linking.openURL('mailto:contact@medsync.com')}
-            >
-              <Text style={styles.primaryButtonText}>Send email</Text>
-            </Pressable>
+            <View style={styles.actionsRow}>
+              <Pressable style={styles.primaryButton} onPress={openEmail}>
+                <Text style={styles.primaryButtonText}>Send email</Text>
+              </Pressable>
+
+              <Pressable style={styles.secondaryButton} onPress={openPhone}>
+                <Text style={styles.secondaryButtonText}>Call now</Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.sideCard}>
 
             <Text style={styles.sideTitle}>Headquarters</Text>
 
-            <View style={styles.mapPlaceholder}>
-              <Ionicons name="map-outline" size={28} color="#1D4ED8"/>
-              <Text style={styles.mapPlaceholderTitle}>Map placeholder</Text>
-              <Text style={styles.mapPlaceholderText}>
-                Later, this area can display a Google Map with the MedSync team headquarters.
-              </Text>
-            </View>
+            <Pressable style={styles.mapCard} onPress={openMap}>
+              <View style={styles.mapTopRow}>
+                <View style={styles.mapIconWrap}>
+                  <Ionicons name="map-outline" size={24} color="#1D4ED8"/>
+                </View>
+
+                <View style={styles.mapTopText}>
+                  <Text style={styles.mapTitle}>{CONTACT.addressLine1}</Text>
+                  <Text style={styles.mapAddress}>{CONTACT.addressLine2}</Text>
+                </View>
+              </View>
+
+              <View style={styles.mapVisual}>
+                <View style={styles.mapGrid} />
+                <View style={styles.mapMarker}>
+                  <Ionicons name="location" size={26} color="#1D4ED8"/>
+                </View>
+              </View>
+
+              <View style={styles.mapBottomRow}>
+                <Text style={styles.mapHint}>Tap to open in Maps</Text>
+                <Ionicons name="open-outline" size={18} color="#1D4ED8"/>
+              </View>
+            </Pressable>
+
+            <Pressable style={styles.directionsButton} onPress={openMap}>
+              <Ionicons name="navigate-outline" size={18} color="#FFFFFF"/>
+              <Text style={styles.directionsButtonText}>Get directions</Text>
+            </Pressable>
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
@@ -108,8 +189,8 @@ export default function ContactScreen() {
 
       </ScrollView>
 
-    </PublicPageLayout>
- 
+    </PublicPageLayout>  
+   
   );
 
 }
@@ -230,8 +311,14 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
 
-  primaryButton: {
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    flexWrap: 'wrap',
     marginTop: 10,
+  },
+
+  primaryButton: {
     backgroundColor: '#1D4ED8',
     borderRadius: 999,
     paddingHorizontal: 18,
@@ -245,6 +332,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
+  secondaryButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    alignSelf: 'flex-start',
+  },
+
+  secondaryButtonText: {
+    color: '#0F172A',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+
   sideTitle: {
     fontSize: 20,
     fontWeight: '900',
@@ -252,31 +355,111 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  mapPlaceholder: {
+  mapCard: {
     backgroundColor: '#F8FAFC',
     borderRadius: 22,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    minHeight: 180,
+    padding: 16,
+    marginBottom: 16,
   },
 
-  mapPlaceholderTitle: {
+  mapTopRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+
+  mapIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  mapTopText: {
+    flex: 1,
+  },
+
+  mapTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
-    marginTop: 10,
-    marginBottom: 8,
+    marginBottom: 4,
   },
 
-  mapPlaceholderText: {
+  mapAddress: {
     fontSize: 14,
     lineHeight: 22,
     color: '#475569',
-    textAlign: 'center',
+  },
+
+  mapVisual: {
+    height: 170,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#EAF2FF',
+    borderWidth: 1,
+    borderColor: '#D8E6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginBottom: 12,
+  },
+
+  mapGrid: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.35,
+    borderRadius: 18,
+    backgroundColor: '#DCEAFE',
+  },
+
+  mapMarker: {
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+
+  mapBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  mapHint: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+
+  directionsButton: {
+    marginBottom: 20,
+    backgroundColor: '#1D4ED8',
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+  },
+
+  directionsButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
   },
 
   bullet: {

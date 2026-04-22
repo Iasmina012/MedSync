@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { supabase } from '../src/lib/supabase';
@@ -23,7 +23,16 @@ type ClinicDetails = {
 
 };
 
+function buildMapsEmbedUrl(query: string) {
+  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=15&output=embed`;
+}
+
+function buildMapsOpenUrl(query: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 export default function ClinicInfoScreen() {
+
   const { clinicId, clinicName } = useLocalSearchParams<{
     clinicId?: string;
     clinicName?: string;
@@ -33,8 +42,11 @@ export default function ClinicInfoScreen() {
 
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<ClinicDetails | null>(null);
+  const [mapSearch, setMapSearch] = useState('');
+  const [activeMapQuery, setActiveMapQuery] = useState('');
 
   useEffect(() => {
+
     const load = async () => {
       if (!clinicId) return;
 
@@ -63,7 +75,52 @@ export default function ClinicInfoScreen() {
     };
 
     load();
+  
   }, [clinicId]);
+
+  useEffect(() => {
+
+    if (!details) return;
+
+    const defaultLocation =
+      details.address?.trim() || clinicName || 'Bucharest, Romania';
+
+    setMapSearch(defaultLocation);
+    setActiveMapQuery(defaultLocation);
+
+  }, [details, clinicName]);
+
+  const mapUrl = useMemo(() => {
+
+    if (activeMapQuery.trim()) {
+      return buildMapsEmbedUrl(activeMapQuery.trim());
+    }
+
+    if (details?.map_embed_url) {
+      return details.map_embed_url;
+    }
+
+    return buildMapsEmbedUrl(
+      details?.address || clinicName || 'Bucharest, Romania'
+    );
+
+  }, [activeMapQuery, details?.map_embed_url, details?.address, clinicName]);
+
+  const handleMapSearch = () => {
+    const value = mapSearch.trim();
+    if (!value) return;
+    setActiveMapQuery(value);
+  };
+
+  const handleOpenMap = async () => {
+    const query =
+      activeMapQuery.trim() ||
+      details?.address?.trim() ||
+      clinicName ||
+      'Bucharest, Romania';
+
+    await Linking.openURL(buildMapsOpenUrl(query));
+  };
 
   if (loading) {
     return (
@@ -76,7 +133,7 @@ export default function ClinicInfoScreen() {
   return (
 
     <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
-      
+
       <ClinicNavbar
         clinicName={clinicName}
         clinicId={clinicId}
@@ -223,13 +280,51 @@ export default function ClinicInfoScreen() {
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Clinic Map</Text>
 
-        {!!details?.map_embed_url ? (
-          <View style={styles.mapWrap}>
-            <WebView source={{ uri: details.map_embed_url }} style={styles.map}/>
+        <View style={styles.mapControls}>
+          <View style={styles.searchInputWrap}>
+            <Ionicons name="search-outline" size={18} color="#64748B"/>
+            <TextInput
+              value={mapSearch}
+              onChangeText={setMapSearch}
+              placeholder="Search for a location on the map..."
+              placeholderTextColor="#94A3B8"
+              style={styles.searchInput}
+              onSubmitEditing={handleMapSearch}
+              returnKeyType="search"
+            />
           </View>
-        ) : (
-          <Text style={styles.panelText}>No map added yet.</Text>
-        )}
+
+          <View style={styles.mapButtonsRow}>
+            <Pressable
+              style={[styles.mapButton, { backgroundColor: theme.primary }]}
+              onPress={handleMapSearch}
+            >
+              <Text style={styles.mapButtonText}>Search</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.mapSecondaryButton}
+              onPress={handleOpenMap}
+            >
+              <Ionicons name="open-outline" size={16} color="#0F172A"/>
+              <Text style={styles.mapSecondaryButtonText}>Open in Maps</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.mapWrap}>
+          {Platform.OS === 'web' ? (
+            <iframe
+              src={mapUrl}
+              style={styles.mapIframe as any}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Clinic Map"
+            />
+          ) : (
+            <WebView source={{ uri: mapUrl }} style={styles.map}/>
+          )}
+        </View>
       </View>
 
     </ScrollView>
@@ -409,6 +504,66 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
+  mapControls: {
+    gap: 12,
+    marginBottom: 14,
+  },
+
+  searchInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+
+  mapButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+
+  mapButton: {
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+
+  mapButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+
+  mapSecondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+
+  mapSecondaryButtonText: {
+    color: '#0F172A',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
   mapWrap: {
     overflow: 'hidden',
     borderRadius: 22,
@@ -419,6 +574,12 @@ const styles = StyleSheet.create({
 
   map: {
     flex: 1,
+  },
+
+  mapIframe: {
+    width: '100%',
+    height: '100%',
+    borderWidth: 0,
   },
 
 });

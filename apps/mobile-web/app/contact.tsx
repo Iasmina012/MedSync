@@ -1,5 +1,5 @@
-import React from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View, Platform, Alert, } from 'react-native';
+import React, { useState } from 'react';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform, Alert, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import WebFooter from '../src/components/layout/WebFooter';
@@ -17,6 +17,11 @@ const CONTACT = {
 };
 
 export default function ContactScreen() {
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [emailInput, setEmailInput] = useState('');
+  const [message, setMessage] = useState('');
 
   const openEmail = async () => {
 
@@ -57,6 +62,56 @@ export default function ContactScreen() {
     }
 
     await Linking.openURL(url);
+  
+  };
+
+  const handleSendMessage = async () => {
+
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedEmail = emailInput.trim();
+    const trimmedMessage = message.trim();
+
+    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedMessage) {
+      Alert.alert('Incomplete form', 'Please complete all fields before sending.');
+      return;
+    }
+
+    const emailIsValid = /\S+@\S+\.\S+/.test(trimmedEmail);
+    if (!emailIsValid) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      return;
+    }
+
+    const subject = encodeURIComponent(`MedSync contact message from ${trimmedFirstName} ${trimmedLastName}`);
+
+    const body = encodeURIComponent(
+      [
+        `First name: ${trimmedFirstName}`,
+        `Last name: ${trimmedLastName}`,
+        `Email: ${trimmedEmail}`,
+        '',
+        'Message:',
+        trimmedMessage,
+      ].join('\n')
+    );
+
+    const url = `mailto:${CONTACT.email}?subject=${subject}&body=${body}`;
+    const supported = await Linking.canOpenURL(url);
+
+    if (!supported) {
+      Alert.alert('Unavailable', 'Email app is not available on this device.');
+      return;
+    }
+
+    await Linking.openURL(url);
+
+    setFirstName('');
+    setLastName('');
+    setEmailInput('');
+    setMessage('');
+
+    Alert.alert('Ready to send', 'Your email app was opened with the message filled in.');
   
   };
 
@@ -115,13 +170,52 @@ export default function ContactScreen() {
               </View>
             </View>
 
-            <View style={styles.actionsRow}>
-              <Pressable style={styles.primaryButton} onPress={openEmail}>
-                <Text style={styles.primaryButtonText}>Send email</Text>
-              </Pressable>
+            <View style={styles.messageCard}>
+              <Text style={styles.messageTitle}>Leave us a message</Text>
+              <Text style={styles.messageSubtitle}>
+                Fill in your details and we&apos;ll open your mail app with the message ready to send.
+              </Text>
 
-              <Pressable style={styles.secondaryButton} onPress={openPhone}>
-                <Text style={styles.secondaryButtonText}>Call now</Text>
+              <View style={styles.formRow}>
+                <TextInput
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="First name"
+                  placeholderTextColor="#94A3B8"
+                  style={[styles.input, styles.inputHalf]}
+                />
+
+                <TextInput
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Last name"
+                  placeholderTextColor="#94A3B8"
+                  style={[styles.input, styles.inputHalf]}
+                />
+              </View>
+
+              <TextInput
+                value={emailInput}
+                onChangeText={setEmailInput}
+                placeholder="Your email"
+                placeholderTextColor="#94A3B8"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                style={styles.input}
+              />
+
+              <TextInput
+                value={message}
+                onChangeText={setMessage}
+                placeholder="Write your message"
+                placeholderTextColor="#94A3B8"
+                multiline
+                style={[styles.input, styles.textarea]}
+              />
+
+              <Pressable style={styles.messageButton} onPress={handleSendMessage}>
+                <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF"/>
+                <Text style={styles.messageButtonText}>Send message</Text>
               </Pressable>
             </View>
           </View>
@@ -311,39 +405,70 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
 
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    flexWrap: 'wrap',
+  messageCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 18,
     marginTop: 10,
   },
 
-  primaryButton: {
+  messageTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+
+  messageSubtitle: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    marginBottom: 14,
+  },
+
+  formRow: {
+    flexDirection: 'row',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+
+  inputHalf: {
+    flex: 1,
+    minWidth: 180,
+  },
+
+  textarea: {
+    minHeight: 120,
+    textAlignVertical: 'top',
+  },
+
+  messageButton: {
     backgroundColor: '#1D4ED8',
     borderRadius: 999,
     paddingHorizontal: 18,
     paddingVertical: 14,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 
-  primaryButtonText: {
+  messageButtonText: {
     color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 15,
-  },
-
-  secondaryButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    alignSelf: 'flex-start',
-  },
-
-  secondaryButtonText: {
-    color: '#0F172A',
     fontWeight: '800',
     fontSize: 15,
   },

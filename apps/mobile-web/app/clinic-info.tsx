@@ -277,7 +277,7 @@ export default function ClinicInfoScreen() {
         </Text>
       </View>
 
-      <View style={styles.panel}>
+      <View style={styles.mapPanel}>
         <Text style={styles.panelTitle}>Clinic Map</Text>
 
         <View style={styles.mapControls}>
@@ -316,7 +316,14 @@ export default function ClinicInfoScreen() {
           {Platform.OS === 'web' ? (
             <iframe
               src={mapUrl}
-              style={styles.mapIframe as any}
+              style={
+                {
+                  width: '100%',
+                  height: '100%',
+                  border: '0',
+                  display: 'block',
+                } as any
+              }
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               title="Clinic Map"
@@ -504,9 +511,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
+  mapPanel: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 22,
+    overflow: 'hidden',
+  },
+
   mapControls: {
     gap: 12,
-    marginBottom: 14,
+    marginBottom: 18,
+    width: '100%',
   },
 
   searchInputWrap: {
@@ -531,6 +548,7 @@ const styles = StyleSheet.create({
   mapButtonsRow: {
     flexDirection: 'row',
     gap: 10,
+    alignItems: 'center',
     flexWrap: 'wrap',
   },
 
@@ -569,17 +587,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    height: 320,
+    height: 560,
+    width: '100%',
+    backgroundColor: '#FFFFFF',
   },
 
   map: {
     flex: 1,
-  },
-
-  mapIframe: {
-    width: '100%',
-    height: '100%',
-    borderWidth: 0,
   },
 
 });

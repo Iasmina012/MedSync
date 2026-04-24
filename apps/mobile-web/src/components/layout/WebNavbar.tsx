@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { router, usePathname } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 
@@ -57,6 +57,11 @@ export default function WebNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuMounted, setMenuMounted] = useState(false);
+
+  const menuOpacity = useRef(new Animated.Value(0)).current;
+  const menuTranslateY = useRef(new Animated.Value(-8)).current;
+  const menuScale = useRef(new Animated.Value(0.98)).current;
 
   useEffect(() => {
 
@@ -90,9 +95,10 @@ export default function WebNavbar() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-      setMenuOpen(false);
-    });
+          setIsAuthenticated(!!session);
+          setMenuOpen(false);
+          setMenuMounted(false);
+        });
 
     return () => {
       subscription.unsubscribe();
@@ -100,15 +106,87 @@ export default function WebNavbar() {
 
   }, []);
 
+  const openMenu = () => {
+
+    setMenuMounted(true);
+    setMenuOpen(true);
+
+    Animated.parallel([
+
+      Animated.timing(menuOpacity, {
+        toValue: 1,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuTranslateY, {
+        toValue: 0,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuScale, {
+        toValue: 1,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+
+    ]).start();
+
+  };
+
+  const closeMenu = (afterClose?: () => void) => {
+
+    Animated.parallel([
+
+      Animated.timing(menuOpacity, {
+        toValue: 0,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuTranslateY, {
+        toValue: -8,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuScale, {
+        toValue: 0.98,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+
+    ]).start(() => {
+      setMenuOpen(false);
+      setMenuMounted(false);
+      afterClose?.();
+    });
+
+  };
+
+  const toggleMenu = () => {
+    if (menuOpen) {
+      closeMenu();
+      return;
+    }
+
+    openMenu();
+  };
+
   const handleLogout = async () => {
-    setMenuOpen(false);
-    await supabase.auth.signOut();
-    router.replace('/login');
+    closeMenu(async () => {
+      await supabase.auth.signOut();
+      router.replace('/login');
+    });
   };
 
   const goTo = (pathnameToGo: string) => {
-    setMenuOpen(false);
-    router.push(pathnameToGo as any);
+    closeMenu(() => {
+      router.push(pathnameToGo as any);
+    });
   };
 
   const isClinicsActive = pathname === '/clinic-selection';
@@ -181,7 +259,7 @@ export default function WebNavbar() {
           ) : (
             <View style={styles.menuWrap}>
               <Pressable
-                onPress={() => setMenuOpen((prev) => !prev)}
+                onPress={toggleMenu}
                 style={({ pressed }) => [
                   styles.menuTrigger,
                   menuOpen && styles.menuTriggerActive,
@@ -208,8 +286,19 @@ export default function WebNavbar() {
                 />
               </Pressable>
 
-              {menuOpen && (
-                <View style={styles.dropdown}>
+              {menuMounted && (
+                <Animated.View
+                  style={[
+                    styles.dropdown,
+                    {
+                      opacity: menuOpacity,
+                      transform: [
+                        { translateY: menuTranslateY },
+                        { scale: menuScale },
+                      ],
+                    },
+                  ]}
+                >
                   <Pressable
                     style={styles.dropdownItem}
                     onPress={() => goTo('/my-profile')}
@@ -256,7 +345,7 @@ export default function WebNavbar() {
                       Logout
                     </Text>
                   </Pressable>
-                </View>
+                </Animated.View>
               )}
             </View>
           )}

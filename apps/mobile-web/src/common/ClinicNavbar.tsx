@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { router } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -30,6 +30,11 @@ export default function ClinicNavbar({
 }: Props) {
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuMounted, setMenuMounted] = useState(false);
+
+  const menuOpacity = useRef(new Animated.Value(0)).current;
+  const menuTranslateY = useRef(new Animated.Value(-8)).current;
+  const menuScale = useRef(new Animated.Value(0.98)).current;
 
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -40,34 +45,102 @@ export default function ClinicNavbar({
   const hasClinicContext = Boolean(clinicId || clinicName);
   const mobileTopPadding = isWeb ? 0 : Math.max(insets.top, 12);
 
+  const openMenu = () => {
+    setMenuMounted(true);
+    setMenuOpen(true);
+
+    Animated.parallel([
+
+      Animated.timing(menuOpacity, {
+        toValue: 1,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuTranslateY, {
+        toValue: 0,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuScale, {
+        toValue: 1,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+
+    ]).start();
+
+  };
+
+  const closeMenu = (afterClose?: () => void) => {
+
+    Animated.parallel([
+
+      Animated.timing(menuOpacity, {
+        toValue: 0,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuTranslateY, {
+        toValue: -8,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuScale, {
+        toValue: 0.98,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+
+    ]).start(() => {
+      setMenuOpen(false);
+      setMenuMounted(false);
+      afterClose?.();
+    });
+
+  };
+
+  const toggleMenu = () => {
+    if (menuOpen) {
+      closeMenu();
+      return;
+    }
+
+    openMenu();
+  };
+
   const goTo = (pathname: string) => {
-    setMenuOpen(false);
-    router.push({
-      pathname: pathname as any,
-      params: { clinicId, clinicName },
+    closeMenu(() => {
+      router.push({
+        pathname: pathname as any,
+        params: { clinicId, clinicName },
+      });
     });
   };
 
   const handleLogout = async () => {
-    setMenuOpen(false);
-    await supabase.auth.signOut();
-    router.replace('/login');
+    closeMenu(async () => {
+      await supabase.auth.signOut();
+      router.replace('/login');
+    });
   };
 
-  const toggleMenu = () => {
-    setMenuOpen((prev) => !prev);
+  const handleChangeClinic = () => {
+    closeMenu(() => {
+      onChangeClinic?.();
+    });
   };
 
   const dropdownContent = (
-    <View style={styles.dropdown}>
+
+    <View style={[styles.dropdown, isMobile && styles.dropdownMobile]}>
       {!!onChangeClinic && (
-        <Pressable
-          style={styles.menuItem}
-          onPress={() => {
-            setMenuOpen(false);
-            onChangeClinic();
-          }}
-        >
+        <Pressable style={styles.menuItem} onPress={handleChangeClinic}>
           <Ionicons name="swap-horizontal-outline" size={18} color={primaryColor}/>
           <Text style={styles.menuItemText}>Change Clinic</Text>
         </Pressable>
@@ -95,11 +168,10 @@ export default function ClinicNavbar({
 
       <Pressable style={styles.menuItem} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={18} color="#DC2626"/>
-        <Text style={[styles.menuItemText, styles.logoutText]}>
-          Logout
-        </Text>
+        <Text style={[styles.menuItemText, styles.logoutText]}>Logout</Text>
       </Pressable>
     </View>
+  
   );
 
   return (
@@ -193,10 +265,21 @@ export default function ClinicNavbar({
               )}
             </Pressable>
 
-            {menuOpen && (
-              <View style={[styles.dropdownWrap]}>
+            {menuMounted && (
+              <Animated.View
+                style={[
+                  styles.dropdownWrap,
+                  {
+                    opacity: menuOpacity,
+                    transform: [
+                      { translateY: menuTranslateY },
+                      { scale: menuScale },
+                    ],
+                  },
+                ]}
+              >
                 {dropdownContent}
-              </View>
+              </Animated.View>
             )}
           </View>
         </View>
@@ -211,7 +294,7 @@ export default function ClinicNavbar({
 const styles = StyleSheet.create({
 
   outer: {
-    zIndex: 50,
+    zIndex: 9999,
   },
 
   outerMobile: {
@@ -271,24 +354,33 @@ const styles = StyleSheet.create({
 
   menuAnchor: {
     position: 'relative',
+    zIndex: 9999,
   },
 
   dropdownWrap: {
     position: 'absolute',
-    top: '100%',
+    top: '100%' as any,
     right: 0,
     marginTop: 10,
     zIndex: 9999,
   },
 
   dropdown: {
-    width: 240,
+    width: 290,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
     elevation: 8,
+  },
+
+  dropdownMobile: {
+    width: 240,
   },
 
   menuItem: {
@@ -317,6 +409,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
     borderWidth: 1,
+    minHeight: 48,
+    maxWidth: 320,
   },
 
   badgeMobile: {
@@ -324,7 +418,6 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     minWidth: 0,
     maxWidth: 280,
-    alignSelf: 'flex-start',
   },
 
   badgeText: {
@@ -340,10 +433,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,
+    minHeight: 48,
+    justifyContent: 'center',
   },
 
   rolePillMobile: {
-    flexShrink: 0,
+    flex: 1,
     minWidth: 92,
     alignItems: 'center',
   },
@@ -352,6 +447,7 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontWeight: '700',
     fontSize: 13,
+    textAlign: 'center',
   },
 
   iconButton: {
@@ -364,6 +460,7 @@ const styles = StyleSheet.create({
   },
 
   actionButtonDesktop: {
+    minHeight: 48,
     paddingHorizontal: 16,
     paddingVertical: 10,
     flexDirection: 'row',

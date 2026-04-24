@@ -1,29 +1,208 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, View, Platform, Pressable} from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { ScrollView, StyleSheet, Text, View, Platform, Pressable, Animated, Easing, Linking} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import WebFooter from '../src/components/layout/WebFooter';
 
+const STORE_LINKS = {
+
+  appStore: 'https://www.apple.com/app-store/',
+  googlePlay: 'https://play.google.com/store',
+
+};
+
 export default function AboutScreen() {
-  
+
+  const patientFloat = useRef(new Animated.Value(0)).current;
+  const doctorFloat = useRef(new Animated.Value(0)).current;
+  const clinicFloat = useRef(new Animated.Value(0)).current;
+  const platformFloat = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+
+    const float = (anim: Animated.Value, value: number, duration: number) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, {
+            toValue: value,
+            duration,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    float(patientFloat, -6, 1600);
+    float(doctorFloat, 6, 1750);
+    float(clinicFloat, -6, 1850);
+    float(platformFloat, 6, 1950);
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.05,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+  }, [patientFloat, doctorFloat, clinicFloat, platformFloat, pulse]);
+
+  const openAppStore = () => Linking.openURL(STORE_LINKS.appStore);
+  const openGooglePlay = () => Linking.openURL(STORE_LINKS.googlePlay);
+
   return (
-    
+
     <PublicPageLayout>
 
       <ScrollView contentContainerStyle={styles.container}>
 
-        <View style={styles.hero}>
+        <View style={styles.heroSection}>
+          <View style={styles.heroTextBlock}>
+            <View style={styles.heroBadge}>
+              <Ionicons name="sparkles-outline" size={16} color="#1D4ED8"/>
+              <Text style={styles.heroBadgeText}>About MedSync</Text>
+            </View>
 
-          <View style={styles.badge}>
-            <Ionicons name="information-circle-outline" size={16} color="#1D4ED8"/>
-            <Text style={styles.badgeText}>About MedSync</Text>
+            <Text style={styles.heroTitle}>
+              Your clinic, appointments, and health updates in one calm digital space.
+            </Text>
+
+            <Text style={styles.heroSubtitle}>
+              MedSync is a multi-platform medical system designed for clinics, doctors, patients, and administrators, with a strong base for future AI-powered workflows.
+            </Text>
+
+            <View style={styles.heroPillsRow}>
+              <View style={styles.heroPill}>
+                <Ionicons name="calendar-outline" size={16} color="#1D4ED8"/>
+                <Text style={styles.heroPillText}>Appointments</Text>
+              </View>
+
+              <View style={styles.heroPill}>
+                <Ionicons name="chatbubbles-outline" size={16} color="#1D4ED8"/>
+                <Text style={styles.heroPillText}>Secure chat</Text>
+              </View>
+
+              <View style={styles.heroPill}>
+                <Ionicons name="pulse-outline" size={16} color="#1D4ED8"/>
+                <Text style={styles.heroPillText}>Care insights</Text>
+              </View>
+            </View>
           </View>
 
-          <Text style={styles.title}>A digital medical platform built for modern clinics</Text>
-          <Text style={styles.subtitle}>
-            MedSync is a multi-platform medical system designed for clinics, doctors, patients, and administrators, with a strong base for future AI-powered workflows.
-          </Text>
-        
+          <View style={styles.workflowArea}>
+            <View style={[styles.connectorLine, styles.patientLine]}/>
+            <View style={[styles.connectorLine, styles.doctorLine]}/>
+            <View style={[styles.connectorLine, styles.clinicLine]}/>
+            <View style={[styles.connectorLine, styles.platformLine]}/>
+
+            <Animated.View
+              style={[
+                styles.roleCard,
+                styles.patientCard,
+                { transform: [{ translateY: patientFloat }] },
+              ]}
+            >
+              <View style={styles.blueIcon}>
+                <Ionicons name="person-outline" size={22} color="#1D4ED8"/>
+              </View>
+              <View style={styles.roleTextWrap}>
+                <Text style={styles.roleTitle}>Patient</Text>
+                <Text style={styles.roleSubtitle}>Books appointment</Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.roleCard,
+                styles.doctorCard,
+                { transform: [{ translateY: doctorFloat }] },
+              ]}
+            >
+              <View style={styles.greenIcon}>
+                <Ionicons name="medkit-outline" size={22} color="#10B981"/>
+              </View>
+              <View style={styles.roleTextWrap}>
+                <Text style={styles.roleTitle}>Doctor</Text>
+                <Text style={styles.roleSubtitle}>Reviews data</Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.roleCard,
+                styles.clinicCard,
+                { transform: [{ translateY: clinicFloat }] },
+              ]}
+            >
+              <View style={styles.purpleIcon}>
+                <Ionicons name="business-outline" size={22} color="#7C3AED"/>
+              </View>
+              <View style={styles.roleTextWrap}>
+                <Text style={styles.roleTitle}>Clinic Admin</Text>
+                <Text style={styles.roleSubtitle}>Manages clinic</Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.roleCard,
+                styles.platformCard,
+                { transform: [{ translateY: platformFloat }] },
+              ]}
+            >
+              <View style={styles.orangeIcon}>
+                <Ionicons name="shield-checkmark-outline" size={22} color="#F97316"/>
+              </View>
+              <View style={styles.roleTextWrap}>
+                <Text style={styles.roleTitle}>Platform Admin</Text>
+                <Text style={styles.roleSubtitle}>Oversees system</Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View style={[styles.syncCenter, { transform: [{ scale: pulse }] }]}>
+              <Ionicons name="sync-outline" size={22} color="#FFFFFF"/>
+              <Text style={styles.syncText}>Synced care</Text>
+            </Animated.View>
+          </View>
+        </View>
+
+        <View style={styles.downloadSection}>
+          <View style={styles.downloadTextBlock}>
+            <Text style={styles.downloadEyebrow}>Mobile experience</Text>
+            <Text style={styles.downloadTitle}>Download the MedSync app</Text>
+            <Text style={styles.downloadSubtitle}>
+              Access appointments, clinic updates, patient tools, and smart care workflows from your phone. Access appointments, clinic updates, patient tools, and smart care workflows from your phone.
+            </Text>
+          </View>
+
+          <View style={styles.downloadButtonsRow}>
+            <Pressable style={styles.storeButton} onPress={openAppStore}>
+              <Ionicons name="logo-apple" size={19} color="#FFFFFF"/>
+              <Text style={styles.storeButtonText}>App Store</Text>
+            </Pressable>
+
+            <Pressable style={styles.storeButton} onPress={openGooglePlay}>
+              <Ionicons name="logo-google-playstore" size={19} color="#FFFFFF"/>
+              <Text style={styles.storeButtonText}>Google Play</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.grid}>
@@ -58,31 +237,39 @@ export default function AboutScreen() {
             </Text>
           </View>
 
-        </View>
-
-        <View style={styles.downloadSection}>
-
-          <Text style={styles.downloadTitle}>Download the app</Text>
-          <Text style={styles.downloadSubtitle}>
-            Later, this section will link directly to the published mobile applications.
-          </Text>
-
-          <View style={styles.downloadButtonsRow}>
-            <Pressable style={styles.storeButton}>
-              <Ionicons name="logo-apple" size={18} color="#FFFFFF"/>
-              <Text style={styles.storeButtonText}>App Store</Text>
-            </Pressable>
-
-            <Pressable style={styles.storeButton}>
-              <Ionicons name="logo-google-playstore" size={18} color="#FFFFFF"/>
-              <Text style={styles.storeButtonText}>Google Play</Text>
-            </Pressable>
+          <View style={styles.card}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="shield-checkmark-outline" size={22} color="#1D4ED8"/>
+            </View>
+            <Text style={styles.cardTitle}>Secure by Design</Text>
+            <Text style={styles.cardText}>
+              Role-based access keeps patient, doctor, clinic, and admin experiences separated and organized.
+            </Text>
           </View>
 
+          <View style={styles.card}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="calendar-outline" size={22} color="#1D4ED8"/>
+            </View>
+            <Text style={styles.cardTitle}>Appointment Workflows</Text>
+            <Text style={styles.cardText}>
+              Patients can manage appointments while clinics keep schedules clear and easy to follow.
+            </Text>
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
+            </View>
+            <Text style={styles.cardTitle}>Connected Communication</Text>
+            <Text style={styles.cardText}>
+              MedSync supports clearer communication between patients, doctors, and clinic teams.
+            </Text>
+          </View>
         </View>
 
       { Platform.OS === 'web' && <WebFooter/> }
-      
+
       </ScrollView>
     
     </PublicPageLayout>
@@ -104,16 +291,27 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
 
-  hero: {
+  heroSection: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 30,
+    borderRadius: 34,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 28,
+    padding: 26,
     marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 28,
+    flexWrap: 'wrap',
+    overflow: 'hidden',
   },
 
-  badge: {
+  heroTextBlock: {
+    flex: 1,
+    minWidth: 280,
+  },
+
+  heroBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -127,33 +325,217 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  badgeText: {
+  heroBadgeText: {
     color: '#1D4ED8',
-    fontWeight: '700',
     fontSize: 13,
+    fontWeight: '800',
   },
 
-  title: {
+  heroTitle: {
     fontSize: 40,
     lineHeight: 48,
     fontWeight: '900',
     color: '#0F172A',
-    maxWidth: 900,
+    maxWidth: 720,
     marginBottom: 14,
   },
 
-  subtitle: {
+  heroSubtitle: {
     fontSize: 17,
     lineHeight: 28,
     color: '#475569',
-    maxWidth: 900,
+    maxWidth: 720,
+  },
+
+  heroPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 22,
+  },
+
+  heroPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+
+  heroPillText: {
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  workflowArea: {
+    width: 520,
+    height: 300,
+    position: 'relative',
+  },
+
+  roleCard: {
+    position: 'absolute',
+    width: 205,
+    minHeight: 72,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 9 },
+    elevation: 4,
+    zIndex: 5,
+  },
+
+  patientCard: {
+    top: 26,
+    left: 0,
+  },
+
+  doctorCard: {
+    bottom: 26,
+    left: 0,
+  },
+
+  clinicCard: {
+    top: 26,
+    right: 0,
+  },
+
+  platformCard: {
+    bottom: 26,
+    right: 0,
+  },
+
+  roleTextWrap: {
+    flex: 1,
+  },
+
+  roleTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+
+  roleSubtitle: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 3,
+    fontWeight: '600',
+  },
+
+  blueIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  greenIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  purpleIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#F5F3FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  orangeIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  syncCenter: {
+    position: 'absolute',
+    top: 122,
+    left: 174,
+    zIndex: 8,
+    backgroundColor: '#1D4ED8',
+    borderRadius: 999,
+    paddingHorizontal: 22,
+    paddingVertical: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#1D4ED8',
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 9 },
+    elevation: 7,
+  },
+
+  syncText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+
+  connectorLine: {
+    position: 'absolute',
+    width: 112,
+    height: 3,
+    backgroundColor: '#67E8F9',
+    borderRadius: 999,
+    opacity: 0.78,
+    zIndex: 1,
+  },
+
+  patientLine: {
+    top: 94,
+    left: 184,
+    transform: [{ rotate: '27deg' }],
+  },
+
+  doctorLine: {
+    top: 202,
+    left: 184,
+    transform: [{ rotate: '-27deg' }],
+  },
+
+  clinicLine: {
+    top: 94,
+    right: 184,
+    transform: [{ rotate: '-27deg' }],
+  },
+
+  platformLine: {
+    top: 202,
+    right: 184,
+    transform: [{ rotate: '27deg' }],
   },
 
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 18,
-    marginBottom: 24,
+    marginTop: 15,
   },
 
   card: {
@@ -189,37 +571,33 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
 
-  section: {
-    backgroundColor: '#FFFFFF',
+  downloadSection: {
+    backgroundColor: '#1E293B',
     borderRadius: 30,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     padding: 28,
     marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 20,
+    flexWrap: 'wrap',
   },
 
-  sectionTitle: {
-    fontSize: 24,
+  downloadTextBlock: {
+    flex: 1,
+    minWidth: 280,
+  },
+
+  downloadEyebrow: {
+    color: '#38BDF8',
+    fontSize: 13,
     fontWeight: '900',
-    color: '#0F172A',
-    marginBottom: 14,
-  },
-
-  sectionText: {
-    fontSize: 16,
-    lineHeight: 28,
-    color: '#475569',
-    marginBottom: 12,
-  },
-
-  downloadSection: {
-    backgroundColor: '#0F172A',
-    borderRadius: 30,
-    padding: 28,
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
 
   downloadTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '900',
     color: '#FFFFFF',
     marginBottom: 10,
@@ -229,7 +607,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
     color: '#CBD5E1',
-    marginBottom: 18,
+    maxWidth: 620,
   },
 
   downloadButtonsRow: {
@@ -241,11 +619,13 @@ const styles = StyleSheet.create({
   storeButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     backgroundColor: '#1D4ED8',
     borderRadius: 999,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingVertical: 14,
+    minWidth: 160,
   },
 
   storeButtonText: {

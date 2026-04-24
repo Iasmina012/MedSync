@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform, Alert, } from 'react-native';
+import React, { useState, useEffect, useRef,  } from 'react';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform, Alert, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import WebFooter from '../src/components/layout/WebFooter';
@@ -18,16 +18,76 @@ const CONTACT = {
 
 export default function ContactScreen() {
 
+  const floatY = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
+  const slideX = useRef(new Animated.Value(0)).current;
+
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatY, {
+          toValue: -12,
+          duration: 1600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatY, {
+          toValue: 0,
+          duration: 1600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.08,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(slideX, {
+          toValue: 10,
+          duration: 1700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideX, {
+          toValue: 0,
+          duration: 1700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+  }, [floatY, pulse, slideX]);
 
   const openEmail = async () => {
 
     const url = `mailto:${CONTACT.email}`;
 
     const supported = await Linking.canOpenURL(url);
+
     if (!supported) {
       Alert.alert('Unavailable', 'Email app is not available on this device.');
       return;
@@ -55,7 +115,7 @@ export default function ContactScreen() {
 
     const url = Platform.OS === 'ios' ? CONTACT.appleMapsUrl : CONTACT.googleMapsUrl;
     const supported = await Linking.canOpenURL(url);
-    
+
     if (!supported) {
       Alert.alert('Unavailable', 'Maps are not available on this device.');
       return;
@@ -123,16 +183,85 @@ export default function ContactScreen() {
 
         <View style={styles.hero}>
 
-          <View style={styles.badge}>
-            <Ionicons name="mail-outline" size={16} color="#1D4ED8"/>
-            <Text style={styles.badgeText}>Let&apos;s talk! Contact the MedSync Team</Text>
+          <View style={styles.heroLeft}>
+            <View style={styles.badge}>
+              <Ionicons name="mail-outline" size={16} color="#1D4ED8"/>
+              <Text style={styles.badgeText}>Let&apos;s talk! Contact the MedSync Team</Text>
+            </View>
+
+            <Text style={styles.title}>Get in touch with the MedSync team</Text>
+
+            <Text style={styles.subtitle}>
+              Reach out for platform support, collaboration, clinic onboarding, or general MedSync questions.
+            </Text>
+
+            <View style={styles.heroPillsRow}>
+              <View style={styles.heroPill}>
+                <Ionicons name="mail-open-outline" size={16} color="#1D4ED8"/>
+                <Text style={styles.heroPillText}>Email support</Text>
+              </View>
+
+              <View style={styles.heroPill}>
+                <Ionicons name="call-outline" size={16} color="#1D4ED8"/>
+                <Text style={styles.heroPillText}>Direct contact</Text>
+              </View>
+
+              <View style={styles.heroPill}>
+                <Ionicons name="time-outline" size={16} color="#1D4ED8"/>
+                <Text style={styles.heroPillText}>Weekday support</Text>
+              </View>
+            </View>
           </View>
 
-          <Text style={styles.title}>Get in touch with the MedSync team</Text>
-          <Text style={styles.subtitle}>
-            This contact page is for the MedSync platform team.
-          </Text>
-        
+          <Animated.View
+            style={[
+              styles.contactAnimationCard,
+              {
+                transform: [{ translateY: floatY }],
+              },
+            ]}
+          >
+            <View style={styles.animationTopRow}>
+              <View style={styles.animationIconWrap}>
+                <Ionicons name="chatbubbles-outline" size={24} color="#1D4ED8"/>
+              </View>
+
+              <View>
+                <Text style={styles.animationTitle}>Message received</Text>
+                <Text style={styles.animationSubtitle}>MedSync support team</Text>
+              </View>
+            </View>
+
+            <View style={styles.messagePreview}>
+              <Text style={styles.messagePreviewText}>
+                Hi MedSync, I&apos;d like to learn more about the platform.
+              </Text>
+            </View>
+
+            <Animated.View
+              style={[
+                styles.replyBubble,
+                {
+                  transform: [{ translateX: slideX }],
+                },
+              ]}
+            >
+              <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
+              <Text style={styles.replyBubbleText}>We&apos;ll get back soon</Text>
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.heroPulseButton,
+                {
+                  transform: [{ scale: pulse }],
+                },
+              ]}
+            >
+              <Ionicons name="paper-plane" size={18} color="#FFFFFF"/>
+              <Text style={styles.heroPulseButtonText}>Send message</Text>
+            </Animated.View>
+          </Animated.View>
         </View>
 
         <View style={styles.grid}>
@@ -256,16 +385,12 @@ export default function ContactScreen() {
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>
-                Platform-level contact for MedSync
-              </Text>
+              <Text style={styles.bulletText}>Platform-level contact for MedSync</Text>
             </View>
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>
-                Clinic-specific maps can be added later
-              </Text>
+              <Text style={styles.bulletText}>Clinic-specific maps can be added later</Text>
             </View>
 
             <View style={styles.bullet}>
@@ -304,11 +429,22 @@ const styles = StyleSheet.create({
 
   hero: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 30,
+    borderRadius: 34,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 28,
+    padding: 30,
     marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 28,
+    flexWrap: 'wrap',
+    overflow: 'hidden',
+  },
+
+  heroLeft: {
+    flex: 1.1,
+    minWidth: 280,
   },
 
   badge: {
@@ -337,13 +473,131 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0F172A',
     marginBottom: 14,
+    maxWidth: 760,
   },
 
   subtitle: {
     fontSize: 17,
     lineHeight: 28,
     color: '#475569',
-    maxWidth: 900,
+    maxWidth: 760,
+  },
+
+  heroPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 22,
+  },
+
+  heroPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+
+  heroPillText: {
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  contactAnimationCard: {
+    width: 400,
+    minHeight: 310,
+    backgroundColor: '#0F172A',
+    borderRadius: 34,
+    padding: 20,
+    borderWidth: 8,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 6,
+  },
+
+  animationTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 18,
+  },
+
+  animationIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  animationTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+
+  animationSubtitle: {
+    color: '#94A3B8',
+    fontSize: 13,
+    marginTop: 4,
+  },
+
+  messagePreview: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 14,
+  },
+
+  messagePreviewText: {
+    color: '#334155',
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: '600',
+  },
+
+  replyBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 20,
+  },
+
+  replyBubbleText: {
+    color: '#166534',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+
+  heroPulseButton: {
+    alignSelf: 'center',
+    backgroundColor: '#1D4ED8',
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  heroPulseButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 14,
   },
 
   grid: {

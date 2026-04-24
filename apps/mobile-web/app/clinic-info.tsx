@@ -23,12 +23,92 @@ type ClinicDetails = {
 
 };
 
-function buildMapsEmbedUrl(query: string) {
-  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=15&output=embed`;
+type MapCoords = {
+
+  latitude: number;
+  longitude: number;
+
+};
+
+function buildGoogleMapsEmbedUrl(query: string) {
+  return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
 }
 
 function buildMapsOpenUrl(query: string) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+
+  const encoded = encodeURIComponent(query);
+
+  if (Platform.OS === 'ios') {
+    return `http://maps.apple.com/?q=${encoded}`;
+  }
+
+  if (Platform.OS === 'android') {
+    return `geo:0,0?q=${encoded}`;
+  }
+
+  return `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+
+}
+
+function buildLeafletHtml({
+  latitude,
+  longitude,
+  title,
+}: {
+  latitude: number;
+  longitude: number;
+  title: string;
+}) {
+
+  const safeTitle = title.replace(/`/g, '').replace(/</g, '').replace(/>/g, '');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        />
+        <style>
+          html, body, #map {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #F8FAFC;
+          }
+          .leaflet-container {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+          const map = L.map('map', {
+            zoomControl: true,
+            attributionControl: true
+          }).setView([${latitude}, ${longitude}], 15);
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map);
+
+          L.marker([${latitude}, ${longitude}])
+            .addTo(map)
+            .bindPopup('${safeTitle}')
+            .openPopup();
+        </script>
+      </body>
+    </html>
+  `;
+
 }
 
 export default function ClinicInfoScreen() {
@@ -44,11 +124,20 @@ export default function ClinicInfoScreen() {
   const [details, setDetails] = useState<ClinicDetails | null>(null);
   const [mapSearch, setMapSearch] = useState('');
   const [activeMapQuery, setActiveMapQuery] = useState('');
+  const [mapCoords, setMapCoords] = useState<MapCoords>({
+    latitude: 44.4268,
+    longitude: 26.1025,
+  });
+  const [geocoding, setGeocoding] = useState(false);
+  const [mapError, setMapError] = useState('');
 
   useEffect(() => {
 
     const load = async () => {
-      if (!clinicId) return;
+      if (!clinicId) {
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
 
@@ -78,38 +167,100 @@ export default function ClinicInfoScreen() {
   
   }, [clinicId]);
 
+  const geocodeLocation = async (query: string, showError = true) => {
+
+    const trimmedQuery = query.trim();
+
+    if (!trimmedQuery) return;
+
+    try {
+      setGeocoding(true);
+      setMapError('');
+
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(trimmedQuery)}&email=contact@medsync.com`,
+        {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': 'MedSync/1.0 contact@medsync.com',
+          },
+        }
+      );
+
+      const results = await response.json();
+
+      if (!Array.isArray(results) || results.length === 0) {
+        if (showError) {
+          setMapError('No location found. Try a more specific address.');
+        }
+        return;
+      }
+
+      const firstResult = results[0];
+
+      setMapCoords({
+        latitude: Number(firstResult.lat),
+        longitude: Number(firstResult.lon),
+      });
+      setActiveMapQuery(trimmedQuery);
+    } catch {
+      if (showError) {
+        setMapError('Could not search this location right now.');
+      }
+    } finally {
+      setGeocoding(false);
+    }
+
+  };
+
   useEffect(() => {
 
-    if (!details) return;
-
-    const defaultLocation =
-      details.address?.trim() || clinicName || 'Bucharest, Romania';
+    const defaultLocation = details?.address?.trim() || clinicName || 'Bucharest, Romania';
 
     setMapSearch(defaultLocation);
     setActiveMapQuery(defaultLocation);
 
+    if (Platform.OS !== 'web') {
+      geocodeLocation(defaultLocation, false);
+    }
   }, [details, clinicName]);
 
   const mapUrl = useMemo(() => {
 
     if (activeMapQuery.trim()) {
-      return buildMapsEmbedUrl(activeMapQuery.trim());
+      return buildGoogleMapsEmbedUrl(activeMapQuery.trim());
     }
 
     if (details?.map_embed_url) {
       return details.map_embed_url;
     }
 
-    return buildMapsEmbedUrl(
-      details?.address || clinicName || 'Bucharest, Romania'
-    );
+    return buildGoogleMapsEmbedUrl(details?.address || clinicName || 'Bucharest, Romania');
 
   }, [activeMapQuery, details?.map_embed_url, details?.address, clinicName]);
 
+  const nativeMapHtml = useMemo(
+    () =>
+      buildLeafletHtml({
+        latitude: mapCoords.latitude,
+        longitude: mapCoords.longitude,
+        title: activeMapQuery || details?.address || clinicName || 'Clinic location',
+      }),
+    [mapCoords.latitude, mapCoords.longitude, activeMapQuery, details?.address, clinicName]
+  );
+
   const handleMapSearch = () => {
     const value = mapSearch.trim();
-    if (!value) return;
-    setActiveMapQuery(value);
+
+    if (!value) 
+      return;
+
+    if (Platform.OS === 'web') {
+      setActiveMapQuery(value);
+      return;
+    }
+
+    geocodeLocation(value);
   };
 
   const handleOpenMap = async () => {
@@ -119,7 +270,27 @@ export default function ClinicInfoScreen() {
       clinicName ||
       'Bucharest, Romania';
 
-    await Linking.openURL(buildMapsOpenUrl(query));
+    const primaryUrl = buildMapsOpenUrl(query);
+    const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      query
+    )}`;
+
+    try {
+      const supported = await Linking.canOpenURL(primaryUrl);
+
+      if (supported) {
+        await Linking.openURL(primaryUrl);
+        return;
+      }
+
+      await Linking.openURL(fallbackUrl);
+    } catch {
+      try {
+        await Linking.openURL(fallbackUrl);
+      } catch {
+        setMapError('Could not open maps on this device.');
+      }
+    }
   };
 
   if (loading) {
@@ -298,8 +469,11 @@ export default function ClinicInfoScreen() {
             <Pressable
               style={[styles.mapButton, { backgroundColor: theme.primary }]}
               onPress={handleMapSearch}
+              disabled={geocoding}
             >
-              <Text style={styles.mapButtonText}>Search</Text>
+              <Text style={styles.mapButtonText}>
+                {geocoding ? 'Searching...' : 'Search'}
+              </Text>
             </Pressable>
 
             <Pressable
@@ -310,6 +484,8 @@ export default function ClinicInfoScreen() {
               <Text style={styles.mapSecondaryButtonText}>Open in Maps</Text>
             </Pressable>
           </View>
+
+          {!!mapError && <Text style={styles.mapErrorText}>{mapError}</Text>}
         </View>
 
         <View style={styles.mapWrap}>
@@ -329,7 +505,15 @@ export default function ClinicInfoScreen() {
               title="Clinic Map"
             />
           ) : (
-            <WebView source={{ uri: mapUrl }} style={styles.map}/>
+            <WebView
+              key={`${mapCoords.latitude}-${mapCoords.longitude}`}
+              originWhitelist={['*']}
+              source={{ html: nativeMapHtml }}
+              style={styles.map}
+              javaScriptEnabled
+              domStorageEnabled
+              startInLoadingState
+            />
           )}
         </View>
       </View>
@@ -582,12 +766,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
+  mapErrorText: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
   mapWrap: {
     overflow: 'hidden',
     borderRadius: 22,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    height: 560,
+    height: Platform.OS === 'web' ? 560 : 360,
     width: '100%',
     backgroundColor: '#FFFFFF',
   },

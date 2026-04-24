@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
@@ -16,11 +16,14 @@ export default function InfoSearchBar({
   placeholder = 'Search...',
 }: Props) {
 
+  const hasValue = value.trim().length > 0;
+
   return (
 
     <View style={styles.container}>
 
       <Ionicons name="search-outline" size={20} color="#64748B"/>
+
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -29,6 +32,14 @@ export default function InfoSearchBar({
         style={styles.input}
       />
 
+      {hasValue && (
+        <Pressable
+          onPress={() => onChangeText('')}
+          style={({ pressed }) => [styles.clearButton, pressed && styles.pressed]}
+        >
+          <Ionicons name="close-circle" size={20} color="#94A3B8"/>
+        </Pressable>
+      )}
     </View>
 
   );
@@ -57,5 +68,17 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     outlineStyle: 'none' as any,
   },
-  
+
+  clearButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  pressed: {
+    opacity: 0.7,
+  },
+
 });

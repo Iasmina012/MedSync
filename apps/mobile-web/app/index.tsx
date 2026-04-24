@@ -444,7 +444,8 @@ export default function HomeScreen() {
   const [isSliding, setIsSliding] = useState(false);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
 
-  const [reviewName, setReviewName] = useState('');
+  const [reviewFirstName, setReviewFirstName] = useState('');
+  const [reviewLastName, setReviewLastName] = useState('');
   const [reviewEmail, setReviewEmail] = useState('');
   const [reviewText, setReviewText] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
@@ -511,107 +512,171 @@ export default function HomeScreen() {
     loadReviews();
   }, []);
 
-const getReviewWindow = useCallback(
-  (startIndex: number) => {
+  useEffect(() => {
+
+    const loadLoggedUserForReview = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const metadata = user.user_metadata ?? {};
+
+      const first =
+        metadata.first_name ||
+        metadata.firstName ||
+        metadata.given_name ||
+        '';
+
+      const last =
+        metadata.last_name ||
+        metadata.lastName ||
+        metadata.family_name ||
+        '';
+
+      const fullName =
+        metadata.full_name ||
+        metadata.fullName ||
+        metadata.name ||
+        '';
+
+      let resolvedFirstName = String(first).trim();
+      let resolvedLastName = String(last).trim();
+
+      if ((!resolvedFirstName || !resolvedLastName) && fullName) {
+        const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
+
+        if (!resolvedFirstName) {
+          resolvedFirstName = parts[0] || '';
+        }
+
+        if (!resolvedLastName) {
+          resolvedLastName = parts.slice(1).join(' ') || '';
+        }
+      }
+
+      if (resolvedFirstName) {
+        setReviewFirstName(resolvedFirstName);
+      }
+
+      if (resolvedLastName) {
+        setReviewLastName(resolvedLastName);
+      }
+
+      if (user.email) {
+        setReviewEmail(user.email);
+      }
+    };
+
+    loadLoggedUserForReview();
+  
+  }, []);
+
+  const getReviewWindow = useCallback(
+    (startIndex: number) => {
+      if (reviews.length === 0) return [];
+
+      return Array.from(
+        { length: Math.min(reviewsPerPage, reviews.length) },
+        (_, index) => reviews[(startIndex + index) % reviews.length]
+      );
+    },
+    [reviews, reviewsPerPage]
+  );
+
+  const currentReviews = useMemo(() => {
+    return getReviewWindow(reviewStartIndex);
+  }, [getReviewWindow, reviewStartIndex]);
+
+  const nextReviews = useMemo(() => {
     if (reviews.length === 0) return [];
 
-    return Array.from(
-      { length: Math.min(reviewsPerPage, reviews.length) },
-      (_, index) => reviews[(startIndex + index) % reviews.length]
-    );
-  },
-  [reviews, reviewsPerPage]
-);
+    const nextIndex =
+      slideDirection === 'right'
+        ? (reviewStartIndex + 1) % reviews.length
+        : (reviewStartIndex - 1 + reviews.length) % reviews.length;
 
-const currentReviews = useMemo(() => {
-  return getReviewWindow(reviewStartIndex);
-}, [getReviewWindow, reviewStartIndex]);
+    return getReviewWindow(nextIndex);
+  }, [getReviewWindow, reviews.length, reviewStartIndex, slideDirection]);
 
-const nextReviews = useMemo(() => {
-  if (reviews.length === 0) return [];
+  const clearAutoplay = useCallback(() => {
+    if (autoplayRef.current) {
+      clearTimeout(autoplayRef.current);
+      autoplayRef.current = null;
+    }
+  }, []);
 
-  const nextIndex =
-    slideDirection === 'right'
-      ? (reviewStartIndex + 1) % reviews.length
-      : (reviewStartIndex - 1 + reviews.length) % reviews.length;
+  const runSlide = useCallback(
+    (direction: 'left' | 'right') => {
+      if (reviewsLoopDisabled || isSliding) return;
 
-  return getReviewWindow(nextIndex);
-}, [getReviewWindow, reviews.length, reviewStartIndex, slideDirection]);
+      setIsSliding(true);
+      setSlideDirection(direction);
+      reviewTranslateX.setValue(0);
 
-const clearAutoplay = useCallback(() => {
-  if (autoplayRef.current) {
-    clearTimeout(autoplayRef.current);
-    autoplayRef.current = null;
-  }
-}, []);
+      Animated.timing(reviewTranslateX, {
+        toValue: direction === 'right' ? -1 : 1,
+        duration: 80,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        useNativeDriver: true,
+      }).start(() => {
+        setReviewStartIndex((prev) =>
+          direction === 'right'
+            ? (prev + 1) % reviews.length
+            : (prev - 1 + reviews.length) % reviews.length
+        );
 
-const runSlide = useCallback(
-  (direction: 'left' | 'right') => {
+        reviewTranslateX.setValue(0);
+        setIsSliding(false);
+      });
+    },
+    [reviewsLoopDisabled, isSliding, reviewTranslateX, reviews.length]
+  );
+
+  const handlePrevReviews = useCallback(() => {
+    clearAutoplay();
+    runSlide('left');
+  }, [clearAutoplay, runSlide]);
+
+  const handleNextReviews = useCallback(() => {
+    clearAutoplay();
+    runSlide('right');
+  }, [clearAutoplay, runSlide]);
+
+  useEffect(() => {
+
+    clearAutoplay();
+
     if (reviewsLoopDisabled || isSliding) return;
 
-    setIsSliding(true);
-    setSlideDirection(direction);
-    reviewTranslateX.setValue(0);
+    autoplayRef.current = setTimeout(() => {
+      runSlide('right');
+    }, 2000);
 
-    Animated.timing(reviewTranslateX, {
-      toValue: direction === 'right' ? -1 : 1,
-      duration: 80,
-      easing: Easing.bezier(0.22, 1, 0.36, 1),
-      useNativeDriver: true,
-    }).start(() => {
-      setReviewStartIndex((prev) =>
-        direction === 'right'
-          ? (prev + 1) % reviews.length
-          : (prev - 1 + reviews.length) % reviews.length
-      );
+    return () => {
+      clearAutoplay();
+    };
+  }, [
+    reviewStartIndex,
+    reviews.length,
+    reviewsPerPage,
+    reviewsLoopDisabled,
+    isSliding,
+    clearAutoplay,
+    runSlide,
 
-      reviewTranslateX.setValue(0);
-      setIsSliding(false);
-    });
-  },
-  [reviewsLoopDisabled, isSliding, reviewTranslateX, reviews.length]
-);
-
-const handlePrevReviews = useCallback(() => {
-  clearAutoplay();
-  runSlide('left');
-}, [clearAutoplay, runSlide]);
-
-const handleNextReviews = useCallback(() => {
-  clearAutoplay();
-  runSlide('right');
-}, [clearAutoplay, runSlide]);
-
-useEffect(() => {
-
-  clearAutoplay();
-
-  if (reviewsLoopDisabled || isSliding) return;
-
-  autoplayRef.current = setTimeout(() => {
-    runSlide('right');
-  }, 2000);
-
-  return () => {
-    clearAutoplay();
-  };
-}, [
-  reviewStartIndex,
-  reviews.length,
-  reviewsPerPage,
-  reviewsLoopDisabled,
-  isSliding,
-  clearAutoplay,
-  runSlide,
-
-]);
+  ]);
 
   const handleAddReview = async () => {
-    const trimmedName = reviewName.trim();
+  
+    const trimmedFirstName = reviewFirstName.trim();
+    const trimmedLastName = reviewLastName.trim();
+    const trimmedName = `${trimmedFirstName} ${trimmedLastName}`.trim();
     const trimmedEmail = reviewEmail.trim().toLowerCase();
     const trimmedText = reviewText.trim();
 
-    if (!trimmedName || !trimmedEmail || !trimmedText) {
+    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedText) {
       setReviewError('Please complete all review fields.');
       setReviewSuccess('');
       return;
@@ -648,7 +713,8 @@ useEffect(() => {
         return;
       }
 
-      setReviewName('');
+      setReviewFirstName('');
+      setReviewLastName('');
       setReviewEmail('');
       setReviewText('');
       setReviewRating(5);
@@ -661,6 +727,7 @@ useEffect(() => {
     } finally {
       setReviewSubmitting(false);
     }
+
   };
 
   if (!isWeb) {
@@ -968,23 +1035,31 @@ useEffect(() => {
 
           <View style={styles.reviewFormRow}>
             <TextInput
-              placeholder="Your name"
+              placeholder="First name"
               placeholderTextColor="#94A3B8"
-              value={reviewName}
-              onChangeText={setReviewName}
+              value={reviewFirstName}
+              onChangeText={setReviewFirstName}
               style={styles.reviewInput}
             />
 
             <TextInput
-              placeholder="Your email"
+              placeholder="Last name"
               placeholderTextColor="#94A3B8"
-              value={reviewEmail}
-              onChangeText={setReviewEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
+              value={reviewLastName}
+              onChangeText={setReviewLastName}
               style={styles.reviewInput}
             />
           </View>
+
+          <TextInput
+            placeholder="Your email"
+            placeholderTextColor="#94A3B8"
+            value={reviewEmail}
+            onChangeText={setReviewEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            style={[styles.reviewInput, styles.reviewEmailInput]}
+          />
 
           <TextInput
             placeholder="Write your review"
@@ -1946,6 +2021,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: BRAND.muted,
     marginTop: 4,
+  },
+
+  reviewEmailInput: {
+    marginBottom: 12,
   },
 
   pressed: {

@@ -14,6 +14,13 @@ import { ClinicHealthTip, MoodType, getHealthTipMatchLabel, scoreHealthTip, scor
 
 type FeedbackReaction = 'helpful' | 'saved' | 'done';
 
+type FeedbackItem = {
+
+  reaction: FeedbackReaction;
+  created_at: string;
+
+};
+
 type PatientProfile = {
 
   id: string;
@@ -84,7 +91,24 @@ export default function HealthTipsScreen() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [tips, setTips] = useState<ClinicHealthTip[]>([]);
   const [selectedTip, setSelectedTip] = useState<TipCard | null>(null);
-  const [feedbackMap, setFeedbackMap] = useState<Record<string, FeedbackReaction[]>>({});
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, FeedbackItem[]>>({});
+
+  const hasReaction = (
+    tipId: string,
+    reaction: FeedbackReaction,
+    map = feedbackMap
+  ) => {
+    return (map[tipId] ?? []).some((item) => item.reaction === reaction);
+  };
+
+  const getReactionDate = (
+    tipId: string,
+    reaction: FeedbackReaction,
+    map = feedbackMap
+  ) => {
+    const item = (map[tipId] ?? []).find((entry) => entry.reaction === reaction);
+    return item ? new Date(item.created_at).getTime() : null;
+  };
 
   useEffect(() => {
 
@@ -172,7 +196,7 @@ export default function HealthTipsScreen() {
 
         const { data: feedbackData, error: feedbackError } = await supabase
           .from('patient_health_tip_feedback')
-          .select('tip_id, reaction')
+          .select('tip_id, reaction, created_at')
           .eq('profile_id', user.id);
 
         if (feedbackError) {
@@ -180,11 +204,15 @@ export default function HealthTipsScreen() {
           return;
         }
 
-        const nextMap: Record<string, FeedbackReaction[]> = {};
+        const nextMap: Record<string, FeedbackItem[]> = {};
 
         (feedbackData ?? []).forEach((item) => {
           if (!nextMap[item.tip_id]) nextMap[item.tip_id] = [];
-          nextMap[item.tip_id].push(item.reaction as FeedbackReaction);
+
+          nextMap[item.tip_id].push({
+            reaction: item.reaction as FeedbackReaction,
+            created_at: item.created_at,
+          });
         });
 
         setFeedbackMap(nextMap);
@@ -213,12 +241,12 @@ export default function HealthTipsScreen() {
 
   }, [tips]);
 
-  const personalizedTips = useMemo(() => {
+  const scoredTips = useMemo(() => {
 
     if (!profile) 
       return [];
 
-    let items: TipCard[] = tips.map((tip) => {
+    return tips.map((tip) => {
       const baseScore = scoreHealthTip(tip, profile);
       const moodScore = scoreHealthTipForMood(tip, mood);
       const matchScore = baseScore + moodScore;
@@ -229,6 +257,141 @@ export default function HealthTipsScreen() {
         matchLabel: getHealthTipMatchLabel(matchScore),
       };
     });
+
+  }, [tips, profile, mood]);
+
+  const sortTips = (itemsToSort: TipCard[]) => {
+
+    const items = [...itemsToSort];
+
+    const defaultCompare = (a: TipCard, b: TipCard) => {
+      if ((b.priority ?? 0) !== (a.priority ?? 0)) {
+        return (b.priority ?? 0) - (a.priority ?? 0);
+      }
+
+      if (b.matchScore !== a.matchScore) {
+        return b.matchScore - a.matchScore;
+      }
+
+      return a.title.localeCompare(b.title);
+    };
+
+    switch (sortBy) {
+
+      case 'best_match':
+        items.sort((a, b) => {
+          if (b.matchScore !== a.matchScore) 
+            return b.matchScore - a.matchScore;
+          return defaultCompare(a, b);
+        });
+        break;
+
+      case 'title_asc':
+        items.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+
+      case 'title_desc':
+        items.sort((a, b) => b.title.localeCompare(a.title));
+        break;
+
+      case 'priority_asc':
+        items.sort((a, b) => {
+          if ((a.priority ?? 0) !== (b.priority ?? 0)) {
+            return (a.priority ?? 0) - (b.priority ?? 0);
+          }
+
+          return a.title.localeCompare(b.title);
+        });
+        break;
+
+      case 'priority_desc':
+        items.sort((a, b) => {
+          if ((b.priority ?? 0) !== (a.priority ?? 0)) {
+            return (b.priority ?? 0) - (a.priority ?? 0);
+          }
+
+          return a.title.localeCompare(b.title);
+        });
+        break;
+
+      case 'saved_first':
+        items.sort((a, b) => {
+          const aDate = getReactionDate(a.id, 'saved');
+          const bDate = getReactionDate(b.id, 'saved');
+
+          if (aDate !== null && bDate !== null) 
+            return aDate - bDate;
+          if (aDate !== null) 
+            return -1;
+          if (bDate !== null) 
+            return 1;
+
+          return defaultCompare(a, b);
+        });
+        break;
+
+      case 'saved_last':
+        items.sort((a, b) => {
+          const aDate = getReactionDate(a.id, 'saved');
+          const bDate = getReactionDate(b.id, 'saved');
+
+          if (aDate !== null && bDate !== null) 
+            return bDate - aDate;
+          if (aDate !== null) 
+            return -1;
+          if (bDate !== null) 
+            return 1;
+
+          return defaultCompare(a, b);
+        });
+        break;
+
+      case 'done_first':
+        items.sort((a, b) => {
+          const aDate = getReactionDate(a.id, 'done');
+          const bDate = getReactionDate(b.id, 'done');
+
+          if (aDate !== null && bDate !== null) 
+            return aDate - bDate;
+          if (aDate !== null) 
+            return -1;
+          if (bDate !== null) 
+            return 1;
+
+          return defaultCompare(a, b);
+        });
+        break;
+
+      case 'done_last':
+        items.sort((a, b) => {
+          const aDate = getReactionDate(a.id, 'done');
+          const bDate = getReactionDate(b.id, 'done');
+
+          if (aDate !== null && bDate !== null) 
+            return bDate - aDate;
+          if (aDate !== null) 
+            return -1;
+          if (bDate !== null) 
+            return 1;
+
+          return defaultCompare(a, b);
+        });
+        break;
+
+      case 'default':
+      default:
+        items.sort(defaultCompare);
+        break;
+
+    }
+
+    return items;
+
+  };
+
+  const filteredTips = (() => {
+
+    let items = [...scoredTips];
 
     const q = search.trim().toLowerCase();
 
@@ -245,104 +408,36 @@ export default function HealthTipsScreen() {
     }
 
     if (activeTab === 'saved') {
-      items = items.filter((tip) => (feedbackMap[tip.id] ?? []).includes('saved'));
+      items = items.filter((tip) => hasReaction(tip.id, 'saved'));
     }
 
     if (activeTab === 'done') {
-      items = items.filter((tip) => (feedbackMap[tip.id] ?? []).includes('done'));
+      items = items.filter((tip) => hasReaction(tip.id, 'done'));
     }
 
-    switch (sortBy) {
+    return sortTips(items);
 
-      case 'best_match':
-        items.sort((a, b) => b.matchScore - a.matchScore);
-        break;
+  })();
 
-      case 'title_asc':
-        items.sort((a, b) => a.title.localeCompare(b.title));
-        break;
+  const todayTip = (() => {
+    const availableTips = sortTips(scoredTips);
+    return availableTips[0] ?? null;
+  })();
 
-      case 'title_desc':
-        items.sort((a, b) => b.title.localeCompare(a.title));
-        break;
+  const savedCount = Object.values(feedbackMap).filter((items) => items.some((item) => item.reaction === 'saved')).length;
 
-      case 'priority_asc':
-        items.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
-        break;
+  const doneCount = Object.values(feedbackMap).filter((items) => items.some((item) => item.reaction === 'done')).length;
 
-      case 'priority_desc':
-        items.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
-        break;
-
-      case 'saved_first':
-        items.sort((a, b) => {
-          const aSaved = (feedbackMap[a.id] ?? []).includes('saved') ? 1 : 0;
-          const bSaved = (feedbackMap[b.id] ?? []).includes('saved') ? 1 : 0;
-          if (bSaved !== aSaved) 
-            return bSaved - aSaved;
-          return b.matchScore - a.matchScore;
-        });
-        break;
-
-      case 'saved_last':
-        items.sort((a, b) => {
-          const aSaved = (feedbackMap[a.id] ?? []).includes('saved') ? 1 : 0;
-          const bSaved = (feedbackMap[b.id] ?? []).includes('saved') ? 1 : 0;
-          if (aSaved !== bSaved) 
-            return aSaved - bSaved;
-          return b.matchScore - a.matchScore;
-        });
-        break;
-
-      case 'done_first':
-        items.sort((a, b) => {
-          const aDone = (feedbackMap[a.id] ?? []).includes('done') ? 1 : 0;
-          const bDone = (feedbackMap[b.id] ?? []).includes('done') ? 1 : 0;
-          if (bDone !== aDone) 
-            return bDone - aDone;
-          return b.matchScore - a.matchScore;
-        });
-        break;
-
-      case 'done_last':
-        items.sort((a, b) => {
-          const aDone = (feedbackMap[a.id] ?? []).includes('done') ? 1 : 0;
-          const bDone = (feedbackMap[b.id] ?? []).includes('done') ? 1 : 0;
-          if (aDone !== bDone) 
-            return aDone - bDone;
-          return b.matchScore - a.matchScore;
-        });
-        break;
-
-      case 'default':
-      default:
-        items.sort((a, b) => {
-          if ((b.priority ?? 0) !== (a.priority ?? 0)) {
-            return (b.priority ?? 0) - (a.priority ?? 0);
-          }
-          if (b.matchScore !== a.matchScore) 
-            return b.matchScore - a.matchScore;
-          return a.title.localeCompare(b.title);
-        });
-        break;
-
-    }
-
-    return items;
-  
-  }, [tips, profile, mood, search, categoryFilter, activeTab, feedbackMap, sortBy]);
-
-  const todayTip = personalizedTips[0] ?? null;
-  const savedCount = Object.values(feedbackMap).filter((items) => items.includes('saved')).length;
-  const doneCount = Object.values(feedbackMap).filter((items) => items.includes('done')).length;
-  const helpfulCount = Object.values(feedbackMap).filter((items) => items.includes('helpful')).length;
+  const helpfulCount = Object.values(feedbackMap).filter((items) => items.some((item) => item.reaction === 'helpful')).length;
 
   const handleReaction = async (tipId: string, reaction: FeedbackReaction) => {
 
     try {
       setSavingReaction(`${tipId}:${reaction}`);
 
-      const { data: { user }, } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user) {
         router.replace('/login');
@@ -350,7 +445,7 @@ export default function HealthTipsScreen() {
       }
 
       const reactions = feedbackMap[tipId] ?? [];
-      const alreadySelected = reactions.includes(reaction);
+      const alreadySelected = reactions.some((item) => item.reaction === reaction);
 
       if (alreadySelected) {
         const { error } = await supabase
@@ -367,18 +462,21 @@ export default function HealthTipsScreen() {
 
         setFeedbackMap((prev) => ({
           ...prev,
-          [tipId]: (prev[tipId] ?? []).filter((item) => item !== reaction),
+          [tipId]: (prev[tipId] ?? []).filter((item) => item.reaction !== reaction),
         }));
+
         return;
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('patient_health_tip_feedback')
         .insert({
           profile_id: user.id,
           tip_id: tipId,
           reaction,
-        });
+        })
+        .select('reaction, created_at')
+        .single();
 
       if (error) {
         setScreenError(`Could not save reaction. ${error.message}`);
@@ -387,7 +485,13 @@ export default function HealthTipsScreen() {
 
       setFeedbackMap((prev) => ({
         ...prev,
-        [tipId]: [...(prev[tipId] ?? []), reaction],
+        [tipId]: [
+          ...(prev[tipId] ?? []),
+          {
+            reaction: data.reaction as FeedbackReaction,
+            created_at: data.created_at,
+          },
+        ],
       }));
     } finally {
       setSavingReaction(null);
@@ -399,7 +503,11 @@ export default function HealthTipsScreen() {
 
     const reactions = feedbackMap[tip.id] ?? [];
 
-    return(
+    const isHelpful = reactions.some((item) => item.reaction === 'helpful');
+    const isSaved = reactions.some((item) => item.reaction === 'saved');
+    const isDone = reactions.some((item) => item.reaction === 'done');
+
+    return (
 
       <ScrollView
         horizontal
@@ -410,23 +518,23 @@ export default function HealthTipsScreen() {
 
         <ReactionButton
           label="Helpful"
-          active={reactions.includes('helpful')}
+          active={isHelpful}
           onPress={() => handleReaction(tip.id, 'helpful')}
           loading={savingReaction === `${tip.id}:helpful`}
           color={theme.primary}
         />
 
         <ReactionButton
-          label={reactions.includes('saved') ? 'Saved' : 'Save'}
-          active={reactions.includes('saved')}
+          label={isSaved ? 'Saved' : 'Save'}
+          active={isSaved}
           onPress={() => handleReaction(tip.id, 'saved')}
           loading={savingReaction === `${tip.id}:saved`}
           color={theme.primary}
         />
 
         <ReactionButton
-          label={reactions.includes('done') ? 'Completed' : 'Done'}
-          active={reactions.includes('done')}
+          label={isDone ? 'Completed' : 'Done'}
+          active={isDone}
           onPress={() => handleReaction(tip.id, 'done')}
           loading={savingReaction === `${tip.id}:done`}
           color={theme.primary}
@@ -469,19 +577,31 @@ export default function HealthTipsScreen() {
         ]}
       >
         <View style={[styles.heroCombinedLeft, isMobile && styles.heroCombinedLeftMobile]}>
-          <Text style={[styles.heroEyebrow, { color: theme.primary }]}>
+          <Text
+            style={[
+              styles.heroEyebrow,
+              isMobile && styles.centerText,
+              { color: theme.primary },
+            ]}
+          >
             Health Tips
           </Text>
 
-          <Text style={[styles.heroTitle, { color: theme.secondary }]}>
+          <Text
+            style={[
+              styles.heroTitle,
+              isMobile && styles.centerText,
+              { color: theme.secondary },
+            ]}
+          >
             Wellness guidance made for you
           </Text>
 
-          <Text style={styles.heroSubtitle}>
+          <Text style={[styles.heroSubtitle, isMobile && styles.centerText]}>
             Personalized clinic-based tips, useful daily suggestions, and healthier small habits.
           </Text>
 
-          <View style={styles.heroPills}>
+          <View style={[styles.heroPills, isMobile && styles.heroPillsMobile]}>
             <View style={styles.heroPill}>
               <Ionicons name="sparkles-outline" size={16} color={theme.primary}/>
               <Text style={[styles.heroPillText, { color: theme.primary }]}>
@@ -747,19 +867,29 @@ export default function HealthTipsScreen() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={theme.primary}/>
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
-      ) : personalizedTips.length === 0 && !screenError ? (
-        <View style={styles.emptyCard}>
-          <Ionicons name="sparkles-outline" size={24} color={theme.primary}/>
-          <Text style={styles.emptyTitle}>No tips available right now</Text>
-          <Text style={styles.emptyText}>
-            Try another mood, switch tab, or clear your filters.
-          </Text>
-        </View>
-      ) : (
+      ) : filteredTips.length === 0 && !screenError ? (
+            <View style={styles.emptyCard}>
+              <Ionicons
+                name={search.trim() ? 'search-outline' : 'sparkles-outline'}
+                size={24}
+                color={theme.primary}
+              />
+
+              <Text style={styles.emptyTitle}>
+                {search.trim() ? 'No health tips found' : 'No tips available right now'}
+              </Text>
+
+              <Text style={styles.emptyText}>
+                {search.trim()
+                  ? 'Try another keyword, mood, category, or clear your search.'
+                  : 'This clinic has not added any tips yet.'}
+              </Text>
+            </View>
+          ) : (
         <View style={styles.grid}>
-          {personalizedTips.map((tip) => (
+          {filteredTips.map((tip) => (
             <InfoImage
               key={tip.id}
               title={tip.title}
@@ -873,6 +1003,10 @@ const styles = StyleSheet.create({
     gap: 18,
   },
 
+  centerText: {
+    textAlign: 'center',
+  },
+
   heroCombined: {
     borderRadius: 28,
     borderWidth: 1,
@@ -884,6 +1018,7 @@ const styles = StyleSheet.create({
 
   heroCombinedMobile: {
     flexDirection: 'column',
+    alignItems: 'center',
   },
 
   heroCombinedLeft: {
@@ -893,6 +1028,7 @@ const styles = StyleSheet.create({
 
   heroCombinedLeftMobile: {
     minWidth: '100%',
+    alignItems: 'center',
   },
 
   heroCombinedTipCard: {
@@ -932,6 +1068,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+  },
+
+  heroPillsMobile: {
+    justifyContent: 'center',
   },
 
   heroPill: {

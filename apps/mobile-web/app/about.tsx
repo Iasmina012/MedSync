@@ -266,6 +266,27 @@ export default function AboutScreen() {
               MedSync supports clearer communication between patients, doctors, and clinic teams.
             </Text>
           </View>
+
+          <View style={styles.card}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
+            </View>
+            <Text style={styles.cardTitle}>Connected Communication</Text>
+            <Text style={styles.cardText}>
+              MedSync supports clearer communication between patients, doctors, and clinic teams.
+            </Text>
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
+            </View>
+            <Text style={styles.cardTitle}>Connected Communication</Text>
+            <Text style={styles.cardText}>
+              MedSync supports clearer communication between patients, doctors, and clinic teams.
+            </Text>
+          </View>
+          
         </View>
 
       { Platform.OS === 'web' && <WebFooter/> }

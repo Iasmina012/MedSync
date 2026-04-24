@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef,  } from 'react';
+import React, { useState, useEffect, useRef, } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform, Alert, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import WebFooter from '../src/components/layout/WebFooter';
+import { supabase } from '../src/lib/supabase';
 
 const CONTACT = {
 
@@ -15,6 +16,45 @@ const CONTACT = {
   appleMapsUrl: 'http://maps.apple.com/?q=Bulevardul+Unirii+10+Bucuresti+Romania',
 
 };
+
+function showAlert(title: string, message: string) {
+
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+    return;
+  }
+
+  Alert.alert(title, message);
+
+}
+
+async function openExternalUrl(url: string, errorMessage: string) {
+
+  try {
+    if (Platform.OS === 'web') {
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_self';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    const supported = await Linking.canOpenURL(url);
+
+    if (!supported) {
+      showAlert('Unavailable', errorMessage);
+      return;
+    }
+
+    await Linking.openURL(url);
+  } catch {
+    showAlert('Unavailable', errorMessage);
+  }
+
+}
 
 export default function ContactScreen() {
 
@@ -29,6 +69,68 @@ export default function ContactScreen() {
 
   useEffect(() => {
 
+    const loadLoggedUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const metadata = user.user_metadata ?? {};
+
+      const metadataFirstName =
+        metadata.first_name ||
+        metadata.firstName ||
+        metadata.given_name ||
+        metadata.givenName ||
+        '';
+
+      const metadataLastName =
+        metadata.last_name ||
+        metadata.lastName ||
+        metadata.family_name ||
+        metadata.familyName ||
+        '';
+
+      const fullName =
+        metadata.full_name ||
+        metadata.fullName ||
+        metadata.name ||
+        '';
+
+      let resolvedFirstName = String(metadataFirstName).trim();
+      let resolvedLastName = String(metadataLastName).trim();
+
+      if ((!resolvedFirstName || !resolvedLastName) && fullName) {
+        const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
+
+        if (!resolvedFirstName) {
+          resolvedFirstName = parts[0] || '';
+        }
+
+        if (!resolvedLastName) {
+          resolvedLastName = parts.slice(1).join(' ') || '';
+        }
+      }
+
+      if (resolvedFirstName) {
+        setFirstName(resolvedFirstName);
+      }
+
+      if (resolvedLastName) {
+        setLastName(resolvedLastName);
+      }
+
+      if (user.email) {
+        setEmailInput(user.email);
+      }
+    };
+
+    loadLoggedUser();
+
+  }, []);
+
+  useEffect(() => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(floatY, {
@@ -82,98 +184,62 @@ export default function ContactScreen() {
 
   }, [floatY, pulse, slideX]);
 
-  const openEmail = async () => {
-
-    const url = `mailto:${CONTACT.email}`;
-
-    const supported = await Linking.canOpenURL(url);
-
-    if (!supported) {
-      Alert.alert('Unavailable', 'Email app is not available on this device.');
-      return;
-    }
-
-    await Linking.openURL(url);
-  
-  };
-
-  const openPhone = async () => {
-
-    const url = `tel:${CONTACT.phoneLink}`;
-    const supported = await Linking.canOpenURL(url);
-
-    if (!supported) {
-      Alert.alert('Unavailable', 'Phone calls are not available on this device.');
-      return;
-    }
-
-    await Linking.openURL(url);
-  
-  };
-
-  const openMap = async () => {
-
-    const url = Platform.OS === 'ios' ? CONTACT.appleMapsUrl : CONTACT.googleMapsUrl;
-    const supported = await Linking.canOpenURL(url);
-
-    if (!supported) {
-      Alert.alert('Unavailable', 'Maps are not available on this device.');
-      return;
-    }
-
-    await Linking.openURL(url);
-  
-  };
-
-  const handleSendMessage = async () => {
-
-    const trimmedFirstName = firstName.trim();
-    const trimmedLastName = lastName.trim();
-    const trimmedEmail = emailInput.trim();
-    const trimmedMessage = message.trim();
-
-    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedMessage) {
-      Alert.alert('Incomplete form', 'Please complete all fields before sending.');
-      return;
-    }
-
-    const emailIsValid = /\S+@\S+\.\S+/.test(trimmedEmail);
-    if (!emailIsValid) {
-      Alert.alert('Invalid email', 'Please enter a valid email address.');
-      return;
-    }
-
-    const subject = encodeURIComponent(`MedSync contact message from ${trimmedFirstName} ${trimmedLastName}`);
-
-    const body = encodeURIComponent(
-      [
-        `First name: ${trimmedFirstName}`,
-        `Last name: ${trimmedLastName}`,
-        `Email: ${trimmedEmail}`,
-        '',
-        'Message:',
-        trimmedMessage,
-      ].join('\n')
+  const openEmail = () => {
+    openExternalUrl(
+      `mailto:${CONTACT.email}`,
+      'Email app is not available on this device.'
     );
-
-    const url = `mailto:${CONTACT.email}?subject=${subject}&body=${body}`;
-    const supported = await Linking.canOpenURL(url);
-
-    if (!supported) {
-      Alert.alert('Unavailable', 'Email app is not available on this device.');
-      return;
-    }
-
-    await Linking.openURL(url);
-
-    setFirstName('');
-    setLastName('');
-    setEmailInput('');
-    setMessage('');
-
-    Alert.alert('Ready to send', 'Your email app was opened with the message filled in.');
-  
   };
+
+  const openPhone = () => {
+    openExternalUrl(
+      `tel:${CONTACT.phoneLink}`,
+      'Phone calls are not available on this device.'
+    );
+  };
+
+  const openMap = () => {
+    const url = Platform.OS === 'ios' ? CONTACT.appleMapsUrl : CONTACT.googleMapsUrl;
+
+    openExternalUrl(url, 'Maps are not available on this device.');
+  };
+
+const handleSendMessage = async () => {
+
+  const trimmedFirstName = firstName.trim();
+  const trimmedLastName = lastName.trim();
+  const trimmedEmail = emailInput.trim();
+  const trimmedMessage = message.trim();
+
+  if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedMessage) {
+    showAlert('Incomplete form', 'Please complete all fields before sending.');
+    return;
+  }
+
+  const emailIsValid = /\S+@\S+\.\S+/.test(trimmedEmail);
+  if (!emailIsValid) {
+    showAlert('Invalid email', 'Please enter a valid email address.');
+    return;
+  }
+
+  const subject = encodeURIComponent(`MedSync contact message from ${trimmedFirstName} ${trimmedLastName}`);
+
+  const body = encodeURIComponent(
+    [
+      `First name: ${trimmedFirstName}`,
+      `Last name: ${trimmedLastName}`,
+      `Email: ${trimmedEmail}`,
+      '',
+      'Message:',
+      trimmedMessage,
+    ].join('\n')
+  );
+
+  const mailtoUrl = `mailto:${CONTACT.email}?subject=${subject}&body=${body}`;
+
+  await openExternalUrl(mailtoUrl, 'Email app is not available on this device.');
+
+};
 
   return (
 
@@ -186,7 +252,9 @@ export default function ContactScreen() {
           <View style={styles.heroLeft}>
             <View style={styles.badge}>
               <Ionicons name="mail-outline" size={16} color="#1D4ED8"/>
-              <Text style={styles.badgeText}>Let&apos;s talk! Contact the MedSync Team</Text>
+              <Text style={styles.badgeText}>
+                Let&apos;s talk! Contact the MedSync Team
+              </Text>
             </View>
 
             <Text style={styles.title}>Get in touch with the MedSync team</Text>
@@ -271,10 +339,12 @@ export default function ContactScreen() {
               <View style={styles.iconWrap}>
                 <Ionicons name="mail-open-outline" size={20} color="#1D4ED8"/>
               </View>
+
               <View style={styles.rowContent}>
                 <Text style={styles.rowTitle}>Email</Text>
                 <Text style={styles.rowText}>{CONTACT.email}</Text>
               </View>
+
               <Ionicons name="open-outline" size={18} color="#64748B"/>
             </Pressable>
 
@@ -282,10 +352,12 @@ export default function ContactScreen() {
               <View style={styles.iconWrap}>
                 <Ionicons name="call-outline" size={20} color="#1D4ED8"/>
               </View>
+
               <View style={styles.rowContent}>
                 <Text style={styles.rowTitle}>Phone</Text>
                 <Text style={styles.rowText}>{CONTACT.phoneDisplay}</Text>
               </View>
+
               <Ionicons name="open-outline" size={18} color="#64748B"/>
             </Pressable>
 
@@ -293,6 +365,7 @@ export default function ContactScreen() {
               <View style={styles.iconWrap}>
                 <Ionicons name="time-outline" size={20} color="#1D4ED8"/>
               </View>
+
               <View style={styles.rowContent}>
                 <Text style={styles.rowTitle}>Schedule</Text>
                 <Text style={styles.rowText}>Mon - Fri · 08:00 - 18:00</Text>
@@ -390,7 +463,9 @@ export default function ContactScreen() {
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>Clinic-specific maps can be added later</Text>
+              <Text style={styles.bulletText}>
+                Clinic-specific maps can be added later
+              </Text>
             </View>
 
             <View style={styles.bullet}>
@@ -398,8 +473,7 @@ export default function ContactScreen() {
               <Text style={styles.bulletText}>
                 Support, collaboration, and platform inquiries
               </Text>
-            </View>
-           
+            </View>               
           </View>
 
         </View>
@@ -408,8 +482,8 @@ export default function ContactScreen() {
 
       </ScrollView>
 
-    </PublicPageLayout>  
-   
+    </PublicPageLayout>
+
   );
 
 }

@@ -12,7 +12,8 @@ import { useClinicTheme } from '../src/lib/clinicTheme';
 type Doctor = {
 
   id: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   specialty: string | null;
   bio: string | null;
   experience_years: number | null;
@@ -29,6 +30,21 @@ type Doctor = {
 };
 
 type DoctorSort = | 'default' | 'name_asc' | 'name_desc' | 'experience_asc' | 'experience_desc';
+
+function getDoctorBaseName(doctor?: Doctor | null) {
+
+  if (!doctor) 
+    return '';
+  return `${doctor.first_name || ''} ${doctor.last_name || ''}`.trim();
+
+}
+
+function getDoctorDisplayName(doctor?: Doctor | null) {
+
+  const name = getDoctorBaseName(doctor);
+  return name ? `Dr. ${name}` : 'Dr.';
+
+}
 
 function DoctorRowCard({
   doctor,
@@ -142,7 +158,7 @@ function DoctorRowCard({
 
             <View style={styles.doctorContent}>
               <Text style={styles.doctorName} numberOfLines={1}>
-                {doctor.full_name}
+                {getDoctorDisplayName(doctor)}
               </Text>
 
               <Text style={styles.doctorMeta} numberOfLines={1}>
@@ -168,7 +184,7 @@ function DoctorRowCard({
     
     </Pressable>
   
-);
+  );
 
 }
 
@@ -190,6 +206,8 @@ export default function ClinicDoctorsScreen() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
 
+  const hasFilters = search.trim() || specialtyFilter !== 'All';
+
   useEffect(() => {
 
     const load = async () => {
@@ -201,7 +219,8 @@ export default function ClinicDoctorsScreen() {
         .from('doctors')
         .select(`
           id,
-          full_name,
+          first_name,
+          last_name,
           specialty,
           bio,
           experience_years,
@@ -247,8 +266,7 @@ export default function ClinicDoctorsScreen() {
     const q = search.trim().toLowerCase();
 
     if (q) {
-      items = items.filter((doctor) =>
-        `${doctor.full_name} ${doctor.specialty || ''} ${doctor.bio || ''} ${doctor.expertise || ''}`
+      items = items.filter((doctor) => `${doctor.first_name || ''} ${doctor.last_name || ''} ${getDoctorDisplayName(doctor)} ${doctor.specialty || ''} ${doctor.bio || ''} ${doctor.expertise || ''}`
           .toLowerCase()
           .includes(q)
       );
@@ -260,10 +278,10 @@ export default function ClinicDoctorsScreen() {
 
     switch (sortBy) {
       case 'name_asc':
-        items.sort((a, b) => a.full_name.localeCompare(b.full_name));
+        items.sort((a, b) => getDoctorBaseName(a).localeCompare(getDoctorBaseName(b)));
         break;
       case 'name_desc':
-        items.sort((a, b) => b.full_name.localeCompare(a.full_name));
+        items.sort((a, b) => getDoctorBaseName(b).localeCompare(getDoctorBaseName(a)));
         break;
       case 'experience_asc':
         items.sort((a, b) => (a.experience_years || 0) - (b.experience_years || 0));
@@ -283,7 +301,7 @@ export default function ClinicDoctorsScreen() {
   return (
 
     <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
-      
+
       <ClinicNavbar
         clinicName={clinicName}
         clinicId={clinicId}
@@ -324,7 +342,7 @@ export default function ClinicDoctorsScreen() {
               { label: 'Name A-Z', value: 'name_asc' },
               { label: 'Name Z-A', value: 'name_desc' },
               { label: 'Experience low-high', value: 'experience_asc' },
-              { label: 'Experience high-low', value: 'experience_desc' },
+              { label: 'Experience high-high', value: 'experience_desc' },
             ]}
           />
         </View>
@@ -364,6 +382,24 @@ export default function ClinicDoctorsScreen() {
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={theme.primary}/>
         </View>
+      ) : filtered.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Ionicons
+            name={hasFilters ? 'search-outline' : 'people-outline'}
+            size={24}
+            color={theme.primary}
+          />
+
+          <Text style={styles.emptyTitle}>
+            {hasFilters ? 'No doctors found' : 'No doctors available right now'}
+          </Text>
+
+          <Text style={styles.emptyText}>
+            {hasFilters
+              ? 'Try another name, specialty, or clear your filters.'
+              : 'This clinic has not added any doctors yet.'}
+          </Text>
+        </View>
       ) : (
         <View style={styles.listWrap}>
           {filtered.map((doctor) => (
@@ -380,7 +416,7 @@ export default function ClinicDoctorsScreen() {
       <InfoModal
         visible={!!selectedDoctor}
         onClose={() => setSelectedDoctor(null)}
-        title={selectedDoctor?.full_name || ''}
+        title={getDoctorDisplayName(selectedDoctor)}
         subtitle={`${selectedDoctor?.specialty || 'General Medicine'}${selectedDoctor?.experience_years ? ` · ${selectedDoctor?.experience_years} years experience` : ''}`}
         imageUrl={selectedDoctor?.avatar_url || selectedDoctor?.cover_image_url}
         imageVariant="square-centered"
@@ -598,5 +634,29 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.92,
   },
-  
+
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+
+  emptyText: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+  },
+
 });

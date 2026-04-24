@@ -312,7 +312,7 @@ export default function MyProfileScreen() {
         <View style={styles.avatarSection}>
           <View style={[styles.avatarWrap, { borderColor: `${theme.primary}22` }]}>
             {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage}/>
             ) : (
               <View
                 style={[
@@ -320,7 +320,7 @@ export default function MyProfileScreen() {
                   { backgroundColor: `${theme.primary}12` },
                 ]}
               >
-                <Ionicons name="person-outline" size={44} color={theme.primary} />
+                <Ionicons name="person-outline" size={44} color={theme.primary}/>
               </View>
             )}
           </View>
@@ -354,12 +354,24 @@ export default function MyProfileScreen() {
         <View style={styles.row}>
           <View style={styles.field}>
             <Text style={styles.label}>First name</Text>
-            <TextInput value={firstName} onChangeText={setFirstName} style={styles.input} />
+            <TextInput
+              value={firstName}
+              onChangeText={setFirstName}
+              placeholder="First name"
+              placeholderTextColor="#94A3B8"
+              style={styles.input}
+            />
           </View>
 
           <View style={styles.field}>
             <Text style={styles.label}>Last name</Text>
-            <TextInput value={lastName} onChangeText={setLastName} style={styles.input} />
+            <TextInput
+              value={lastName}
+              onChangeText={setLastName}
+              placeholder="Last name"
+              placeholderTextColor="#94A3B8"
+              style={styles.input}
+            />
           </View>
         </View>
 
@@ -369,6 +381,8 @@ export default function MyProfileScreen() {
             <TextInput
               value={username}
               onChangeText={setUsername}
+              placeholder="Username"
+              placeholderTextColor="#94A3B8"
               autoCapitalize="none"
               style={styles.input}
             />
@@ -376,7 +390,14 @@ export default function MyProfileScreen() {
 
           <View style={styles.field}>
             <Text style={styles.label}>Phone</Text>
-            <TextInput value={phone} onChangeText={setPhone} style={styles.input} />
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Phone number"
+              placeholderTextColor="#94A3B8"
+              keyboardType="phone-pad"
+              style={styles.input}
+            />
           </View>
         </View>
 
@@ -387,6 +408,7 @@ export default function MyProfileScreen() {
               value={birthDate}
               onChangeText={setBirthDate}
               placeholder="YYYY-MM-DD"
+              placeholderTextColor="#94A3B8"
               style={styles.input}
             />
           </View>
@@ -396,6 +418,9 @@ export default function MyProfileScreen() {
             <TextInput
               value={emergencyContact}
               onChangeText={setEmergencyContact}
+              placeholder="Emergency contact"
+              placeholderTextColor="#94A3B8"
+              keyboardType="phone-pad"
               style={styles.input}
             />
           </View>
@@ -406,11 +431,11 @@ export default function MyProfileScreen() {
           <TextInput
             value={email}
             editable={false}
+            placeholder="Email address"
+            placeholderTextColor="#94A3B8"
             style={[styles.input, styles.inputDisabled]}
           />
-          <Text style={styles.helperText}>
-            Email is managed by authentication.
-          </Text>
+          <Text style={styles.helperText}>Email is managed by authentication.</Text>
         </View>
 
         <Pressable
@@ -439,6 +464,7 @@ export default function MyProfileScreen() {
                 value={gender}
                 onChangeText={setGender}
                 placeholder="Male / Female / Other"
+                placeholderTextColor="#94A3B8"
                 style={styles.input}
               />
             </View>
@@ -449,6 +475,8 @@ export default function MyProfileScreen() {
                 value={bloodType}
                 onChangeText={setBloodType}
                 placeholder="A+, O-, etc."
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="characters"
                 style={styles.input}
               />
             </View>
@@ -460,6 +488,7 @@ export default function MyProfileScreen() {
               value={allergies}
               onChangeText={setAllergies}
               placeholder="e.g. peanuts, penicillin"
+              placeholderTextColor="#94A3B8"
               style={[styles.input, styles.textarea]}
               multiline
             />
@@ -471,6 +500,7 @@ export default function MyProfileScreen() {
               value={conditions}
               onChangeText={setConditions}
               placeholder="e.g. asthma, diabetes"
+              placeholderTextColor="#94A3B8"
               style={[styles.input, styles.textarea]}
               multiline
             />
@@ -481,6 +511,8 @@ export default function MyProfileScreen() {
             <TextInput
               value={insurance}
               onChangeText={setInsurance}
+              placeholder="Insurance provider"
+              placeholderTextColor="#94A3B8"
               style={styles.input}
             />
           </View>
@@ -490,6 +522,8 @@ export default function MyProfileScreen() {
             <TextInput
               value={address}
               onChangeText={setAddress}
+              placeholder="Home address"
+              placeholderTextColor="#94A3B8"
               style={styles.input}
             />
           </View>
@@ -517,10 +551,7 @@ export default function MyProfileScreen() {
         </Text>
 
         <Pressable
-          style={[
-            styles.secondaryButton,
-            sendingReset && styles.buttonDisabled,
-          ]}
+          style={[styles.secondaryButton, sendingReset && styles.buttonDisabled]}
           onPress={handleSendPasswordReset}
           disabled={sendingReset}
         >

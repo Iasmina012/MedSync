@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import InfoSearchBar from '../src/common/InfoSearchBar';
@@ -48,6 +49,8 @@ export default function ClinicServicesScreen() {
   const [sortBy, setSortBy] = useState<ServiceSort>('default');
   const [services, setServices] = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+
+  const hasFilters = search.trim() || categoryFilter !== 'All';
 
   useEffect(() => {
 
@@ -224,7 +227,25 @@ export default function ClinicServicesScreen() {
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={theme.primary}/>
         </View>
-      ) : (
+        ) : filtered.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Ionicons
+              name={hasFilters ? 'search-outline' : 'list-outline'}
+              size={24}
+              color={theme.primary}
+            />
+
+            <Text style={styles.emptyTitle}>
+              {hasFilters ? 'No services found' : 'No services available right now'}
+            </Text>
+
+            <Text style={styles.emptyText}>
+              {hasFilters
+                ? 'Try another service name, category, or clear your filters.'
+                : 'This clinic has not added any services yet.'}
+            </Text>
+          </View>
+        ) : (
         <View style={styles.grid}>
           {filtered.map((service) => (
             <InfoImage
@@ -370,6 +391,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
+  },
+
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+
+  emptyText: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
   },
 
 });

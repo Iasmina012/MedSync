@@ -429,16 +429,8 @@ export default function ClinicInfoScreen() {
               {details?.opening_hours || 'No opening hours added yet.'}
             </Text>
           </View>
-
-          {!!details?.phone && (
-            <Pressable
-              style={[styles.primaryButton, { backgroundColor: theme.primary }]}
-              onPress={() => Linking.openURL(`tel:${details.phone}`)}
-            >
-              <Text style={styles.primaryButtonText}>Call Clinic</Text>
-            </Pressable>
-          )}
         </View>
+
       </View>
 
       <View style={styles.panel}>
@@ -463,6 +455,17 @@ export default function ClinicInfoScreen() {
               onSubmitEditing={handleMapSearch}
               returnKeyType="search"
             />
+            {!!mapSearch.trim() && (
+              <Pressable
+                onPress={() => {
+                  setMapSearch('');
+                  setMapError('');
+                }}
+                style={({ pressed }) => [styles.clearSearchButton, pressed && styles.pressed]}
+              >
+                <Ionicons name="close-circle" size={20} color="#94A3B8"/>
+              </Pressable>
+            )}
           </View>
 
           <View style={styles.mapButtonsRow}>
@@ -682,19 +685,6 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
 
-  primaryButton: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-
   mapPanel: {
     backgroundColor: '#FFFFFF',
     borderRadius: 28,
@@ -784,6 +774,18 @@ const styles = StyleSheet.create({
 
   map: {
     flex: 1,
+  },
+
+  clearSearchButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  pressed: {
+    opacity: 0.7,
   },
 
 });

@@ -54,7 +54,11 @@ export default function DoctorDashboard() {
       const { user, profile } = await getCurrentUserProfile();
       if (!user) return router.replace('/login');
       if (profile?.role !== 'doctor') return router.replace('/main-patient');
-      setFullName(`${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim());
+      
+      const cleanFirstName = (profile.first_name ?? '').replace(/^Dr\.?\s*/i, '').trim();
+      const cleanLastName = (profile.last_name ?? '').replace(/^Dr\.?\s*/i, '').trim();
+
+      setFullName(`${cleanFirstName} ${cleanLastName}`.trim());
       setLoading(false);
     };
     check();

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { router, usePathname } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, View, } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 
@@ -16,14 +16,21 @@ const BRAND = {
 
 };
 
-function NavItem({label, active, onPress,}: {label: string; active?: boolean; onPress: () => void;}) {
-  
+function NavItem({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active?: boolean;
+  onPress: () => void;
+}) {
+
   const [hovered, setHovered] = useState(false);
 
   return (
 
     <Pressable
-
       onPress={onPress}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
@@ -33,13 +40,10 @@ function NavItem({label, active, onPress,}: {label: string; active?: boolean; on
         hovered && styles.navItemHover,
         pressed && styles.pressed,
       ]}
-
     >
-
       <Text style={[styles.navItemText, active && styles.navItemTextActive]}>
         {label}
       </Text>
-
     </Pressable>
   
   );
@@ -53,6 +57,11 @@ export default function WebNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuMounted, setMenuMounted] = useState(false);
+
+  const menuOpacity = useRef(new Animated.Value(0)).current;
+  const menuTranslateY = useRef(new Animated.Value(-8)).current;
+  const menuScale = useRef(new Animated.Value(0.98)).current;
 
   useEffect(() => {
 
@@ -86,9 +95,10 @@ export default function WebNavbar() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-      setMenuOpen(false);
-    });
+          setIsAuthenticated(!!session);
+          setMenuOpen(false);
+          setMenuMounted(false);
+        });
 
     return () => {
       subscription.unsubscribe();
@@ -96,10 +106,87 @@ export default function WebNavbar() {
 
   }, []);
 
+  const openMenu = () => {
+
+    setMenuMounted(true);
+    setMenuOpen(true);
+
+    Animated.parallel([
+
+      Animated.timing(menuOpacity, {
+        toValue: 1,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuTranslateY, {
+        toValue: 0,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuScale, {
+        toValue: 1,
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+
+    ]).start();
+
+  };
+
+  const closeMenu = (afterClose?: () => void) => {
+
+    Animated.parallel([
+
+      Animated.timing(menuOpacity, {
+        toValue: 0,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuTranslateY, {
+        toValue: -8,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(menuScale, {
+        toValue: 0.98,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+
+    ]).start(() => {
+      setMenuOpen(false);
+      setMenuMounted(false);
+      afterClose?.();
+    });
+
+  };
+
+  const toggleMenu = () => {
+    if (menuOpen) {
+      closeMenu();
+      return;
+    }
+
+    openMenu();
+  };
+
   const handleLogout = async () => {
-    setMenuOpen(false);
-    await supabase.auth.signOut();
-    router.replace('/login');
+    closeMenu(async () => {
+      await supabase.auth.signOut();
+      router.replace('/login');
+    });
+  };
+
+  const goTo = (pathnameToGo: string) => {
+    closeMenu(() => {
+      router.push(pathnameToGo as any);
+    });
   };
 
   const isClinicsActive = pathname === '/clinic-selection';
@@ -125,7 +212,6 @@ export default function WebNavbar() {
         </Pressable>
 
         <View style={styles.linksRow}>
-
           <NavItem
             label="Home"
             active={pathname === '/'}
@@ -173,7 +259,7 @@ export default function WebNavbar() {
           ) : (
             <View style={styles.menuWrap}>
               <Pressable
-                onPress={() => setMenuOpen((prev) => !prev)}
+                onPress={toggleMenu}
                 style={({ pressed }) => [
                   styles.menuTrigger,
                   menuOpen && styles.menuTriggerActive,
@@ -200,25 +286,38 @@ export default function WebNavbar() {
                 />
               </Pressable>
 
-              {menuOpen && (
-                <View style={styles.dropdown}>
+              {menuMounted && (
+                <Animated.View
+                  style={[
+                    styles.dropdown,
+                    {
+                      opacity: menuOpacity,
+                      transform: [
+                        { translateY: menuTranslateY },
+                        { scale: menuScale },
+                      ],
+                    },
+                  ]}
+                >
                   <Pressable
                     style={styles.dropdownItem}
-                    onPress={() => setMenuOpen(false)}
+                    onPress={() => goTo('/my-profile')}
                   >
-                    <Ionicons
-                      name="person-outline"
-                      size={18}
-                      color="#0F172A"
-                    />
-                    <Text style={styles.dropdownItemText}>
-                      My Profile / Edit Account
-                    </Text>
+                    <Ionicons name="person-outline" size={18} color="#0F172A"/>
+                    <Text style={styles.dropdownItemText}>My Profile</Text>
                   </Pressable>
 
                   <Pressable
                     style={styles.dropdownItem}
-                    onPress={() => setMenuOpen(false)}
+                    onPress={() => goTo('/settings')}
+                  >
+                    <Ionicons name="settings-outline" size={18} color="#0F172A"/>
+                    <Text style={styles.dropdownItemText}>Settings</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.dropdownItem}
+                    onPress={() => goTo('/policies')}
                   >
                     <Ionicons
                       name="document-text-outline"
@@ -230,7 +329,7 @@ export default function WebNavbar() {
 
                   <Pressable
                     style={styles.dropdownItem}
-                    onPress={() => setMenuOpen(false)}
+                    onPress={() => goTo('/privacy')}
                   >
                     <Ionicons
                       name="shield-checkmark-outline"
@@ -240,28 +339,18 @@ export default function WebNavbar() {
                     <Text style={styles.dropdownItemText}>Privacy</Text>
                   </Pressable>
 
-                  <Pressable
-                    style={styles.dropdownItem}
-                    onPress={handleLogout}
-                  >
-                    <Ionicons
-                      name="log-out-outline"
-                      size={18}
-                      color="#DC2626"
-                    />
-                    <Text
-                      style={[styles.dropdownItemText, { color: '#DC2626' }]}
-                    >
+                  <Pressable style={styles.dropdownItem} onPress={handleLogout}>
+                    <Ionicons name="log-out-outline" size={18} color="#DC2626"/>
+                    <Text style={[styles.dropdownItemText, { color: '#DC2626' }]}>
                       Logout
                     </Text>
                   </Pressable>
-                </View>
+                </Animated.View>
               )}
             </View>
           )}
         </View>
       </View>
-    
     </View>
   
   );
@@ -392,6 +481,7 @@ const styles = StyleSheet.create({
 
   menuWrap: {
     position: 'relative',
+    zIndex: 9999,
   },
 
   menuTrigger: {
@@ -423,8 +513,9 @@ const styles = StyleSheet.create({
 
   dropdown: {
     position: 'absolute',
-    top: 56,
+    top: '100%' as any,
     right: 0,
+    marginTop: 10,
     width: 290,
     backgroundColor: 'rgba(255,255,255,0.96)',
     borderWidth: 1,
@@ -436,6 +527,7 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 12 },
     elevation: 6,
+    zIndex: 9999,
   },
 
   dropdownItem: {

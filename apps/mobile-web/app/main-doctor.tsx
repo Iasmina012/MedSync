@@ -1,17 +1,52 @@
 import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions, } from 'react-native';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
+import { useClinicTheme } from '../src/lib/clinicTheme';
+
+function hexToRgb(hex: string) {
+
+  const clean = hex.replace('#', '');
+  const normalized =
+    clean.length === 3
+      ? clean
+          .split('')
+          .map((char) => char + char)
+          .join('')
+      : clean;
+
+  const bigint = parseInt(normalized, 16);
+
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255,
+  };
+
+}
+
+function rgbaFromHex(hex: string, alpha: number) {
+
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+
+}
 
 export default function DoctorDashboard() {
 
-  const { clinicName } = useLocalSearchParams<{ clinicId?: string; clinicName?: string }>();
+  const { clinicId, clinicName } = useLocalSearchParams<{
+    clinicId?: string;
+    clinicName?: string;
+  }>();
 
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
+  const { width } = useWindowDimensions();
+  const isMobile = width < 720;
+  const { theme } = useClinicTheme(clinicId);
 
   useEffect(() => {
 
@@ -19,51 +54,100 @@ export default function DoctorDashboard() {
       const { user, profile } = await getCurrentUserProfile();
       if (!user) return router.replace('/login');
       if (profile?.role !== 'doctor') return router.replace('/main-patient');
-      setFullName(`${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim());
+      
+      const cleanFirstName = (profile.first_name ?? '').replace(/^Dr\.?\s*/i, '').trim();
+      const cleanLastName = (profile.last_name ?? '').replace(/^Dr\.?\s*/i, '').trim();
+
+      setFullName(`${cleanFirstName} ${cleanLastName}`.trim());
       setLoading(false);
     };
     check();
 
   }, []);
 
+  const featureAccentA = rgbaFromHex(theme.primary, 0.11);
+  const featureAccentB = rgbaFromHex(theme.primary, 0.18);
+  const featureBorderA = rgbaFromHex(theme.primary, 0.22);
+  const featureBorderB = rgbaFromHex(theme.primary, 0.34);
+
+  const featureItems = [
+
+    { title: 'Todays Appointments', icon: 'calendar-outline' as const, description: 'Clinic schedule and patient flow.' },
+    { title: 'Patients List', icon: 'people-outline' as const, description: 'Only your assigned patients.' },
+    { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Review conditions and controls.' },
+    { title: 'Add Notes', icon: 'create-outline' as const, description: 'Save medical notes efficiently.' },
+    { title: 'Chat with Patients', icon: 'chatbubbles-outline' as const, description: 'Direct communication frontend.' },
+
+  ];
+
   if (loading) {
-    return <View style={styles.centered}><ActivityIndicator size="large"/></View>;
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={theme.primary}/>
+      </View>
+    );
   }
 
   return (
 
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
 
       <ClinicNavbar
         clinicName={clinicName}
-        primaryColor="#1D4ED8"
+        clinicId={clinicId}
+        primaryColor={theme.primary}
         roleLabel="Doctor"
         onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
       />
 
-      <View style={styles.hero}>
-        <Text style={styles.heroEyebrow}>Doctor Dashboard</Text>
-        <Text style={styles.heroTitle}>Welcome back{fullName ? `, Dr. ${fullName}` : ''}</Text>
-        <Text style={styles.heroSubtitle}>
+      <View
+        style={[
+          styles.hero,
+          isMobile && styles.heroMobile,
+          { backgroundColor: theme.soft, borderColor: theme.borderSoft },
+        ]}
+      >
+        <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>
+          Doctor Dashboard
+        </Text>
+        <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
+          Welcome back{fullName ? `, Dr. ${fullName}` : ''}
+        </Text>
+        <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
           See only your patients, your appointments, your notes, and your chat activity.
         </Text>
       </View>
 
       <View style={styles.statsGrid}>
-        <AnimatedStatsCard label="Appointments Today" value={8} icon="calendar-outline" />
-        <AnimatedStatsCard label="My Patients" value={22} icon="people-outline" />
-        <AnimatedStatsCard label="Pending Notes" value={3} icon="create-outline" />
-        <AnimatedStatsCard label="Unread Chats" value={4} icon="chatbubble-ellipses-outline" />
+        <AnimatedStatsCard label="Appointments Today" value={8} icon="calendar-outline" color={theme.primary}/>
+        <AnimatedStatsCard label="My Patients" value={22} icon="people-outline" color={theme.primary}/>
+        <AnimatedStatsCard label="Pending Notes" value={3} icon="create-outline" color={theme.primary}/>
+        <AnimatedStatsCard label="Unread Chats" value={4} icon="chatbubble-ellipses-outline" color={theme.primary}/>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Feature Access</Text>
         <View style={styles.featuresGrid}>
-          <FeaturesCard title="Todays Appointments" icon="calendar-outline" description="Clinic schedule and patient flow." />
-          <FeaturesCard title="Patients List" icon="people-outline" description="Only your assigned patients." />
-          <FeaturesCard title="Patient History" icon="document-text-outline" description="Review conditions and controls." />
-          <FeaturesCard title="Add Notes" icon="create-outline" description="Save medical notes efficiently." />
-          <FeaturesCard title="Chat with Patients" icon="chatbubbles-outline" description="Direct communication frontend." />
+          {featureItems.map((item, index) => {
+            const isAlt = index % 2 === 0;
+
+            return (
+
+              <FeaturesCard
+                key={item.title}
+                compact={isMobile}
+                mobileTwoColumns={isMobile}
+                hideDescription={isMobile}
+                title={item.title}
+                icon={item.icon}
+                description={item.description}
+                color={theme.primary}
+                backgroundColor={isAlt ? featureAccentA : featureAccentB}
+                borderColor={isAlt ? featureBorderA : featureBorderB}
+              />
+
+            );
+          })}
         </View>
 
       </View>
@@ -91,9 +175,7 @@ const styles = StyleSheet.create({
   },
   
   hero: { 
-    backgroundColor: '#EFF6FF', 
     borderWidth: 1, 
-    borderColor: '#BFDBFE', 
     borderRadius: 28, 
     padding: 24 
   },
@@ -101,14 +183,12 @@ const styles = StyleSheet.create({
   heroEyebrow: { 
     fontSize: 13, 
     fontWeight: '800', 
-    color: '#1D4ED8', 
     marginBottom: 8 
   },
   
   heroTitle: { 
     fontSize: 30, 
     fontWeight: '900', 
-    color: '#0F172A', 
     marginBottom: 8 
   },
   
@@ -116,6 +196,14 @@ const styles = StyleSheet.create({
     fontSize: 15, 
     lineHeight: 24, 
     color: '#475569' 
+  },
+  
+  heroMobile: {
+    alignItems: 'center',
+  },
+
+  heroTextCenter: {
+    textAlign: 'center',
   },
   
   statsGrid: { 

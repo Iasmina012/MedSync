@@ -4,72 +4,116 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
+import { useClinicTheme } from '../src/lib/clinicTheme';
 
-function getClinicTheme(clinicName?: string) {
+function hexToRgb(hex: string) {
 
-  const normalized = (clinicName || '').toLowerCase();
+  const clean = hex.replace('#', '');
+  const normalized =
+    clean.length === 3
+      ? clean
+          .split('')
+          .map((char) => char + char)
+          .join('')
+      : clean;
 
-  if (normalized.includes('health') || normalized.includes('verde')) {
-    return { 
-      primary: '#059669', 
-      secondary: '#064E3B', 
-      soft: '#ECFDF5', 
-      strongSoft: '#D1FAE5' 
-    };
-  }
+  const bigint = parseInt(normalized, 16);
 
-  if (normalized.includes('nova') || normalized.includes('care') || normalized.includes('mov')) {
-    return { 
-      primary: '#7C3AED', 
-      secondary: '#4C1D95', 
-      soft: '#F5F3FF', 
-      strongSoft: '#E9D5FF' 
-    };
-  }
-
-  return { 
-    primary: '#1D4ED8', 
-    secondary: '#0F172A', 
-    soft: '#EFF6FF', 
-    strongSoft: '#DBEAFE' 
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255,
   };
 
 }
 
-export default function MainScreen() {
-  
-  const { clinicName } = useLocalSearchParams<{ clinicId?: string; clinicName?: string }>();
+function rgbaFromHex(hex: string, alpha: number) {
+
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+
+}
+
+export default function PatientDashboard() {
+
+  const { clinicId, clinicName } = useLocalSearchParams<{
+    clinicId?: string;
+    clinicName?: string;
+  }>();
+
   const { width } = useWindowDimensions();
   const isMobile = width < 720;
-  const theme = getClinicTheme(clinicName);
+  const { theme } = useClinicTheme(clinicId);
 
-  const go = (label: string) => console.log(`Navigate to ${label}`);
+  const go = (pathname: string) => {
+    router.push({
+      pathname: pathname as any,
+      params: { clinicId, clinicName },
+    });
+  };
+
+  const featureAccentA = rgbaFromHex(theme.primary, 0.11);
+  const featureAccentB = rgbaFromHex(theme.primary, 0.18);
+  const featureBorderA = rgbaFromHex(theme.primary, 0.22);
+  const featureBorderB = rgbaFromHex(theme.primary, 0.34);
+
+  const featureItems = [
+
+    { title: 'Clinic Info', icon: 'business-outline' as const, description: 'Clinic details.', onPress: () => go('/clinic-info') },
+    { title: 'Doctors Info', icon: 'people-outline' as const, description: 'Doctors and availability.', onPress: () => go('/clinic-doctors') },
+    { title: 'Services Info', icon: 'list-outline' as const, description: 'Consultations and procedures.', onPress: () => go('/clinic-services') },
+    { title: 'Technology Info', icon: 'hardware-chip-outline' as const, description: 'Clinic innovations.', onPress: () => go('/clinic-tech') },
+    { title: 'Health Tips', icon: 'leaf-outline' as const, description: 'Personalized clinic wellness tips.', onPress: () => go('/health-tips') },
+    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Book, cancel, reschedule.', onPress: () => go('/manage-appointments') },
+    { title: 'Self-Diagnosis', icon: 'pulse-outline' as const, description: 'Triage support.', onPress: () => go('/self-diagnosis') },
+    { title: 'Documents', icon: 'document-attach-outline' as const, description: 'Onboarding and uploads.', onPress: () => go('/documents') },
+    { title: 'AI Summary', icon: 'sparkles-outline' as const, description: 'Report summaries.', onPress: () => go('/ai-summary') },
+    { title: 'History', icon: 'document-text-outline' as const, description: 'Medical history.', onPress: () => go('/history') },
+    { title: 'Patient Charts', icon: 'bar-chart-outline' as const, description: 'Health trends.', onPress: () => go('/patient-charts') },
+
+  ];
 
   return (
 
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
 
       <ClinicNavbar
         clinicName={clinicName}
+        clinicId={clinicId}
         primaryColor={theme.primary}
         roleLabel="Patient"
         onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
       />
 
-      <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: `${theme.primary}30` }]}>
-        <Text style={[styles.heroEyebrow, { color: theme.primary }]}>Patient Dashboard</Text>
-        <Text style={[styles.heroTitle, { color: theme.secondary }]}>
+      <View
+        style={[
+          styles.hero,
+          isMobile && styles.heroMobile,
+          { backgroundColor: theme.soft, borderColor: theme.borderSoft },
+        ]}
+      >
+        <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>
+          Patient Dashboard
+        </Text>
+        <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
           Care that feels connected in {clinicName || 'your clinic'}
         </Text>
-        <Text style={styles.heroSubtitle}>
+        <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
           Manage appointments, explore doctors and services, access AI support, and follow your health journey.
         </Text>
 
-        <View style={styles.heroButtons}>
-          <Pressable style={[styles.primaryButton, { backgroundColor: theme.primary }]} onPress={() => go('Manage Appointments')}>
+        <View style={[styles.heroButtons, isMobile && styles.heroButtonsMobile]}>
+          <Pressable
+            style={[styles.primaryButton, { backgroundColor: theme.primary }]}
+            onPress={() => go('/manage-appointments')}
+          >
             <Text style={styles.primaryButtonText}>Manage Appointments</Text>
           </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={() => go('Self Diagnosis / Triage')}>
+
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => go('/self-diagnosis')}
+          >
             <Text style={styles.secondaryButtonText}>Start Triage</Text>
           </Pressable>
         </View>
@@ -86,9 +130,18 @@ export default function MainScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Medical Ads & Highlights</Text>
           <View style={styles.adsGrid}>
-            <View style={styles.adCard}><Text style={styles.adTitle}>Prevention Package</Text><Text style={styles.adText}>Annual consultation with digital summary.</Text></View>
-            <View style={styles.adCard}><Text style={styles.adTitle}>AI Health Assistant</Text><Text style={styles.adText}>Guided onboarding and symptom support.</Text></View>
-            <View style={styles.adCard}><Text style={styles.adTitle}>Cardiology Week</Text><Text style={styles.adText}>Fast slots for selected consultations.</Text></View>
+            <View style={styles.adCard}>
+              <Text style={styles.adTitle}>Prevention Package</Text>
+              <Text style={styles.adText}>Annual consultation with digital summary.</Text>
+            </View>
+            <View style={styles.adCard}>
+              <Text style={styles.adTitle}>AI Health Assistant</Text>
+              <Text style={styles.adText}>Guided onboarding and symptom support.</Text>
+            </View>
+            <View style={styles.adCard}>
+              <Text style={styles.adTitle}>Cardiology Week</Text>
+              <Text style={styles.adText}>Fast slots for selected consultations.</Text>
+            </View>
           </View>
         </View>
       )}
@@ -96,16 +149,27 @@ export default function MainScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Features</Text>
         <View style={styles.featuresGrid}>
-          <FeaturesCard compact={isMobile} title="Clinic Info" icon="business-outline" description="Clinic details." onPress={() => go('Clinic Info')} color={theme.primary} />
-          <FeaturesCard compact={isMobile} title="Doctors Info" icon="people-outline" description="Doctors and availability." onPress={() => go('Doctors Info')} color={theme.primary} />
-          <FeaturesCard compact={isMobile} title="Services Info" icon="list-outline" description="Consultations and procedures." onPress={() => go('Services Info')} color={theme.primary} />
-          <FeaturesCard compact={isMobile} title="Technology Info" icon="hardware-chip-outline" description="Clinic innovations." onPress={() => go('Technology Info')} color={theme.primary} />
-          <FeaturesCard compact={isMobile} title="Manage Appointments" icon="calendar-clear-outline" description="Book, cancel, reschedule." onPress={() => go('Manage Appointments')} color={theme.primary} />
-          <FeaturesCard compact={isMobile} title="Self-Diagnosis" icon="pulse-outline" description="Triage support." onPress={() => go('Self Diagnosis')} color={theme.primary} />
-          <FeaturesCard compact={isMobile} title="Documents" icon="document-attach-outline" description="Onboarding and uploads." onPress={() => go('Documents')} color={theme.primary} />
-          <FeaturesCard compact={isMobile} title="AI Summary" icon="sparkles-outline" description="Report summaries." onPress={() => go('AI Summary')} color={theme.primary} />
-          <FeaturesCard compact={isMobile} title="History" icon="document-text-outline" description="Medical history." onPress={() => go('History')} color={theme.primary} />
-          <FeaturesCard compact={isMobile} title="Patient Charts" icon="bar-chart-outline" description="Health trends." onPress={() => go('Patient Charts')} color={theme.primary} />
+          {featureItems.map((item, index) => {
+            const isAlt = index % 2 === 0;
+
+            return (
+
+              <FeaturesCard
+                key={item.title}
+                compact={isMobile}
+                mobileTwoColumns={isMobile}
+                hideDescription={isMobile}
+                title={item.title}
+                icon={item.icon}
+                description={item.description}
+                onPress={item.onPress}
+                color={theme.primary}
+                backgroundColor={isAlt ? featureAccentA : featureAccentB}
+                borderColor={isAlt ? featureBorderA : featureBorderB}
+              />
+
+            );
+          })}
         </View>
       </View>
 
@@ -129,6 +193,7 @@ export default function MainScreen() {
       </View>
 
     </ScrollView>
+
   );
 
 }
@@ -171,6 +236,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     gap: 12, 
     flexWrap: 'wrap' 
+  },
+
+  heroMobile: {
+    alignItems: 'center',
+  },
+
+  heroTextCenter: {
+    textAlign: 'center',
+  },
+
+  heroButtonsMobile: {
+    justifyContent: 'center',
   },
   
   primaryButton: { 

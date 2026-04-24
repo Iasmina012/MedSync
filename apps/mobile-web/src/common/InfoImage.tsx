@@ -1,33 +1,33 @@
 import React, { useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
+import { Animated, Image, Platform, Pressable, StyleSheet, Text, View, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
 
-  compact?: boolean;
-  mobileTwoColumns?: boolean;
-  hideDescription?: boolean;
   title: string;
+  subtitle?: string;
   description: string;
+  imageUrl?: string | null;
   icon: keyof typeof Ionicons.glyphMap;
-  color?: string;
-  backgroundColor?: string;
-  borderColor?: string;
+  color: string;
   onPress?: () => void;
+  badgeText?: string;
+  footer?: React.ReactNode;
+  hideSeeMore?: boolean;
 
 };
 
-export default function FeaturesCard({
-  compact = false,
-  mobileTwoColumns = false,
-  hideDescription = false,
+export default function InfoImage({
   title,
+  subtitle,
   description,
+  imageUrl,
   icon,
-  color = '#1D4ED8',
-  backgroundColor = '#EFF6FF',
-  borderColor = '#DBEAFE',
+  color,
   onPress,
+  badgeText,
+  footer,
+  hideSeeMore = false,
 }: Props) {
 
   const scale = useRef(new Animated.Value(1)).current;
@@ -104,10 +104,7 @@ export default function FeaturesCard({
       onHoverOut={animateOut}
       onPressIn={animateIn}
       onPressOut={animateOut}
-      style={[
-        styles.pressable,
-        mobileTwoColumns && styles.pressableMobileTwoColumns,
-      ]}
+      style={styles.pressable}
     >
 
       {({ pressed }) => (
@@ -115,11 +112,7 @@ export default function FeaturesCard({
         <Animated.View
           style={[
             styles.card,
-            compact && styles.cardCompact,
-            hideDescription && styles.cardMobileSimple,
             {
-              backgroundColor,
-              borderColor,
               transform: [{ scale }, { translateY }],
               shadowOpacity: animatedShadowOpacity as any,
               shadowRadius: animatedShadowRadius as any,
@@ -127,104 +120,148 @@ export default function FeaturesCard({
             pressed && styles.pressed,
           ]}
         >
-          <View
-            style={[
-              styles.iconWrap,
-              { backgroundColor: '#FFFFFF' },
-              hideDescription && styles.iconWrapMobileCentered,
-            ]}
-          >
-            <Ionicons name={icon} size={22} color={color}/>
+
+          <View style={styles.imageWrap}>
+            {imageUrl ? (
+              <Image source={{ uri: imageUrl }} style={styles.image}/>
+            ) : (
+              <View
+                style={[
+                  styles.imageFallback,
+                  { backgroundColor: `${color}12` },
+                ]}
+              >
+                <Ionicons name={icon} size={28} color={color}/>
+              </View>
+            )}
+
+            {!!badgeText && (
+              <View
+                style={[
+                  styles.badge,
+                  { backgroundColor: `${color}12`, borderColor: `${color}25` },
+                ]}
+              >
+                <Text style={[styles.badgeText, { color }]}>{badgeText}</Text>
+              </View>
+            )}
           </View>
 
-          <Text
-            style={[
-              styles.title,
-              hideDescription && styles.titleMobileSimple,
-            ]}
-            numberOfLines={2}
-          >
+          <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>
 
-          {!hideDescription && (
-            <Text style={styles.description}>{description}</Text>
+          {!!subtitle && (
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          )}
+
+          <Text style={styles.description} numberOfLines={3}>
+            {description}
+          </Text>
+
+          {!!footer && <View style={styles.footer}>{footer}</View>}
+
+          {!hideSeeMore && (
+            <Text style={[styles.seeMore, { color }]}>
+              See more <Ionicons name="arrow-forward" size={13} color={color}/>
+            </Text>
           )}
         </Animated.View>
-      
+
       )}
 
     </Pressable>
-  
-);
+
+  );
 
 }
 
 const styles = StyleSheet.create({
 
   pressable: {
-    flexBasis: '23%',
-    minWidth: 220,
+    flexBasis: '31%',
+    minWidth: 260,
     flexGrow: 1,
   },
 
-  pressableMobileTwoColumns: {
-    flexBasis: '47%',
-    minWidth: 0,
-    flexGrow: 0,
-  },
-
   card: {
-    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    padding: 18,
-    minHeight: 154,
+    borderColor: '#E2E8F0',
+    borderRadius: 24,
+    padding: 16,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
 
-  cardCompact: {
-    minHeight: 138,
-  },
-
-  cardMobileSimple: {
-    minHeight: 132,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  iconWrap: {
-    width: 50,
-    height: 50,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  imageWrap: {
+    width: '100%',
+    height: 180,
+    borderRadius: 18,
+    overflow: 'hidden',
     marginBottom: 14,
+    backgroundColor: '#F8FAFC',
+    position: 'relative',
   },
 
-  iconWrapMobileCentered: {
-    marginBottom: 12,
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+
+  imageFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  badge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#FFFFFF',
+  },
+
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
 
   title: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 8,
+    marginBottom: 6,
   },
 
-  titleMobileSimple: {
-    marginBottom: 0,
-    fontSize: 16,
-    lineHeight: 22,
-    textAlign: 'center',
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 8,
   },
 
   description: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#475569',
+    color: '#64748B',
+  },
+
+  footer: {
+    marginTop: 12,
+  },
+
+  seeMore: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '800',
   },
 
   pressed: {

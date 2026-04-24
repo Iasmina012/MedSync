@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
 import { getCurrentUserProfile, getRoleHomeRoute } from '../src/lib/auth';
@@ -8,6 +8,12 @@ import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import WebFooter from '../src/components/layout/WebFooter';
 import MobileClinicsLogout from '../src/common/MobileClinicsLogout';
 import FloatingChatButton from '../src/common/FloatingChatButton';
+
+const DEFAULT_THEME = {
+  primary: '#1D4ED8',
+  secondary: '#0F172A',
+  soft: '#EFF6FF',
+};
 
 type Clinic = {
 
@@ -23,9 +29,136 @@ type Clinic = {
 type MembershipClinicRow = {
 
   clinic_id: string;
-  clinics: | Clinic | Clinic[] | null;
+  clinics: Clinic | Clinic[] | null;
 
 };
+
+function ClinicAnimatedCard({
+  clinic,
+  onPress,
+}: {
+  clinic: Clinic;
+  onPress: () => void;
+}) {
+
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  const glow = useRef(new Animated.Value(0)).current;
+
+  const clinicPrimary = clinic.primary_color || DEFAULT_THEME.primary;
+
+  const animateIn = () => {
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1.018,
+        useNativeDriver: false,
+        friction: 8,
+      }),
+      Animated.spring(translateY, {
+        toValue: -6,
+        useNativeDriver: false,
+        friction: 8,
+      }),
+      Animated.timing(glow, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  };
+
+  const animateOut = () => {
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: false,
+        friction: 8,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: false,
+        friction: 8,
+      }),
+      Animated.timing(glow, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  };
+
+  const animatedShadowOpacity = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.05, 0.12],
+  });
+
+  const animatedShadowRadius = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [10, 18],
+  });
+
+  const animatedCardTint = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.06],
+  });
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onHoverIn={animateIn}
+      onHoverOut={animateOut}
+      onPressIn={animateIn}
+      onPressOut={animateOut}
+      style={styles.clinicCardPressable}
+    >
+      {({ pressed }) => (
+        <Animated.View
+          style={[
+            styles.clinicCard,
+            {
+              borderColor: clinicPrimary,
+              shadowOpacity: animatedShadowOpacity as any,
+              shadowRadius: animatedShadowRadius as any,
+              transform: [{ scale }, { translateY }],
+            },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.clinicCardTintOverlay,
+              {
+                backgroundColor: clinicPrimary,
+                opacity: animatedCardTint as any,
+              },
+            ]}
+          />
+
+          <View
+            style={[
+              styles.colorDot,
+              { backgroundColor: clinicPrimary },
+            ]}
+          />
+
+          <Text style={styles.clinicName}>{clinic.name}</Text>
+
+          <Text style={styles.clinicDescription}>
+            {clinic.description || 'Clinic available in the platform.'}
+          </Text>
+
+          <View style={styles.cardBottom}>
+            <Text style={[styles.cardBottomText, { color: clinicPrimary }]}>
+              Continue
+            </Text>
+            <Ionicons name="arrow-forward" size={18} color={clinicPrimary} />
+          </View>
+        </Animated.View>
+      )}
+    </Pressable>
+  );
+}
 
 export default function ClinicSelectionScreen() {
 
@@ -106,14 +239,15 @@ export default function ClinicSelectionScreen() {
             return;
           }
 
-          const assignedClinics: Clinic[] = (data as MembershipClinicRow[] | null ?? [])
-            .map((item) => {
-              if (Array.isArray(item.clinics)) {
-                return item.clinics[0] ?? null;
-              }
-              return item.clinics ?? null;
-            })
-            .filter((clinic): clinic is Clinic => Boolean(clinic));
+          const assignedClinics: Clinic[] = (((data as MembershipClinicRow[] | null) ?? [])
+              .map((item) => {
+                if (Array.isArray(item.clinics)) {
+                  return item.clinics[0] ?? null;
+                }
+                return item.clinics ?? null;
+              })
+              .filter((clinic): clinic is Clinic => Boolean(clinic))
+          );
 
           if (assignedClinics.length === 0) {
             setError(
@@ -235,7 +369,7 @@ export default function ClinicSelectionScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#1D4ED8"/>
+        <ActivityIndicator size="large" color={DEFAULT_THEME.primary}/>
       </View>
     );
   }
@@ -245,13 +379,23 @@ export default function ClinicSelectionScreen() {
     <PublicPageLayout>
 
       <ScrollView contentContainerStyle={styles.container}>
-
-        <MobileClinicsLogout/>
-
+        
         <View style={styles.headerCard}>
+          <View style={styles.headerTopRow}>
+            <View
+              style={[
+                styles.headerIcon,
+                { backgroundColor: DEFAULT_THEME.soft },
+              ]}
+            >
+              <Ionicons
+                name="business-outline"
+                size={24}
+                color={DEFAULT_THEME.primary}
+              />
+            </View>
 
-          <View style={styles.headerIcon}>
-            <Ionicons name="business-outline" size={24} color="#1D4ED8"/>
+          { Platform.OS !== 'web' && <MobileClinicsLogout inline/> }
           </View>
 
           <Text style={styles.title}>Choose Your Clinic</Text>
@@ -266,38 +410,16 @@ export default function ClinicSelectionScreen() {
         {clinics.length > 0 ? (
           <View style={styles.grid}>
             {clinics.map((clinic) => (
-              <Pressable
+              <ClinicAnimatedCard
                 key={clinic.id}
+                clinic={clinic}
                 onPress={() => openConfirm(clinic)}
-                style={({ pressed }) => [
-                  styles.clinicCard,
-                  { borderColor: clinic.primary_color || '#E2E8F0' },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.colorDot,
-                    { backgroundColor: clinic.primary_color || '#1D4ED8' },
-                  ]}
-                />
-
-                <Text style={styles.clinicName}>{clinic.name}</Text>
-
-                <Text style={styles.clinicDescription}>
-                  {clinic.description || 'Clinic available in the platform.'}
-                </Text>
-
-                <View style={styles.cardBottom}>
-                  <Text style={styles.cardBottomText}>Continue</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#1D4ED8"/>
-                </View>
-              </Pressable>
+              />
             ))}
           </View>
         ) : !error ? (
           <View style={styles.emptyCard}>
-            <Ionicons name="alert-circle-outline" size={24} color="#F59E0B"/>
+            <Ionicons name="alert-circle-outline" size={24} color="#F59E0B" />
             <Text style={styles.emptyTitle}>No clinics available</Text>
             <Text style={styles.emptyText}>
               There are no clinics available for your account right now.
@@ -305,7 +427,7 @@ export default function ClinicSelectionScreen() {
           </View>
         ) : null}
 
-        {Platform.OS === 'web' && <WebFooter />}
+        {Platform.OS === 'web' && <WebFooter/>}
       
       </ScrollView>
 
@@ -335,7 +457,10 @@ export default function ClinicSelectionScreen() {
               </Pressable>
 
               <Pressable
-                style={styles.confirmButton}
+                style={[
+                  styles.confirmButton,
+                  { backgroundColor: DEFAULT_THEME.primary },
+                ]}
                 onPress={handleConfirmClinic}
               >
                 <Text style={styles.confirmButtonText}>Yes, continue</Text>
@@ -381,14 +506,20 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
 
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+
   headerIcon: {
     width: 56,
     height: 56,
     borderRadius: 18,
-    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
   },
 
   title: {
@@ -418,13 +549,28 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
 
-  clinicCard: {
+  clinicCardPressable: {
     flex: 1,
     minWidth: 260,
+  },
+
+  clinicCard: {
+    position: 'relative',
+    overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     borderRadius: 28,
     borderWidth: 1,
     padding: 22,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+
+  clinicCardTintOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 28,
   },
 
   colorDot: {
@@ -455,7 +601,6 @@ const styles = StyleSheet.create({
   },
 
   cardBottomText: {
-    color: '#1D4ED8',
     fontWeight: '700',
     fontSize: 15,
   },
@@ -552,7 +697,6 @@ const styles = StyleSheet.create({
 
   confirmButton: {
     flex: 1,
-    backgroundColor: '#1D4ED8',
     borderRadius: 999,
     paddingVertical: 14,
     alignItems: 'center',

@@ -2,6 +2,13 @@ import React from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+const STORE_LINKS = {
+
+  appStore: 'https://www.apple.com/app-store/',
+  googlePlay: 'https://play.google.com/store',
+
+};
+
 export default function WebFooter() {
 
   return (
@@ -12,24 +19,10 @@ export default function WebFooter() {
 
         <View style={styles.brandBlock}>
           <Text style={styles.brandTitle}>MedSync</Text>
-          <Text style={styles.brandText}>
-            Connected care, smarter clinics.
-          </Text>
+          <Text style={styles.brandText}>Connected care, smarter clinics.</Text>
           <Text style={styles.brandSubtext}>
             A modern multi-clinic medical platform for patients, doctors, and administrators.
           </Text>
-
-          <View style={styles.storeRow}>
-            <Pressable style={styles.storeButton}>
-              <Ionicons name="logo-apple" size={18} color="#FFFFFF"/>
-              <Text style={styles.storeButtonText}>App Store</Text>
-            </Pressable>
-
-            <Pressable style={styles.storeButton}>
-              <Ionicons name="logo-google-playstore" size={18} color="#FFFFFF"/>
-              <Text style={styles.storeButtonText}>Google Play</Text>
-            </Pressable>
-          </View>
         </View>
 
         <View style={styles.linksBlock}>
@@ -37,34 +30,41 @@ export default function WebFooter() {
           <Text style={styles.linkText}>contact@medsync.com</Text>
           <Text style={styles.linkText}>+40 777 777 777</Text>
           <Text style={styles.linkText}>Mon - Fri · 08:00 - 18:00</Text>
-
-          <Pressable
-            style={styles.contactButton}
-            onPress={() => Linking.openURL('mailto:contact@medsync.com')}
-          >
-            <Text style={styles.contactButtonText}>Send email</Text>
-          </Pressable>
         </View>
 
         <View style={styles.linksBlock}>
           <Text style={styles.sectionTitle}>Legal</Text>
 
-          <Pressable style={styles.linkButton}>
+          <Pressable>
             <Text style={styles.linkText}>Privacy Policy</Text>
           </Pressable>
 
-          <Pressable style={styles.linkButton}>
+          <Pressable>
             <Text style={styles.linkText}>Terms & Conditions</Text>
           </Pressable>
 
-          <Pressable
-            style={styles.linkButton}
-            onPress={() => Linking.openURL('mailto:contact@medsync.com')}
-          >
+          <Pressable onPress={() => Linking.openURL('mailto:contact@medsync.com')}>
             <Text style={styles.linkText}>Support</Text>
           </Pressable>
         </View>
-      
+      </View>
+
+      <View style={styles.storeRow}>
+        <Pressable
+          style={styles.storeButton}
+          onPress={() => Linking.openURL(STORE_LINKS.appStore)}
+        >
+          <Ionicons name="logo-apple" size={18} color="#FFFFFF"/>
+          <Text style={styles.storeButtonText}>App Store</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.storeButton}
+          onPress={() => Linking.openURL(STORE_LINKS.googlePlay)}
+        >
+          <Ionicons name="logo-google-playstore" size={18} color="#FFFFFF"/>
+          <Text style={styles.storeButtonText}>Google Play</Text>
+        </Pressable>
       </View>
 
       <View style={styles.bottomBar}>
@@ -82,7 +82,7 @@ export default function WebFooter() {
 }
 
 const styles = StyleSheet.create({
-  
+
   footer: {
     backgroundColor: '#1E293B',
     marginTop: 40,
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: 24,
     paddingTop: 36,
-    paddingBottom: 28,
+    paddingBottom: 22,
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 28,
@@ -138,20 +138,26 @@ const styles = StyleSheet.create({
   },
 
   storeRow: {
+    width: '100%',
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 12,
-    marginTop: 18,
+    paddingHorizontal: 24,
+    paddingBottom: 28,
+    flexWrap: 'wrap',
   },
 
   storeButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     backgroundColor: '#1D4ED8',
     borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    minWidth: 160,
   },
 
   storeButtonText: {
@@ -167,32 +173,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  linkButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 6,
-  },
-
   linkText: {
     color: '#CBD5E1',
     fontSize: 14,
     lineHeight: 24,
-  },
-
-  contactButton: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-
-  contactButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
   },
 
   bottomBar: {

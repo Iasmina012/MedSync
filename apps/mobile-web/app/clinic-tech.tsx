@@ -1,0 +1,390 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../src/lib/supabase';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import InfoSearchBar from '../src/common/InfoSearchBar';
+import InfoImage from '../src/common/InfoImage';
+import InfoModal from '../src/common/InfoModal';
+import SortDropdown from '../src/common/SortDropdown';
+import { useClinicTheme } from '../src/lib/clinicTheme';
+
+type Technology = {
+
+  id: string;
+  title: string;
+  category: string | null;
+  description: string | null;
+  image_url: string | null;
+
+};
+
+type TechnologySort = | 'default' | 'name_asc' | 'name_desc' | 'category_asc' | 'category_desc';
+
+export default function ClinicTechnologiesScreen() {
+
+  const { clinicId, clinicName } = useLocalSearchParams<{
+    clinicId?: string;
+    clinicName?: string;
+  }>();
+
+  const { width } = useWindowDimensions();
+  const isMobile = width < 720;
+  const { theme } = useClinicTheme(clinicId);
+
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [sortBy, setSortBy] = useState<TechnologySort>('default');
+  const [technologies, setTechnologies] = useState<Technology[]>([]);
+  const [selectedTechnology, setSelectedTechnology] = useState<Technology | null>(null);
+
+  const hasFilters = search.trim() || categoryFilter !== 'All';
+
+  useEffect(() => {
+
+    const load = async () => {
+      if (!clinicId) return;
+
+      setLoading(true);
+
+      const { data } = await supabase
+        .from('clinic_technologies')
+        .select('id, title, category, description, image_url')
+        .eq('clinic_id', clinicId)
+        .eq('is_active', true);
+
+      setTechnologies(data ?? []);
+      setLoading(false);
+    };
+
+    load();
+
+  }, [clinicId]);
+
+  const categories = useMemo(() => {
+
+    const values = Array.from(
+      new Set(
+        technologies
+          .map((item) => item.category?.trim())
+          .filter((value): value is string => Boolean(value))
+      )
+    ).sort((a, b) => a.localeCompare(b));
+
+    return ['All', ...values];
+
+  }, [technologies]);
+
+  const filtered = useMemo(() => {
+
+    let items = [...technologies];
+
+    const q = search.trim().toLowerCase();
+
+    if (q) {
+      items = items.filter((item) =>
+        `${item.title} ${item.category || ''} ${item.description || ''}`
+          .toLowerCase()
+          .includes(q)
+      );
+    }
+
+    if (categoryFilter !== 'All') {
+      items = items.filter((item) => item.category === categoryFilter);
+    }
+
+    switch (sortBy) {
+      case 'name_asc':
+        items.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'name_desc':
+        items.sort((a, b) => b.title.localeCompare(a.title));
+        break;
+      case 'category_asc':
+        items.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
+        break;
+      case 'category_desc':
+        items.sort((a, b) => (b.category || '').localeCompare(a.category || ''));
+        break;
+      case 'default':
+      default:
+        break;
+    }
+
+    return items;
+
+  }, [technologies, search, categoryFilter, sortBy]);
+
+  return (
+    <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
+
+      <ClinicNavbar
+        clinicName={clinicName}
+        clinicId={clinicId}
+        primaryColor={theme.primary}
+        roleLabel="Patient"
+        showRolePill={false}
+        onChangeClinic={() => router.replace('/clinic-selection')}
+        showBackButton
+        onBackPress={() =>
+          router.replace({
+            pathname: '/main-patient',
+            params: { clinicId, clinicName },
+          })
+        }
+      />
+
+      <View
+        style={[
+          styles.hero,
+          {
+            backgroundColor: theme.soft,
+            borderColor: theme.borderSoft,
+          },
+        ]}
+      >
+        <Text style={[styles.heroEyebrow, { color: theme.primary }]}>
+          Technologies
+        </Text>
+        <Text style={[styles.heroTitle, { color: theme.secondary }]}>
+          Technology used in {clinicName || 'this clinic'}
+        </Text>
+        <Text style={styles.heroSubtitle}>
+          Search equipment, digital tools, and innovation highlights.
+        </Text>
+      </View>
+
+      <View style={[styles.topControls, isMobile && styles.topControlsMobile]}>
+        <View style={styles.searchWrap}>
+          <InfoSearchBar
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search technologies..."
+          />
+        </View>
+
+        <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
+          <SortDropdown
+            value={sortBy}
+            onChange={(value) => setSortBy(value as TechnologySort)}
+            items={[
+              { label: 'Default', value: 'default' },
+              { label: 'Name A-Z', value: 'name_asc' },
+              { label: 'Name Z-A', value: 'name_desc' },
+              { label: 'Category A-Z', value: 'category_asc' },
+              { label: 'Category Z-A', value: 'category_desc' },
+            ]}
+          />
+        </View>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filtersScroll}
+        contentContainerStyle={styles.filtersScrollContent}
+      >
+        {categories.map((item) => (
+          <Pressable
+            key={item}
+            onPress={() => setCategoryFilter(item)}
+            style={[
+              styles.chip,
+              categoryFilter === item && {
+                backgroundColor: `${theme.primary}14`,
+                borderColor: theme.borderSoft,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                categoryFilter === item && { color: theme.primary },
+              ]}
+            >
+              {item}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={theme.primary}/>
+        </View>
+        ) : filtered.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Ionicons
+              name={hasFilters ? 'search-outline' : 'hardware-chip-outline'}
+              size={24}
+              color={theme.primary}
+            />
+
+            <Text style={styles.emptyTitle}>
+              {hasFilters
+                ? 'No technologies found'
+                : 'No technologies available right now'}
+            </Text>
+
+            <Text style={styles.emptyText}>
+              {hasFilters
+                ? 'Try another technology name, category, or clear your filters.'
+                : 'This clinic has not added any technologies yet.'}
+            </Text>
+          </View>
+        ) : (
+        <View style={styles.grid}>
+          {filtered.map((item) => (
+            <InfoImage
+              key={item.id}
+              title={item.title}
+              subtitle={item.category || 'Technology'}
+              description={item.description || 'No description added yet.'}
+              imageUrl={item.image_url}
+              icon="hardware-chip-outline"
+              color={theme.primary}
+              onPress={() => setSelectedTechnology(item)}
+            />
+          ))}
+        </View>
+      )}
+
+      <InfoModal
+        visible={!!selectedTechnology}
+        onClose={() => setSelectedTechnology(null)}
+        title={selectedTechnology?.title || ''}
+        subtitle={selectedTechnology?.category || 'Technology'}
+        imageUrl={selectedTechnology?.image_url}
+        description={selectedTechnology?.description || ''}
+        color={theme.primary}
+        sections={[{ label: 'Category', value: selectedTechnology?.category }]}
+      />
+    
+    </ScrollView>
+  
+  );
+
+}
+
+const styles = StyleSheet.create({
+
+  container: {
+    flexGrow: 1,
+    backgroundColor: '#F8FAFC',
+    padding: 24,
+    gap: 18,
+  },
+
+  hero: {
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 24,
+  },
+
+  heroEyebrow: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 10,
+  },
+
+  heroSubtitle: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#475569',
+  },
+
+  topControls: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'stretch',
+  },
+
+  topControlsMobile: {
+    flexDirection: 'column',
+  },
+
+  searchWrap: {
+    flex: 1,
+  },
+
+  sortWrap: {
+    width: 240,
+  },
+
+  sortWrapMobile: {
+    width: '100%',
+  },
+
+  filtersScroll: {
+    flexGrow: 0,
+    alignSelf: 'flex-start',
+  },
+
+  filtersScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 2,
+  },
+
+  chip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+
+  chipText: {
+    color: '#334155',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  centered: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+
+  emptyText: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+  },
+
+});

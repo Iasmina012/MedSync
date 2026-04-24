@@ -4,7 +4,11 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 
-export default function MobileClinicsLogout() {
+type Props = {
+  inline?: boolean;
+};
+
+export default function MobileClinicsLogout({ inline = false }: Props) {
 
   if (Platform.OS === 'web') return null;
 
@@ -15,13 +19,13 @@ export default function MobileClinicsLogout() {
 
   return (
 
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, inline && styles.wrapperInline]}>
       <Pressable style={styles.button} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={18} color="#0F172A" />
+        <Ionicons name="log-out-outline" size={18} color="#0F172A"/>
         <Text style={styles.buttonText}>Logout</Text>
       </Pressable>
     </View>
-    
+
   );
 
 }
@@ -32,6 +36,12 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'flex-end',
     marginBottom: 16,
+  },
+
+  wrapperInline: {
+    width: 'auto',
+    marginBottom: 0,
+    alignItems: 'flex-start',
   },
 
   button: {

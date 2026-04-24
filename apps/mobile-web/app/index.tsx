@@ -697,12 +697,8 @@ useEffect(() => {
             <View
               style={[styles.heroButtonsRow, isSmall && styles.heroButtonsColumn]}
             >
-              <CTAButton title="Log In" onPress={() => router.push('/login')}/>
-              <CTAButton
-                title="Create Account"
-                variant="secondary"
-                onPress={() => router.push('/signup')}
-              />
+              <CTAButton title="Start by Logging In" onPress={() => router.push('/login')}/>
+              <CTAButton title="Create an Account" variant="secondary" onPress={() => router.push('/signup')}/>
             </View>
 
             <View style={[styles.metricsRow, isSmall && styles.metricsColumn]}>
@@ -1267,8 +1263,9 @@ const styles = StyleSheet.create({
   heroButtonsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 18,
     marginBottom: 26,
+    maxWidth: 620,
   },
 
   heroButtonsColumn: {
@@ -1277,8 +1274,9 @@ const styles = StyleSheet.create({
   },
 
   ctaButton: {
-    minHeight: 48,
-    paddingHorizontal: 18,
+    minHeight: 45,
+    minWidth: 235,
+    paddingHorizontal: 28,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',

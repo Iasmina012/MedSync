@@ -222,11 +222,7 @@ export default function WebNavbar() {
                     style={styles.dropdownItem}
                     onPress={() => goTo('/settings')}
                   >
-                    <Ionicons
-                      name="settings-outline"
-                      size={18}
-                      color="#0F172A"
-                    />
+                    <Ionicons name="settings-outline" size={18} color="#0F172A"/>
                     <Text style={styles.dropdownItemText}>Settings</Text>
                   </Pressable>
 
@@ -255,14 +251,8 @@ export default function WebNavbar() {
                   </Pressable>
 
                   <Pressable style={styles.dropdownItem} onPress={handleLogout}>
-                    <Ionicons
-                      name="log-out-outline"
-                      size={18}
-                      color="#DC2626"
-                    />
-                    <Text
-                      style={[styles.dropdownItemText, { color: '#DC2626' }]}
-                    >
+                    <Ionicons name="log-out-outline" size={18} color="#DC2626"/>
+                    <Text style={[styles.dropdownItemText, { color: '#DC2626' }]}>
                       Logout
                     </Text>
                   </Pressable>
@@ -402,6 +392,7 @@ const styles = StyleSheet.create({
 
   menuWrap: {
     position: 'relative',
+    zIndex: 9999,
   },
 
   menuTrigger: {
@@ -433,8 +424,9 @@ const styles = StyleSheet.create({
 
   dropdown: {
     position: 'absolute',
-    top: 56,
+    top: '100%' as any,
     right: 0,
+    marginTop: 10,
     width: 290,
     backgroundColor: 'rgba(255,255,255,0.96)',
     borderWidth: 1,
@@ -446,6 +438,7 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 12 },
     elevation: 6,
+    zIndex: 9999,
   },
 
   dropdownItem: {

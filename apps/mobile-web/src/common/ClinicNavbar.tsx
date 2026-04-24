@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { router } from 'expo-router';
-import { Modal, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -30,6 +30,7 @@ export default function ClinicNavbar({
 }: Props) {
 
   const [menuOpen, setMenuOpen] = useState(false);
+
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -53,68 +54,116 @@ export default function ClinicNavbar({
     router.replace('/login');
   };
 
+  const toggleMenu = () => {
+    setMenuOpen((prev) => !prev);
+  };
+
+  const dropdownContent = (
+    <View style={styles.dropdown}>
+      {!!onChangeClinic && (
+        <Pressable
+          style={styles.menuItem}
+          onPress={() => {
+            setMenuOpen(false);
+            onChangeClinic();
+          }}
+        >
+          <Ionicons name="swap-horizontal-outline" size={18} color={primaryColor}/>
+          <Text style={styles.menuItemText}>Change Clinic</Text>
+        </Pressable>
+      )}
+
+      <Pressable style={styles.menuItem} onPress={() => goTo('/my-profile')}>
+        <Ionicons name="person-outline" size={18} color="#0F172A"/>
+        <Text style={styles.menuItemText}>My Profile</Text>
+      </Pressable>
+
+      <Pressable style={styles.menuItem} onPress={() => goTo('/settings')}>
+        <Ionicons name="settings-outline" size={18} color="#0F172A"/>
+        <Text style={styles.menuItemText}>Settings</Text>
+      </Pressable>
+
+      <Pressable style={styles.menuItem} onPress={() => goTo('/policies')}>
+        <Ionicons name="document-text-outline" size={18} color="#0F172A"/>
+        <Text style={styles.menuItemText}>Policies</Text>
+      </Pressable>
+
+      <Pressable style={styles.menuItem} onPress={() => goTo('/privacy')}>
+        <Ionicons name="shield-checkmark-outline" size={18} color="#0F172A"/>
+        <Text style={styles.menuItemText}>Privacy</Text>
+      </Pressable>
+
+      <Pressable style={styles.menuItem} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={18} color="#DC2626"/>
+        <Text style={[styles.menuItemText, styles.logoutText]}>
+          Logout
+        </Text>
+      </Pressable>
+    </View>
+  );
+
   return (
 
-    <>
+    <View
+      style={[
+        styles.outer,
+        isMobile ? styles.outerMobile : styles.outerDesktop,
+        isMobile && {
+          paddingTop: mobileTopPadding,
+        },
+      ]}
+    >
 
-      <View
-        style={[
-          styles.outer,
-          isMobile ? styles.outerMobile : styles.outerDesktop,
-          isMobile && {
-            paddingTop: mobileTopPadding,
-          },
-        ]}
-      >
+      <View style={[styles.wrapper, isMobile && styles.wrapperMobile]}>
+        <View style={[styles.left, isMobile && styles.leftMobile]}>
+          <View
+            style={[
+              styles.badge,
+              isMobile && styles.badgeMobile,
+              {
+                backgroundColor: `${primaryColor}12`,
+                borderColor: `${primaryColor}28`,
+              },
+            ]}
+          >
+            <Ionicons
+              name={hasClinicContext ? 'business-outline' : 'person-circle-outline'}
+              size={16}
+              color={primaryColor}
+            />
 
-        <View style={[styles.wrapper, isMobile && styles.wrapperMobile]}>
-          <View style={[styles.left, isMobile && styles.leftMobile]}>
-            <View
-              style={[
-                styles.badge,
-                isMobile && styles.badgeMobile,
-                {
-                  backgroundColor: `${primaryColor}12`,
-                  borderColor: `${primaryColor}28`,
-                },
-              ]}
+            <Text
+              style={[styles.badgeText, { color: primaryColor }]}
+              numberOfLines={1}
             >
-              <Ionicons
-                name={hasClinicContext ? 'business-outline' : 'person-circle-outline'}
-                size={16}
-                color={primaryColor}
-              />
-              <Text
-                style={[styles.badgeText, { color: primaryColor }]}
-                numberOfLines={1}
-              >
-                {hasClinicContext ? clinicName : 'My Account'}
-              </Text>
-            </View>
-
-            {showRolePill && (
-              <View style={[styles.rolePill, isMobile && styles.rolePillMobile]}>
-                <Text style={styles.rolePillText} numberOfLines={1}>
-                  {roleLabel}
-                </Text>
-              </View>
-            )}
+              {hasClinicContext ? clinicName : 'My Account'}
+            </Text>
           </View>
 
-          <View style={styles.right}>
-            {showBackButton && (
-              <Pressable
-                style={[
-                  styles.iconButton,
-                  isMobile ? styles.iconOnlyButtonMobile : styles.actionButtonDesktop,
-                ]}
-                onPress={onBackPress}
-              >
-                <Ionicons name="arrow-back" size={18} color="#0F172A"/>
-                {!isMobile && <Text style={styles.iconButtonText}>Back</Text>}
-              </Pressable>
-            )}
+          {showRolePill && (
+            <View style={[styles.rolePill, isMobile && styles.rolePillMobile]}>
+              <Text style={styles.rolePillText} numberOfLines={1}>
+                {roleLabel}
+              </Text>
+            </View>
+          )}
+        </View>
 
+        <View style={styles.right}>
+          {showBackButton && (
+            <Pressable
+              style={[
+                styles.iconButton,
+                isMobile ? styles.iconOnlyButtonMobile : styles.actionButtonDesktop,
+              ]}
+              onPress={onBackPress}
+            >
+              <Ionicons name="arrow-back" size={18} color="#0F172A"/>
+              {!isMobile && <Text style={styles.iconButtonText}>Back</Text>}
+            </Pressable>
+          )}
+
+          <View style={styles.menuAnchor}>
             <Pressable
               style={[
                 styles.iconButton,
@@ -127,17 +176,13 @@ export default function ClinicNavbar({
                       }
                     : null),
               ]}
-              onPress={() => setMenuOpen((prev) => !prev)}
+              onPress={toggleMenu}
             >
               {isMobile ? (
                 <Ionicons name="ellipsis-horizontal" size={20} color="#0F172A"/>
               ) : (
                 <>
-                  <Ionicons
-                    name="person-circle-outline"
-                    size={18}
-                    color="#0F172A"
-                  />
+                  <Ionicons name="person-circle-outline" size={18} color="#0F172A"/>
                   <Text style={styles.iconButtonText}>Menu</Text>
                   <Ionicons
                     name={menuOpen ? 'chevron-up' : 'chevron-down'}
@@ -147,82 +192,17 @@ export default function ClinicNavbar({
                 </>
               )}
             </Pressable>
+
+            {menuOpen && (
+              <View style={[styles.dropdownWrap]}>
+                {dropdownContent}
+              </View>
+            )}
           </View>
         </View>
       </View>
 
-      <Modal visible={menuOpen} transparent animationType="fade">
-        <Pressable style={styles.overlay} onPress={() => setMenuOpen(false)}>
-          <Pressable
-            style={[
-              styles.dropdown,
-              isMobile && styles.dropdownMobile,
-              isMobile
-                ? {
-                    marginTop: Math.max(insets.top, 12) + 58,
-                    marginRight: 0,
-                  }
-                : styles.dropdownDesktop,
-            ]}
-            onPress={() => {}}
-          >
-            {!!onChangeClinic && (
-              <Pressable
-                style={styles.menuItem}
-                onPress={() => {
-                  setMenuOpen(false);
-                  onChangeClinic();
-                }}
-              >
-                <Ionicons
-                  name="swap-horizontal-outline"
-                  size={18}
-                  color={primaryColor}
-                />
-                <Text style={styles.menuItemText}>Change Clinic</Text>
-              </Pressable>
-            )}
-
-            <Pressable style={styles.menuItem} onPress={() => goTo('/my-profile')}>
-              <Ionicons name="person-outline" size={18} color="#0F172A"/>
-              <Text style={styles.menuItemText}>My Profile</Text>
-            </Pressable>
-
-            <Pressable style={styles.menuItem} onPress={() => goTo('/settings')}>
-              <Ionicons name="settings-outline" size={18} color="#0F172A"/>
-              <Text style={styles.menuItemText}>Settings</Text>
-            </Pressable>
-
-            <Pressable style={styles.menuItem} onPress={() => goTo('/policies')}>
-              <Ionicons
-                name="document-text-outline"
-                size={18}
-                color="#0F172A"
-              />
-              <Text style={styles.menuItemText}>Policies</Text>
-            </Pressable>
-
-            <Pressable style={styles.menuItem} onPress={() => goTo('/privacy')}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={18}
-                color="#0F172A"
-              />
-              <Text style={styles.menuItemText}>Privacy</Text>
-            </Pressable>
-
-            <Pressable style={styles.menuItem} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={18} color="#DC2626"/>
-              <Text style={[styles.menuItemText, styles.logoutText]}>
-                Logout
-              </Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      
-      </Modal>
-    
-    </>
+    </View>
   
   );
 
@@ -262,31 +242,71 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
 
   wrapperMobile: {
-    flexWrap: 'nowrap',
     alignItems: 'center',
   },
 
   left: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
     minWidth: 0,
   },
 
   leftMobile: {
-    flexWrap: 'nowrap',
+    flex: 1,
+    minWidth: 0,
   },
 
   right: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flexShrink: 0,
+  },
+
+  menuAnchor: {
+    position: 'relative',
+  },
+
+  dropdownWrap: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: 10,
+    zIndex: 9999,
+  },
+
+  dropdown: {
+    width: 240,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    elevation: 8,
+  },
+
+  menuItem: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+
+  menuItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+
+  logoutText: {
+    color: '#DC2626',
   },
 
   badge: {
@@ -297,14 +317,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
     borderWidth: 1,
-    minHeight: 48,
-    maxWidth: 320,
   },
 
   badgeMobile: {
-    flex: 1,
+    flexShrink: 1,
+    flexGrow: 0,
     minWidth: 0,
-    maxWidth: '100%',
+    maxWidth: 280,
+    alignSelf: 'flex-start',
   },
 
   badgeText: {
@@ -320,12 +340,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    minHeight: 48,
-    justifyContent: 'center',
   },
 
   rolePillMobile: {
-    minWidth: 96,
+    flexShrink: 0,
+    minWidth: 92,
     alignItems: 'center',
   },
 
@@ -345,7 +364,6 @@ const styles = StyleSheet.create({
   },
 
   actionButtonDesktop: {
-    minHeight: 48,
     paddingHorizontal: 16,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -361,49 +379,6 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '700',
     fontSize: 14,
-  },
-
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.25)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingHorizontal: 24,
-  },
-
-  dropdown: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-  },
-
-  dropdownMobile: {
-    width: 240,
-  },
-
-  dropdownDesktop: {
-    width: 290,
-    marginTop: 84,
-  },
-
-  menuItem: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-
-  menuItemText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
-
-  logoutText: {
-    color: '#DC2626',
   },
 
 });

@@ -11,6 +11,63 @@ const STORE_LINKS = {
 
 };
 
+function HoverCard({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: any;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  const animateIn = () => {
+    if (Platform.OS !== 'web') return;
+
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1.02,
+        useNativeDriver: true,
+        friction: 8,
+      }),
+      Animated.spring(translateY, {
+        toValue: -6,
+        useNativeDriver: true,
+        friction: 8,
+      }),
+    ]).start();
+  };
+
+  const animateOut = () => {
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        friction: 8,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 8,
+      }),
+    ]).start();
+  };
+
+  return (
+    <Pressable
+      style={styles.cardHoverWrap}
+      onHoverIn={animateIn}
+      onHoverOut={animateOut}
+      onPressIn={animateIn}
+      onPressOut={animateOut}
+    >
+      <Animated.View style={[style, { transform: [{ scale }, { translateY }] }]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 export default function AboutScreen() {
 
   const patientFloat = useRef(new Animated.Value(0)).current;
@@ -207,7 +264,7 @@ export default function AboutScreen() {
 
         <View style={styles.grid}>
 
-          <View style={styles.card}>
+          <HoverCard style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="business-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -215,9 +272,9 @@ export default function AboutScreen() {
             <Text style={styles.cardText}>
               One system can support multiple clinics, each with its own users, data, branding, and workflows.
             </Text>
-          </View>
+          </HoverCard>
 
-          <View style={styles.card}>
+          <HoverCard style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="phone-portrait-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -225,19 +282,19 @@ export default function AboutScreen() {
             <Text style={styles.cardText}>
               Built as a shared experience for web, iOS, and Android, while keeping each platform adapted to its context.
             </Text>
-          </View>
+          </HoverCard>
 
-          <View style={styles.card}>
+          <HoverCard style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="sparkles-outline" size={22} color="#1D4ED8"/>
             </View>
             <Text style={styles.cardTitle}>AI Expansion Path</Text>
             <Text style={styles.cardText}>
-              The platform can later include AI summaries, assisted onboarding, triage, chatbot support, and document workflows.
+              The platform can later include AI summaries, assisted onboarding, triage, chatbot support.
             </Text>
-          </View>
+          </HoverCard>
 
-          <View style={styles.card}>
+          <HoverCard style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="shield-checkmark-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -245,9 +302,9 @@ export default function AboutScreen() {
             <Text style={styles.cardText}>
               Role-based access keeps patient, doctor, clinic, and admin experiences separated and organized.
             </Text>
-          </View>
+          </HoverCard>
 
-          <View style={styles.card}>
+          <HoverCard style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="calendar-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -255,9 +312,9 @@ export default function AboutScreen() {
             <Text style={styles.cardText}>
               Patients can manage appointments while clinics keep schedules clear and easy to follow.
             </Text>
-          </View>
+          </HoverCard>
 
-          <View style={styles.card}>
+          <HoverCard style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -265,9 +322,9 @@ export default function AboutScreen() {
             <Text style={styles.cardText}>
               MedSync supports clearer communication between patients, doctors, and clinic teams.
             </Text>
-          </View>
+          </HoverCard>
 
-          <View style={styles.card}>
+          <HoverCard style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -275,9 +332,9 @@ export default function AboutScreen() {
             <Text style={styles.cardText}>
               MedSync supports clearer communication between patients, doctors, and clinic teams.
             </Text>
-          </View>
+          </HoverCard>
 
-          <View style={styles.card}>
+          <HoverCard style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -285,7 +342,7 @@ export default function AboutScreen() {
             <Text style={styles.cardText}>
               MedSync supports clearer communication between patients, doctors, and clinic teams.
             </Text>
-          </View>
+          </HoverCard>
           
         </View>
 
@@ -560,13 +617,22 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    flex: 1,
-    minWidth: 260,
+    width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 26,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     padding: 22,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+  },
+
+  cardHoverWrap: {
+    flex: 1,
+    minWidth: 260,
   },
 
   iconWrap: {

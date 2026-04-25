@@ -174,15 +174,17 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
 
-  card: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 18,
-    minHeight: 154,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
+card: {
+  borderRadius: 24,
+  borderWidth: 1,
+  padding: 18,
+  minHeight: 154,
+  shadowColor: '#0F172A',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: Platform.OS === 'web' ? 0.04 : 0,
+  shadowRadius: Platform.OS === 'web' ? 8 : 0,
+  elevation: Platform.OS === 'web' ? 2 : 0,
+},
 
   cardCompact: {
     minHeight: 138,

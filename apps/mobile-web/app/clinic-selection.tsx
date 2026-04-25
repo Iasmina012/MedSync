@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: '#F8FAFC',
     paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingTop: Platform.OS === 'android' ? 56 : 32,
     paddingBottom: 48,
     maxWidth: 1380,
     width: '100%',

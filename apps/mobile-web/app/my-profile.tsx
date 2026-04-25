@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 import { supabase } from '../src/lib/supabase';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { getBackPathWithClinicFallback } from '../src/lib/navigation';
@@ -146,14 +148,14 @@ export default function MyProfileScreen() {
       if (result.canceled || !result.assets?.length) return;
 
       const asset = result.assets[0];
-      await uploadAvatar(asset.uri);
+      await uploadAvatar(asset.uri, asset.mimeType);
     } catch {
       Alert.alert('Error', 'Could not select image.');
     }
 
   };
 
-  const uploadAvatar = async (uri: string) => {
+  const uploadAvatar = async (uri: string, mimeType = 'image/jpeg') => {
 
     try {
       setUploadingPhoto(true);
@@ -167,16 +169,31 @@ export default function MyProfileScreen() {
         return;
       }
 
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      const ext =
+        mimeType.includes('png') ? 'png' :
+        mimeType.includes('webp') ? 'webp' :
+        'jpg';
 
-      const filePath = `${user.id}/avatar-${Date.now()}.jpg`;
+      const filePath = `${user.id}/avatar-${Date.now()}.${ext}`;
+
+      let fileBody: Blob | ArrayBuffer;
+
+      if (Platform.OS === 'web') {
+        const response = await fetch(uri);
+        fileBody = await response.blob();
+      } else {
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: 'base64' as any,
+        });
+
+        fileBody = decode(base64);
+      }
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, blob, {
+        .upload(filePath, fileBody, {
+          contentType: mimeType,
           upsert: true,
-          contentType: 'image/jpeg',
         });
 
       if (uploadError) {
@@ -186,8 +203,6 @@ export default function MyProfileScreen() {
 
       const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
       const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
-
-      setAvatarUrl(publicUrl);
 
       const { error: profileError } = await supabase
         .from('profiles')
@@ -199,9 +214,15 @@ export default function MyProfileScreen() {
         return;
       }
 
+      setAvatarUrl(null);
+
+      setTimeout(() => {
+        setAvatarUrl(publicUrl);
+      }, 50);
+
       Alert.alert('Success', 'Profile photo updated.');
-    } catch {
-      Alert.alert('Error', 'Could not upload avatar.');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Could not upload avatar.');
     } finally {
       setUploadingPhoto(false);
     }
@@ -312,7 +333,11 @@ export default function MyProfileScreen() {
         <View style={styles.avatarSection}>
           <View style={[styles.avatarWrap, { borderColor: `${theme.primary}22` }]}>
             {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImage}/>
+              <Image
+                key={avatarUrl}
+                source={{ uri: avatarUrl }}
+                style={styles.avatarImage}
+              />
             ) : (
               <View
                 style={[

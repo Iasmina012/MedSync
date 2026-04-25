@@ -721,15 +721,19 @@ const styles = StyleSheet.create({
 
   mapButtonsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     alignItems: 'center',
-    flexWrap: 'wrap',
+    width: '100%',
   },
 
   mapButton: {
+    flex: 1,
+    minHeight: 54,
     borderRadius: 999,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   mapButtonText: {
@@ -739,12 +743,15 @@ const styles = StyleSheet.create({
   },
 
   mapSecondaryButton: {
+    flex: 1,
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     borderRadius: 999,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#CBD5E1',

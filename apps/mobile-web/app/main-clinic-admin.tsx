@@ -47,6 +47,13 @@ export default function ClinicAdminDashboard() {
   const isMobile = width < 720;
   const { theme } = useClinicTheme(clinicId);
 
+  const go = (pathname: string) => {
+    router.push({
+      pathname: pathname as any,
+      params: { clinicId, clinicName },
+    });
+  };
+
   useEffect(() => {
 
     const check = async () => {
@@ -68,7 +75,7 @@ export default function ClinicAdminDashboard() {
 
     { title: 'Manage Doctors', icon: 'medkit-outline' as const, description: 'Assign and organize clinic doctors.' },
     { title: 'Manage Patients', icon: 'people-outline' as const, description: 'See clinic patients and access.' },
-    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Scheduling and availability.' },
+    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Scheduling and availability.', onPress: () => go('/manage-appointments') },
     { title: 'Clinic Settings', icon: 'settings-outline' as const, description: 'Branding and clinic preferences.' },
 
   ];
@@ -136,6 +143,7 @@ export default function ClinicAdminDashboard() {
                 color={theme.primary}
                 backgroundColor={isAlt ? featureAccentA : featureAccentB}
                 borderColor={isAlt ? featureBorderA : featureBorderB}
+                onPress={item.onPress}
               />
             );
           })}

@@ -284,7 +284,7 @@ export default function ClinicServicesScreen() {
             onPress: () => {
               if (!selectedService) return;
               router.push({
-                pathname: '/manage-appointments' as any,
+                pathname: '/book-appointment' as any,
                 params: { clinicId, clinicName, serviceId: selectedService.id },
               });
             },

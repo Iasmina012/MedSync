@@ -48,6 +48,13 @@ export default function DoctorDashboard() {
   const isMobile = width < 720;
   const { theme } = useClinicTheme(clinicId);
 
+  const go = (pathname: string) => {
+    router.push({
+      pathname: pathname as any,
+      params: { clinicId, clinicName },
+    });
+  };
+
   useEffect(() => {
 
     const check = async () => {
@@ -72,7 +79,7 @@ export default function DoctorDashboard() {
 
   const featureItems = [
 
-    { title: 'Todays Appointments', icon: 'calendar-outline' as const, description: 'Clinic schedule and patient flow.' },
+    { title: 'Todays Appointments', icon: 'calendar-outline' as const, description: 'Clinic schedule and patient flow.', onPress: () => go('/manage-appointments') },
     { title: 'Patients List', icon: 'people-outline' as const, description: 'Only your assigned patients.' },
     { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Review conditions and controls.' },
     { title: 'Add Notes', icon: 'create-outline' as const, description: 'Save medical notes efficiently.' },
@@ -144,6 +151,7 @@ export default function DoctorDashboard() {
                 color={theme.primary}
                 backgroundColor={isAlt ? featureAccentA : featureAccentB}
                 borderColor={isAlt ? featureBorderA : featureBorderB}
+                onPress={item.onPress}
               />
 
             );

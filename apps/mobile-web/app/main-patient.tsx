@@ -1,10 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ActivityIndicator, Image, Modal } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../src/lib/supabase';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+
+type PatientProfile = {
+
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+
+};
 
 function hexToRgb(hex: string) {
 
@@ -45,12 +55,51 @@ export default function PatientDashboard() {
   const isMobile = width < 720;
   const { theme } = useClinicTheme(clinicId);
 
+  const [appointmentsModalOpen, setAppointmentsModalOpen] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profile, setProfile] = useState<PatientProfile | null>(null);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setProfileLoading(true);
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        const { data } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, avatar_url')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        setProfile(data ?? null);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
+
   const go = (pathname: string) => {
+    setAppointmentsModalOpen(false);
+
     router.push({
       pathname: pathname as any,
       params: { clinicId, clinicName },
     });
   };
+
+  const openAppointmentsModal = () => {
+    setAppointmentsModalOpen(true);
+  };
+
+  const patientName =
+    `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim() || 'Patient';
 
   const featureAccentA = rgbaFromHex(theme.primary, 0.11);
   const featureAccentB = rgbaFromHex(theme.primary, 0.18);
@@ -64,7 +113,7 @@ export default function PatientDashboard() {
     { title: 'Services Info', icon: 'list-outline' as const, description: 'Consultations and procedures.', onPress: () => go('/clinic-services') },
     { title: 'Technology Info', icon: 'hardware-chip-outline' as const, description: 'Clinic innovations.', onPress: () => go('/clinic-tech') },
     { title: 'Health Tips', icon: 'leaf-outline' as const, description: 'Personalized clinic wellness tips.', onPress: () => go('/health-tips') },
-    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Book, cancel, reschedule.', onPress: () => go('/manage-appointments') },
+    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Book, cancel, reschedule.', onPress: openAppointmentsModal },
     { title: 'Self-Diagnosis', icon: 'pulse-outline' as const, description: 'Triage support.', onPress: () => go('/self-diagnosis') },
     { title: 'Documents', icon: 'document-attach-outline' as const, description: 'Onboarding and uploads.', onPress: () => go('/documents') },
     { title: 'AI Summary', icon: 'sparkles-outline' as const, description: 'Report summaries.', onPress: () => go('/ai-summary') },
@@ -75,124 +124,174 @@ export default function PatientDashboard() {
 
   return (
 
-    <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
+    <>
 
-      <ClinicNavbar
-        clinicName={clinicName}
-        clinicId={clinicId}
-        primaryColor={theme.primary}
-        roleLabel="Patient"
-        onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
-      />
+      <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
 
-      <View
-        style={[
-          styles.hero,
-          isMobile && styles.heroMobile,
-          { backgroundColor: theme.soft, borderColor: theme.borderSoft },
-        ]}
-      >
-        <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>
-          Patient Dashboard
-        </Text>
-        <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
-          Care that feels connected in {clinicName || 'your clinic'}
-        </Text>
-        <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-          Manage appointments, explore doctors and services, access AI support, and follow your health journey.
-        </Text>
+        <ClinicNavbar
+          clinicName={clinicName}
+          clinicId={clinicId}
+          primaryColor={theme.primary}
+          roleLabel="Patient"
+          onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
+        />
 
-        <View style={[styles.heroButtons, isMobile && styles.heroButtonsMobile]}>
-          <Pressable
-            style={[styles.primaryButton, { backgroundColor: theme.primary }]}
-            onPress={() => go('/manage-appointments')}
-          >
-            <Text style={styles.primaryButtonText}>Manage Appointments</Text>
-          </Pressable>
+        <View
+          style={[
+            styles.hero,
+            isMobile && styles.heroMobile,
+            { backgroundColor: theme.soft, borderColor: theme.borderSoft },
+          ]}
+        >
+          <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>
+            Patient Dashboard
+          </Text>
 
-          <Pressable
-            style={styles.secondaryButton}
-            onPress={() => go('/self-diagnosis')}
-          >
-            <Text style={styles.secondaryButtonText}>Start Triage</Text>
-          </Pressable>
+          <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
+            Care that feels connected in {clinicName || 'your clinic'}
+          </Text>
+
+          <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
+            Manage appointments, explore doctors and services, access AI support, and follow your health journey.
+          </Text>
+
+          <View style={[styles.heroButtons, isMobile && styles.heroButtonsMobile]}>
+            <Pressable
+              style={[styles.primaryButton, { backgroundColor: theme.primary }]}
+              onPress={openAppointmentsModal}
+            >
+              <Text style={styles.primaryButtonText}>Manage Appointments</Text>
+            </Pressable>
+
+            <Pressable style={styles.secondaryButton} onPress={() => go('/self-diagnosis')}>
+              <Text style={styles.secondaryButtonText}>Start Triage</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.statsGrid}>
-        <AnimatedStatsCard label="Upcoming Appointments" value={2} icon="calendar-outline" color={theme.primary} />
-        <AnimatedStatsCard label="Doctors Available" value={7} icon="medkit-outline" color={theme.primary} />
-        <AnimatedStatsCard label="AI Reports Ready" value={1} icon="sparkles-outline" color={theme.primary} />
-        <AnimatedStatsCard label="History Entries" value={12} icon="document-text-outline" color={theme.primary} />
-      </View>
+        <View style={styles.statsGrid}>
+          <AnimatedStatsCard label="Upcoming Appointments" value={2} icon="calendar-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="Doctors Available" value={7} icon="medkit-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="AI Reports Ready" value={1} icon="sparkles-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="History Entries" value={12} icon="document-text-outline" color={theme.primary}/>
+        </View>
 
-      {!isMobile && (
+        {!isMobile && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Medical Ads & Highlights</Text>
+
+            <View style={styles.adsGrid}>
+              <View style={styles.adCard}>
+                <Text style={styles.adTitle}>Prevention Package</Text>
+                <Text style={styles.adText}>Annual consultation with digital summary.</Text>
+              </View>
+
+              <View style={styles.adCard}>
+                <Text style={styles.adTitle}>AI Health Assistant</Text>
+                <Text style={styles.adText}>Guided onboarding and symptom support.</Text>
+              </View>
+
+              <View style={styles.adCard}>
+                <Text style={styles.adTitle}>Cardiology Week</Text>
+                <Text style={styles.adText}>Fast slots for selected consultations.</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Medical Ads & Highlights</Text>
-          <View style={styles.adsGrid}>
-            <View style={styles.adCard}>
-              <Text style={styles.adTitle}>Prevention Package</Text>
-              <Text style={styles.adText}>Annual consultation with digital summary.</Text>
-            </View>
-            <View style={styles.adCard}>
-              <Text style={styles.adTitle}>AI Health Assistant</Text>
-              <Text style={styles.adText}>Guided onboarding and symptom support.</Text>
-            </View>
-            <View style={styles.adCard}>
-              <Text style={styles.adTitle}>Cardiology Week</Text>
-              <Text style={styles.adText}>Fast slots for selected consultations.</Text>
-            </View>
-          </View>
-        </View>
-      )}
+          <Text style={styles.sectionTitle}>Features</Text>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Features</Text>
-        <View style={styles.featuresGrid}>
-          {featureItems.map((item, index) => {
-            const isAlt = index % 2 === 0;
+          <View style={styles.featuresGrid}>
+            {featureItems.map((item, index) => {
+              const isAlt = index % 2 === 0;
 
-            return (
+              return (
 
-              <FeaturesCard
-                key={item.title}
-                compact={isMobile}
-                mobileTwoColumns={isMobile}
-                hideDescription={isMobile}
-                title={item.title}
-                icon={item.icon}
-                description={item.description}
-                onPress={item.onPress}
-                color={theme.primary}
-                backgroundColor={isAlt ? featureAccentA : featureAccentB}
-                borderColor={isAlt ? featureBorderA : featureBorderB}
-              />
+                <FeaturesCard
+                  key={item.title}
+                  compact={isMobile}
+                  mobileTwoColumns={isMobile}
+                  hideDescription={isMobile}
+                  title={item.title}
+                  icon={item.icon}
+                  description={item.description}
+                  onPress={item.onPress}
+                  color={theme.primary}
+                  backgroundColor={isAlt ? featureAccentA : featureAccentB}
+                  borderColor={isAlt ? featureBorderA : featureBorderB}
+                />
 
-            );
-          })}
-        </View>
-      </View>
-
-      <View style={styles.bottomGrid}>
-        <View style={styles.panel}>
-          <Text style={styles.panelTitle}>Upcoming Appointments</Text>
-          <View style={styles.appointmentCard}>
-            <Text style={styles.appointmentDoctor}>Dr. Andrei Popa</Text>
-            <Text style={styles.appointmentMeta}>Tuesday · 14:30 · Cardiology</Text>
-          </View>
-          <View style={styles.appointmentCard}>
-            <Text style={styles.appointmentDoctor}>Dr. Elena Dobre</Text>
-            <Text style={styles.appointmentMeta}>Friday · 11:00 · General Check-up</Text>
+              );
+            })}
           </View>
         </View>
 
-        <View style={styles.panel}>
-          <Text style={styles.panelTitle}>Chat with Doctor</Text>
-          <Text style={styles.adText}>Frontend demo page can be added next.</Text>
-        </View>
-      </View>
+        <View style={styles.bottomGrid}>
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Upcoming Appointments</Text>
+          </View>
 
-    </ScrollView>
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Chat with Doctor</Text>
+            <Text style={styles.adText}>Frontend demo page can be added next.</Text>
+          </View>
+        </View>
+
+      </ScrollView>
+
+      <Modal visible={appointmentsModalOpen} transparent animationType="fade">
+
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Pressable
+              style={styles.modalCloseButton}
+              onPress={() => setAppointmentsModalOpen(false)}
+            >
+              <Ionicons name="close" size={20} color="#64748B"/>
+            </Pressable>
+
+            <View style={[styles.modalIconWrap, { backgroundColor: `${theme.primary}14` }]}>
+              {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.modalAvatar}/>
+              ) : profileLoading ? (
+                <ActivityIndicator size="small" color={theme.primary}/>
+              ) : (
+                <Ionicons name="person-outline" size={34} color={theme.primary}/>
+              )}
+            </View>
+
+            <Text style={styles.modalEyebrow}>Welcome back</Text>
+
+            <Text style={styles.modalTitle}>{patientName}</Text>
+
+            <Text style={styles.modalText}>
+              What would you like to do today? You can book a new appointment or review your existing appointments.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalPrimaryButton, { backgroundColor: theme.primary }]}
+                onPress={() => go('/book-appointment')}
+              >
+                <Ionicons name="calendar-outline" size={18} color="#FFFFFF"/>
+                <Text style={styles.modalPrimaryButtonText}>Book an Appointment</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.modalSecondaryButton}
+                onPress={() => go('/my-appointments')}
+              >
+                <Ionicons name="list-outline" size={18} color="#0F172A"/>
+                <Text style={styles.modalSecondaryButtonText}>View My Appointments</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+      </Modal>
+
+    </>
 
   );
 
@@ -249,7 +348,7 @@ const styles = StyleSheet.create({
   heroButtonsMobile: {
     justifyContent: 'center',
   },
-  
+
   primaryButton: { 
     borderRadius: 999, 
     paddingHorizontal: 18, 
@@ -274,7 +373,7 @@ const styles = StyleSheet.create({
     color: '#0F172A', 
     fontWeight: '700' 
   },
-  
+
   statsGrid: { 
     flexDirection: 'row', 
     flexWrap: 'wrap', 
@@ -301,7 +400,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap', 
     gap: 16 
   },
-  
+
   adCard: { 
     flex: 1, 
     minWidth: 220, 
@@ -346,7 +445,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0', 
     padding: 24 
   },
-  
+
   panelTitle: { 
     fontSize: 20, 
     fontWeight: '900', 
@@ -373,6 +472,116 @@ const styles = StyleSheet.create({
   appointmentMeta: { 
     fontSize: 14, 
     color: '#475569' 
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  modalCard: {
+    width: '100%',
+    maxWidth: 460,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  modalCloseButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+
+  modalIconWrap: {
+    width: 92,
+    height: 92,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+
+  modalAvatar: {
+    width: '100%',
+    height: '100%',
+  },
+
+  modalEyebrow: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+
+  modalTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+
+  modalText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 22,
+  },
+
+  modalActions: {
+    width: '100%',
+    gap: 12,
+  },
+
+  modalPrimaryButton: {
+    minHeight: 52,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  modalPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 15,
+  },
+
+  modalSecondaryButton: {
+    minHeight: 52,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+
+  modalSecondaryButtonText: {
+    color: '#0F172A',
+    fontWeight: '800',
+    fontSize: 15,
   },
 
 });

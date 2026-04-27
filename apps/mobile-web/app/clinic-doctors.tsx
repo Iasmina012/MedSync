@@ -438,9 +438,13 @@ export default function ClinicDoctorsScreen() {
             primary: true,
             onPress: () => {
               if (!selectedDoctor) return;
+
+              const selectedDoctorId = selectedDoctor.id;
+              setSelectedDoctor(null);
+
               router.push({
                 pathname: '/book-appointment' as any,
-                params: { clinicId, clinicName, doctorId: selectedDoctor.id },
+                params: { clinicId, clinicName, doctorId: selectedDoctorId },
               });
             },
           },

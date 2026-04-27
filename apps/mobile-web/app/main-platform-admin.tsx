@@ -45,6 +45,13 @@ export default function PlatformAdminDashboard() {
   const isMobile = width < 720;
   const { theme } = useClinicTheme(clinicId);
 
+  const go = (pathname: string) => {
+    router.push({
+      pathname: pathname as any,
+      params: { clinicId, clinicName },
+    });
+  };
+
   const featureAccentA = rgbaFromHex(theme.primary, 0.11);
   const featureAccentB = rgbaFromHex(theme.primary, 0.18);
   const featureBorderA = rgbaFromHex(theme.primary, 0.22);
@@ -55,7 +62,7 @@ export default function PlatformAdminDashboard() {
     { title: 'Manage Clinics', icon: 'business-outline' as const, description: 'Configure clinics platform-wide.' },
     { title: 'Manage Users', icon: 'people-outline' as const, description: 'See users across all clinics.' },
     { title: 'Analytics', icon: 'bar-chart-outline' as const, description: 'Global usage and reporting.' },
-    { title: 'All Appointments', icon: 'calendar-clear-outline' as const, description: 'Platform appointment overview.' },
+    { title: 'All Appointments', icon: 'calendar-clear-outline' as const, description: 'Platform appointment overview.', onPress: () => go('/manage-appointments'), },
 
   ];
 
@@ -115,6 +122,7 @@ export default function PlatformAdminDashboard() {
                 color={theme.primary}
                 backgroundColor={isAlt ? featureAccentA : featureAccentB}
                 borderColor={isAlt ? featureBorderA : featureBorderB}
+                onPress={item.onPress}
               />
             );
 

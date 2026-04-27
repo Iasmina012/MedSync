@@ -79,7 +79,7 @@ export default function DoctorDashboard() {
 
   const featureItems = [
 
-    { title: 'Todays Appointments', icon: 'calendar-outline' as const, description: 'Clinic schedule and patient flow.', onPress: () => go('/manage-appointments') },
+    { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'Clinic schedule and patient flow.', onPress: () => go('/manage-appointments') },
     { title: 'Patients List', icon: 'people-outline' as const, description: 'Only your assigned patients.' },
     { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Review conditions and controls.' },
     { title: 'Add Notes', icon: 'create-outline' as const, description: 'Save medical notes efficiently.' },

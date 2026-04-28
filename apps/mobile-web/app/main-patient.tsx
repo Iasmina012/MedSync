@@ -59,7 +59,11 @@ export default function PatientDashboard() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [profile, setProfile] = useState<PatientProfile | null>(null);
 
+  const [upcomingAppointments, setUpcomingAppointments] = useState(0);
+  const [upcomingList, setUpcomingList] = useState<any[]>([]);
+
   useEffect(() => {
+
     const loadProfile = async () => {
       try {
         setProfileLoading(true);
@@ -69,6 +73,42 @@ export default function PatientDashboard() {
         } = await supabase.auth.getUser();
 
         if (!user) return;
+
+        const today = new Date().toISOString().slice(0, 10);
+        const { count } = await supabase
+          .from('appointments')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId)
+          .eq('patient_id', user.id)
+          .in('status', ['scheduled', 'rescheduled'])
+          .gte('appointment_date', today);
+
+        setUpcomingAppointments(count ?? 0);
+
+        const { data: upcomingData } = await supabase
+          .from('appointments')
+          .select(`
+            id,
+            appointment_date,
+            start_time,
+            doctors (
+              first_name,
+              last_name,
+              specialty
+            ),
+            clinic_services (
+              title
+            )
+          `)
+          .eq('clinic_id', clinicId)
+          .eq('patient_id', user.id)
+          .in('status', ['scheduled', 'rescheduled'])
+          .gte('appointment_date', today)
+          .order('appointment_date', { ascending: true })
+          .order('start_time', { ascending: true })
+          .limit(3);
+
+        setUpcomingList(upcomingData ?? []);
 
         const { data } = await supabase
           .from('profiles')
@@ -83,7 +123,8 @@ export default function PatientDashboard() {
     };
 
     loadProfile();
-  }, []);
+
+  }, [clinicId]);
 
   const go = (pathname: string) => {
     setAppointmentsModalOpen(false);
@@ -170,7 +211,7 @@ export default function PatientDashboard() {
         </View>
 
         <View style={styles.statsGrid}>
-          <AnimatedStatsCard label="Upcoming Appointments" value={2} icon="calendar-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="Upcoming Appointments" value={upcomingAppointments} icon="calendar-outline" color={theme.primary}/>
           <AnimatedStatsCard label="Doctors Available" value={7} icon="medkit-outline" color={theme.primary}/>
           <AnimatedStatsCard label="AI Reports Ready" value={1} icon="sparkles-outline" color={theme.primary}/>
           <AnimatedStatsCard label="History Entries" value={12} icon="document-text-outline" color={theme.primary}/>
@@ -228,8 +269,60 @@ export default function PatientDashboard() {
         </View>
 
         <View style={styles.bottomGrid}>
+
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Upcoming Appointments</Text>
+            <View style={styles.panelHeaderRow}>
+              <View>
+                <Text style={styles.panelEyebrow}>Next visits</Text>
+                <Text style={styles.panelTitle}>Upcoming Appointments</Text>
+              </View>
+
+              <View style={[styles.panelIconBadge, { backgroundColor: `${theme.primary}14` }]}>
+                <Ionicons name="calendar-outline" size={20} color={theme.primary}/>
+              </View>
+            </View>
+
+            {upcomingList.length === 0 ? (
+              <View style={styles.emptyUpcomingBox}>
+                <Ionicons name="calendar-clear-outline" size={24} color="#94A3B8"/>
+                <Text style={styles.emptyUpcomingTitle}>No upcoming appointments</Text>
+                <Text style={styles.emptyUpcomingText}>
+                  Your next visits will appear here after booking.
+                </Text>
+              </View>
+            ) : (
+              upcomingList.map((appointment) => {
+                const doctor = Array.isArray(appointment.doctors)
+                  ? appointment.doctors[0]
+                  : appointment.doctors;
+
+                const service = Array.isArray(appointment.clinic_services)
+                  ? appointment.clinic_services[0]
+                  : appointment.clinic_services;
+
+                return (
+                  <View key={appointment.id} style={styles.upcomingCard}>
+                    <View style={[styles.upcomingDateBadge, { backgroundColor: `${theme.primary}12` }]}>
+                      <Ionicons name="time-outline" size={16} color={theme.primary}/>
+                    </View>
+
+                    <View style={styles.upcomingContent}>
+                      <Text style={styles.upcomingService}>
+                        {service?.title || 'Medical appointment'}
+                      </Text>
+
+                      <Text style={styles.upcomingDoctor}>
+                        Dr. {doctor?.first_name || ''} {doctor?.last_name || ''}
+                      </Text>
+
+                      <Text style={styles.upcomingMeta}>
+                        {appointment.appointment_date} · {appointment.start_time}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
           </View>
 
           <View style={styles.panel}>
@@ -582,6 +675,97 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '800',
     fontSize: 15,
+  },
+
+  panelHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 16,
+  },
+
+  panelEyebrow: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+
+  panelIconBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  emptyUpcomingBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    padding: 18,
+    alignItems: 'center',
+  },
+
+  emptyUpcomingTitle: {
+    marginTop: 10,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+
+  emptyUpcomingText: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+
+  upcomingCard: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 10,
+  },
+
+  upcomingDateBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  upcomingContent: {
+    flex: 1,
+  },
+
+  upcomingService: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+
+  upcomingDoctor: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#475569',
+    marginBottom: 3,
+  },
+
+  upcomingMeta: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '700',
   },
 
 });

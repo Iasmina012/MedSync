@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions, } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getCurrentUserProfile } from '../src/lib/auth';
+import { supabase } from '../src/lib/supabase';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
@@ -47,6 +49,9 @@ export default function ClinicAdminDashboard() {
   const isMobile = width < 720;
   const { theme } = useClinicTheme(clinicId);
 
+  const [upcomingAppointments, setUpcomingAppointments] = useState(0);
+  const [upcomingList, setUpcomingList] = useState<any[]>([]);
+
   const go = (pathname: string) => {
     router.push({
       pathname: pathname as any,
@@ -60,11 +65,46 @@ export default function ClinicAdminDashboard() {
       const { user, profile } = await getCurrentUserProfile();
       if (!user) return router.replace('/login');
       if (profile?.role !== 'clinic_admin') return router.replace('/main-patient');
+      const today = new Date().toISOString().slice(0, 10);
+
+    const { count } = await supabase
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('clinic_id', clinicId)
+      .in('status', ['scheduled', 'rescheduled'])
+      .gte('appointment_date', today);
+
+    const { data } = await supabase
+      .from('appointments')
+      .select(`
+        id,
+        appointment_date,
+        start_time,
+        patient_first_name,
+        patient_last_name,
+        doctors (
+          first_name,
+          last_name
+        ),
+        clinic_services (
+          title
+        )
+      `)
+      .eq('clinic_id', clinicId)
+      .in('status', ['scheduled', 'rescheduled'])
+      .gte('appointment_date', today)
+      .order('appointment_date', { ascending: true })
+      .order('start_time', { ascending: true })
+      .limit(3);
+
+    setUpcomingAppointments(count ?? 0);
+    setUpcomingList(data ?? []);
+
       setLoading(false);
     };
     check();
 
-  }, []);
+  }, [clinicId]);
 
   const featureAccentA = rgbaFromHex(theme.primary, 0.11);
   const featureAccentB = rgbaFromHex(theme.primary, 0.18);
@@ -121,7 +161,7 @@ export default function ClinicAdminDashboard() {
       <View style={styles.statsGrid}>
         <AnimatedStatsCard label="Doctors" value={12} icon="medkit-outline" color={theme.primary}/>
         <AnimatedStatsCard label="Patients" value={248} icon="people-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Appointments" value={36} icon="calendar-outline" color={theme.primary}/>
+        <AnimatedStatsCard label="Upcoming Appointments" value={upcomingAppointments} icon="calendar-outline" color={theme.primary}/>
         <AnimatedStatsCard label="Pending Requests" value={5} icon="notifications-outline" color={theme.primary}/>
       </View>
 
@@ -148,6 +188,50 @@ export default function ClinicAdminDashboard() {
             );
           })}
         </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
+
+        {upcomingList.length === 0 ? (
+          <Text style={styles.emptyUpcomingText}>No upcoming appointments.</Text>
+        ) : (
+          upcomingList.map((appointment) => {
+            const doctor = Array.isArray(appointment.doctors)
+              ? appointment.doctors[0]
+              : appointment.doctors;
+
+            const service = Array.isArray(appointment.clinic_services)
+              ? appointment.clinic_services[0]
+              : appointment.clinic_services;
+
+            const patientName =
+              `${appointment.patient_first_name || ''} ${appointment.patient_last_name || ''}`.trim() ||
+              'Patient';
+
+            return (
+              <View key={appointment.id} style={styles.upcomingCard}>
+                <View style={[styles.upcomingDateBadge, { backgroundColor: `${theme.primary}12` }]}>
+                  <Ionicons name="calendar-outline" size={17} color={theme.primary}/>
+                </View>
+
+                <View style={styles.upcomingContent}>
+                  <Text style={styles.upcomingService}>
+                    {service?.title || 'Medical appointment'}
+                  </Text>
+
+                  <Text style={styles.upcomingDoctor}>
+                    {patientName} · Dr. {doctor?.first_name || ''} {doctor?.last_name || ''}
+                  </Text>
+
+                  <Text style={styles.upcomingMeta}>
+                    {appointment.appointment_date} · {appointment.start_time}
+                  </Text>
+                </View>
+              </View>
+            );
+          })
+        )}
       </View>
 
     </ScrollView>
@@ -229,6 +313,56 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     flexWrap: 'wrap', 
     gap: 16 
+  },
+
+  emptyUpcomingText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+
+  upcomingCard: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 10,
+  },
+
+  upcomingDateBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  upcomingContent: {
+    flex: 1,
+  },
+
+  upcomingService: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+
+  upcomingDoctor: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#475569',
+    marginBottom: 3,
+  },
+
+  upcomingMeta: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '700',
   },
 
 });

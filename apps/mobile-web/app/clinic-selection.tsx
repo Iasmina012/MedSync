@@ -400,7 +400,7 @@ export default function ClinicSelectionScreen() {
 
           <Text style={styles.title}>Choose Your Clinic</Text>
           <Text style={styles.subtitle}>
-            Select the clinic you want to continue with. After confirmation, you will be redirected to the correct dashboard for your role.
+            Select the clinic you want to continue with. After confirmation, you will be redirected to your main dashboard.
           </Text>
 
           {!!error && <Text style={styles.error}>{error}</Text>}
@@ -420,7 +420,7 @@ export default function ClinicSelectionScreen() {
         ) : !error ? (
           <View style={styles.emptyCard}>
             <Ionicons name="alert-circle-outline" size={24} color="#F59E0B" />
-            <Text style={styles.emptyTitle}>No clinics available</Text>
+            <Text style={styles.emptyTitle}>No clinics available yet!</Text>
             <Text style={styles.emptyText}>
               There are no clinics available for your account right now.
             </Text>
@@ -437,7 +437,7 @@ export default function ClinicSelectionScreen() {
 
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Confirm clinic access</Text>
+            <Text style={styles.modalTitle}>Clinic Access Confirmation</Text>
 
             <Text style={styles.modalText}>
               Are you sure you want to continue with{' '}
@@ -445,7 +445,7 @@ export default function ClinicSelectionScreen() {
             </Text>
 
             <Text style={styles.modalSubtext}>
-              By continuing, the application will load data related to this clinic.
+              By choosing to continue, the app will load the data related to this clinic.
             </Text>
 
             <View style={styles.modalActions}>

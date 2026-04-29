@@ -155,7 +155,7 @@ export default function LoginScreen() {
 
           <Text style={styles.title}>Login</Text>
           <Text style={styles.subtitle}>
-            Log in with your username or email to continue
+            Log In with your username or email to continue
           </Text>
 
           <TextInput
@@ -277,7 +277,7 @@ export default function LoginScreen() {
               {resetLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF"/>
               ) : (
-                <Text style={styles.modalPrimaryButtonText}>Send reset email</Text>
+                <Text style={styles.modalPrimaryButtonText}>Send reset password email</Text>
               )}
             </Pressable>
           </Pressable>

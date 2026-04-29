@@ -126,11 +126,10 @@ export default function DoctorDashboard() {
 
   const featureItems = [
 
-    { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'Clinic schedule and patient flow.', onPress: () => go('/manage-appointments') },
-    { title: 'Patients List', icon: 'people-outline' as const, description: 'Only your assigned patients.' },
-    { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Review conditions and controls.' },
-    { title: 'Add Notes', icon: 'create-outline' as const, description: 'Save medical notes efficiently.' },
-    { title: 'Chat with Patients', icon: 'chatbubbles-outline' as const, description: 'Direct communication frontend.' },
+    { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'Modify, cancel or sort appointments and view appointment details.', onPress: () => go('/manage-appointments') },
+    { title: 'Patients List', icon: 'people-outline' as const, description: 'Placeholder description.' },
+    { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Placeholder description.' },
+    { title: 'Add Notes', icon: 'create-outline' as const, description: 'Placeholder description.' },
 
   ];
 
@@ -168,7 +167,7 @@ export default function DoctorDashboard() {
           Welcome back{fullName ? `, Dr. ${fullName}` : ''}
         </Text>
         <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-          See only your patients, your appointments, your notes, and your chat activity.
+          Placeholder Subtitle
         </Text>
       </View>
 
@@ -180,7 +179,7 @@ export default function DoctorDashboard() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Feature Access</Text>
+        <Text style={styles.sectionTitle}>Features</Text>
         <View style={styles.featuresGrid}>
           {featureItems.map((item, index) => {
             const isAlt = index % 2 === 0;

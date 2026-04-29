@@ -26,8 +26,8 @@ export default function FloatingChatButton() {
           <View style={styles.chatCard}>
             <View style={styles.chatHeader}>
               <View>
-                <Text style={styles.chatTitle}>Chatbot MedSync</Text>
-                <Text style={styles.chatSubtitle}>Demo Assistant for Help</Text>
+                <Text style={styles.chatTitle}>MedSync Chatbot</Text>
+                <Text style={styles.chatSubtitle}>Help Assistant for You</Text>
               </View>
 
               <Pressable onPress={() => setOpen(false)}>
@@ -38,7 +38,7 @@ export default function FloatingChatButton() {
             <View style={styles.chatBody}>
               <View style={styles.botBubble}>
                 <Text style={styles.botBubbleText}>
-                  Hi! I am a demo chatbot.
+                  Hi! I am MedSync&apos;s chatbot.
                 </Text>
               </View>
             </View>

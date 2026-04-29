@@ -518,11 +518,11 @@ export default function ManageAppointmentsScreen() {
           </Text>
 
           <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-            Manage clinic appointments
+            Manage Clinic Appointments
           </Text>
 
           <Text style={styles.heroSubtitle}>
-            View scheduled appointments, cancel or reschedule visits.
+            Placeholder Subtitle
           </Text>
 
           <View style={[styles.heroControls, isMobile && styles.heroControlsMobile]}>
@@ -576,7 +576,7 @@ export default function ManageAppointmentsScreen() {
           <View style={styles.emptyCard}>
             <Ionicons name="calendar-clear-outline" size={30} color={theme.primary}/>
             <Text style={styles.emptyTitle}>No active appointments</Text>
-            <Text style={styles.emptyText}>There are no scheduled appointments to manage right now.</Text>
+            <Text style={styles.emptyText}>There are no scheduled appointments yet.</Text>
           </View>
         ) : (
           <View style={styles.listWrap}>
@@ -700,7 +700,7 @@ export default function ManageAppointmentsScreen() {
                         onPress={() => setCheckTarget(appointment)}
                       >
                         <Ionicons name="person-circle-outline" size={16} color="#0F172A"/>
-                        <Text style={styles.checkActionText}>Check in</Text>
+                        <Text style={styles.checkActionText}>Check In</Text>
                       </Pressable>
                     )}
                   </View>
@@ -720,7 +720,7 @@ export default function ManageAppointmentsScreen() {
               <Ionicons name="calendar-outline" size={34} color={theme.primary}/>
             </View>
 
-            <Text style={styles.modalTitle}>Appointment details</Text>
+            <Text style={styles.modalTitle}>Appointment Details</Text>
 
             {detailsTarget && (
               <View style={styles.modalDetailsBlock}>
@@ -728,7 +728,7 @@ export default function ManageAppointmentsScreen() {
                   <View style={styles.modalWarningBox}>
                     <Ionicons name="warning-outline" size={18} color="#B45309"/>
                     <Text style={styles.modalWarningText}>
-                      Patient left notes for this appointment.
+                      The patient left notes for this appointment.
                     </Text>
                   </View>
                 )}
@@ -818,7 +818,7 @@ export default function ManageAppointmentsScreen() {
 
             <Text style={styles.modalTitle}>Cancel appointment?</Text>
 
-            <Text style={styles.modalText}>This appointment will be cancelled and removed from the active list for everyone involved.</Text>
+            <Text style={styles.modalText}>This appointment will be cancelled and removed from the active list.</Text>
 
             <View style={styles.modalActions}>
               <Pressable
@@ -857,9 +857,9 @@ export default function ManageAppointmentsScreen() {
               <Ionicons name="person-circle-outline" size={34} color={theme.primary}/>
             </View>
 
-            <Text style={styles.modalTitle}>Patient attendance</Text>
+            <Text style={styles.modalTitle}>Patient Attendance</Text>
 
-            <Text style={styles.modalText}> Select whether the patient is present. After this action, the appointment will be archived from the active list.</Text>
+            <Text style={styles.modalText}> Select whether the patient is present or not. After this action, the appointment will be archived from the active list.</Text>
 
             <View style={styles.modalActionsColumn}>
               <Pressable

@@ -113,10 +113,10 @@ export default function ClinicAdminDashboard() {
 
   const featureItems = [
 
-    { title: 'Manage Doctors', icon: 'medkit-outline' as const, description: 'Assign and organize clinic doctors.' },
-    { title: 'Manage Patients', icon: 'people-outline' as const, description: 'See clinic patients and access.' },
-    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Scheduling and availability.', onPress: () => go('/manage-appointments') },
-    { title: 'Clinic Settings', icon: 'settings-outline' as const, description: 'Branding and clinic preferences.' },
+    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Modify, cancel or sort appointments, view details and check-in patients.', onPress: () => go('/manage-appointments') },
+    { title: 'Manage Doctors', icon: 'medkit-outline' as const, description: 'Placeholder description.' },
+    { title: 'Manage Patients', icon: 'people-outline' as const, description: 'Placeholder description.' },
+    { title: 'Clinic Settings', icon: 'settings-outline' as const, description: 'Placeholder description.' },
 
   ];
 
@@ -151,10 +151,10 @@ export default function ClinicAdminDashboard() {
           Clinic Admin Dashboard
         </Text>
         <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
-          Manage your clinic only
+          Manage Your Clinic
         </Text>
         <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-          Doctors, patients, appointments, and clinic settings stay scoped to the selected clinic.
+          Placeholder subtitle
         </Text>
       </View>
 
@@ -166,7 +166,7 @@ export default function ClinicAdminDashboard() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Feature Access</Text>
+        <Text style={styles.sectionTitle}>Features</Text>
         <View style={styles.featuresGrid}>
           {featureItems.map((item, index) => {
             const isAlt = index % 2 === 0;
@@ -205,9 +205,7 @@ export default function ClinicAdminDashboard() {
               ? appointment.clinic_services[0]
               : appointment.clinic_services;
 
-            const patientName =
-              `${appointment.patient_first_name || ''} ${appointment.patient_last_name || ''}`.trim() ||
-              'Patient';
+            const patientName = `${appointment.patient_first_name || ''} ${appointment.patient_last_name || ''}`.trim() || 'Patient';
 
             return (
               <View key={appointment.id} style={styles.upcomingCard}>

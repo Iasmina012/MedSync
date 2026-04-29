@@ -7,10 +7,10 @@ import { supabase } from '../src/lib/supabase';
 
 const CONTACT = {
 
-  email: 'contact@medsync.com',
+  email: 'office@medsync.com',
   phoneDisplay: '+40 777 777 777',
   phoneLink: '+40777777777',
-  addressLine1: 'MedSync Headquarters',
+  addressLine1: 'MedSync',
   addressLine2: 'Bulevardul Unirii 10, București, România',
   googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Bulevardul+Unirii+10+Bucuresti+Romania',
   appleMapsUrl: 'http://maps.apple.com/?q=Bulevardul+Unirii+10+Bucuresti+Romania',
@@ -187,7 +187,7 @@ export default function ContactScreen() {
   const openEmail = () => {
     openExternalUrl(
       `mailto:${CONTACT.email}`,
-      'Email app is not available on this device.'
+      'The email app is not available on this device.'
     );
   };
 
@@ -212,13 +212,13 @@ const handleSendMessage = async () => {
   const trimmedMessage = message.trim();
 
   if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedMessage) {
-    showAlert('Incomplete form', 'Please complete all fields before sending.');
+    showAlert('Incomplete form!', 'Please complete all fields before submiting.');
     return;
   }
 
   const emailIsValid = /\S+@\S+\.\S+/.test(trimmedEmail);
   if (!emailIsValid) {
-    showAlert('Invalid email', 'Please enter a valid email address.');
+    showAlert('Invalid email!', 'Please enter a valid email address.');
     return;
   }
 
@@ -237,7 +237,7 @@ const handleSendMessage = async () => {
 
   const mailtoUrl = `mailto:${CONTACT.email}?subject=${subject}&body=${body}`;
 
-  await openExternalUrl(mailtoUrl, 'Email app is not available on this device.');
+  await openExternalUrl(mailtoUrl, 'The email app is not available on this device.');
 
 };
 
@@ -253,31 +253,27 @@ const handleSendMessage = async () => {
             <View style={styles.badge}>
               <Ionicons name="mail-outline" size={16} color="#1D4ED8"/>
               <Text style={styles.badgeText}>
-                Let&apos;s talk! Contact the MedSync Team
+                Contact the MedSync Team
               </Text>
             </View>
 
-            <Text style={styles.title}>Get in touch with the MedSync team</Text>
+            <Text style={styles.title}>Get in touch with us!</Text>
 
             <Text style={styles.subtitle}>
-              Reach out for platform support, collaboration, clinic onboarding, or general MedSync questions.
+              Placeholder text
             </Text>
 
             <View style={styles.heroPillsRow}>
               <View style={styles.heroPill}>
                 <Ionicons name="mail-open-outline" size={16} color="#1D4ED8"/>
-                <Text style={styles.heroPillText}>Email support</Text>
+                <Text style={styles.heroPillText}>Email Support</Text>
               </View>
 
               <View style={styles.heroPill}>
                 <Ionicons name="call-outline" size={16} color="#1D4ED8"/>
-                <Text style={styles.heroPillText}>Direct contact</Text>
+                <Text style={styles.heroPillText}>Call Support</Text>
               </View>
 
-              <View style={styles.heroPill}>
-                <Ionicons name="time-outline" size={16} color="#1D4ED8"/>
-                <Text style={styles.heroPillText}>Weekday support</Text>
-              </View>
             </View>
           </View>
 
@@ -295,14 +291,14 @@ const handleSendMessage = async () => {
               </View>
 
               <View>
-                <Text style={styles.animationTitle}>Message received</Text>
-                <Text style={styles.animationSubtitle}>MedSync support team</Text>
+                <Text style={styles.animationTitle}>Message Received</Text>
+                <Text style={styles.animationSubtitle}>MedSync Team</Text>
               </View>
             </View>
 
             <View style={styles.messagePreview}>
               <Text style={styles.messagePreviewText}>
-                Hi MedSync, I&apos;d like to learn more about the platform.
+                Hi, MedSync team! I&apos;d like to learn more about your platform.
               </Text>
             </View>
 
@@ -315,7 +311,7 @@ const handleSendMessage = async () => {
               ]}
             >
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.replyBubbleText}>We&apos;ll get back soon</Text>
+              <Text style={styles.replyBubbleText}>We&apos;ll get back to you soon.</Text>
             </Animated.View>
 
             <Animated.View
@@ -368,7 +364,8 @@ const handleSendMessage = async () => {
 
               <View style={styles.rowContent}>
                 <Text style={styles.rowTitle}>Schedule</Text>
-                <Text style={styles.rowText}>Mon - Fri · 08:00 - 18:00</Text>
+                <Text style={styles.rowText}>Monday - Friday</Text>
+                <Text style={styles.rowText}>08:00 - 18:00</Text>
               </View>
             </View>
 
@@ -446,34 +443,35 @@ const handleSendMessage = async () => {
               </View>
 
               <View style={styles.mapBottomRow}>
-                <Text style={styles.mapHint}>Tap to open in Maps</Text>
+                <Text style={styles.mapHint}>Tap to open in Google Maps</Text>
                 <Ionicons name="open-outline" size={18} color="#1D4ED8"/>
               </View>
             </Pressable>
 
-            <Pressable style={styles.directionsButton} onPress={openMap}>
-              <Ionicons name="navigate-outline" size={18} color="#FFFFFF"/>
-              <Text style={styles.directionsButtonText}>Get directions</Text>
-            </Pressable>
-
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>Platform-level contact for MedSync</Text>
+              <Text style={styles.bulletText}>Placeholder text</Text>
             </View>
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>
-                Clinic-specific maps can be added later
-              </Text>
+              <Text style={styles.bulletText}>Placeholder text</Text>
             </View>
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>
-                Support, collaboration, and platform inquiries
-              </Text>
-            </View>               
+              <Text style={styles.bulletText}>Placeholder text</Text>
+            </View>
+
+            <View style={styles.bullet}>
+              <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
+              <Text style={styles.bulletText}>Placeholder text</Text>
+            </View>
+            
+            <View style={styles.bullet}>
+              <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
+              <Text style={styles.bulletText}>Placeholder text</Text>
+            </View>
           </View>
 
         </View>
@@ -851,7 +849,7 @@ const styles = StyleSheet.create({
   },
 
   mapVisual: {
-    height: 170,
+    height: 250,
     borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: '#EAF2FF',
@@ -895,24 +893,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#1D4ED8',
-  },
-
-  directionsButton: {
-    marginBottom: 20,
-    backgroundColor: '#1D4ED8',
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    alignSelf: 'flex-start',
-  },
-
-  directionsButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 15,
   },
 
   bullet: {

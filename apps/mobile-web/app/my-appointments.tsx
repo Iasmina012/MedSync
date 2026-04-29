@@ -484,11 +484,11 @@ export default function MyAppointmentsScreen() {
           </Text>
 
           <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-            Your clinic schedule
+            Placeholder Title
           </Text>
 
           <Text style={styles.heroSubtitle}>
-            View upcoming visits, reschedule when needed, or cancel an appointment.
+            View upcoming visits, see appointment details, reschedule when needed or cancel an appointment.
           </Text>
 
           <View style={[styles.heroControls, isMobile && styles.heroControlsMobile]}>
@@ -699,7 +699,7 @@ export default function MyAppointmentsScreen() {
               <Ionicons name="calendar-outline" size={34} color={theme.primary}/>
             </View>
 
-            <Text style={styles.modalTitle}>Appointment details</Text>
+            <Text style={styles.modalTitle}>Appointment Details</Text>
 
             {detailsTarget && (
               <View style={styles.modalDetailsBlock}>
@@ -764,7 +764,7 @@ export default function MyAppointmentsScreen() {
 
                 <DetailRow
                   icon="chatbox-ellipses-outline"
-                  label="Notes / observations"
+                  label="Notes"
                   value={detailsTarget.notes?.trim() || 'No notes provided'}
                 />
               </View>
@@ -792,7 +792,7 @@ export default function MyAppointmentsScreen() {
             <Text style={styles.modalTitle}>Are you sure?</Text>
 
             <Text style={styles.modalText}>
-              This appointment will be cancelled and removed from your active appointment list.
+              This appointment will be cancelled and removed from your active list.
             </Text>
 
             <View style={styles.modalActions}>

@@ -71,29 +71,29 @@ export default function PoliciesScreen() {
           Platform usage and clinic rules
         </Text>
         <Text style={styles.heroSubtitle}>
-          Review the core rules for account use, communication, and medical platform behavior.
+          Review the core rules for account use, communication and medical platform behavior.
         </Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Account use</Text>
+        <Text style={styles.sectionTitle}>Account Use</Text>
         <Text style={styles.text}>
           Keep your login secure and do not share access with other people. You are responsible for activity performed using your account.
         </Text>
 
-        <Text style={styles.sectionTitle}>Clinic communication</Text>
+        <Text style={styles.sectionTitle}>Clinic Communication</Text>
         <Text style={styles.text}>
-          Messages, appointment requests, and medical notes must be used respectfully and only for legitimate health-related communication.
+          Messages, appointment requests and medical notes must be used respectfully and only for legitimate health-related communication.
         </Text>
 
-        <Text style={styles.sectionTitle}>Medical information</Text>
+        <Text style={styles.sectionTitle}>Medical Information</Text>
         <Text style={styles.text}>
           This platform supports communication and organization, but urgent medical issues must follow the clinic emergency instructions and local emergency services.
         </Text>
 
-        <Text style={styles.sectionTitle}>Platform conduct</Text>
+        <Text style={styles.sectionTitle}>Platform Conduct</Text>
         <Text style={styles.text}>
-          Abusive behavior, spam, misuse of patient data, or unauthorized access attempts may lead to account restriction.
+          Abusive behavior, spam, misuse of patient data or unauthorized access attempts may lead to account restriction.
         </Text>
       </View>
 

@@ -138,27 +138,27 @@ export default function AboutScreen() {
             </View>
 
             <Text style={styles.heroTitle}>
-              Your clinic, appointments, and health updates in one calm digital space.
+              Placeholder Title
             </Text>
 
             <Text style={styles.heroSubtitle}>
-              MedSync is a multi-platform medical system designed for clinics, doctors, patients, and administrators, with a strong base for future AI-powered workflows.
+              Placeholder Subtitle
             </Text>
 
             <View style={styles.heroPillsRow}>
               <View style={styles.heroPill}>
                 <Ionicons name="calendar-outline" size={16} color="#1D4ED8"/>
-                <Text style={styles.heroPillText}>Appointments</Text>
+                <Text style={styles.heroPillText}>Manage Appointments</Text>
               </View>
 
               <View style={styles.heroPill}>
                 <Ionicons name="chatbubbles-outline" size={16} color="#1D4ED8"/>
-                <Text style={styles.heroPillText}>Secure chat</Text>
+                <Text style={styles.heroPillText}>Secure AI</Text>
               </View>
 
               <View style={styles.heroPill}>
                 <Ionicons name="pulse-outline" size={16} color="#1D4ED8"/>
-                <Text style={styles.heroPillText}>Care insights</Text>
+                <Text style={styles.heroPillText}>Healthcare Insights</Text>
               </View>
             </View>
           </View>
@@ -181,7 +181,7 @@ export default function AboutScreen() {
               </View>
               <View style={styles.roleTextWrap}>
                 <Text style={styles.roleTitle}>Patient</Text>
-                <Text style={styles.roleSubtitle}>Books appointment</Text>
+                <Text style={styles.roleSubtitle}>Books Appointment</Text>
               </View>
             </Animated.View>
 
@@ -197,7 +197,7 @@ export default function AboutScreen() {
               </View>
               <View style={styles.roleTextWrap}>
                 <Text style={styles.roleTitle}>Doctor</Text>
-                <Text style={styles.roleSubtitle}>Reviews data</Text>
+                <Text style={styles.roleSubtitle}>Reviews Data</Text>
               </View>
             </Animated.View>
 
@@ -213,7 +213,7 @@ export default function AboutScreen() {
               </View>
               <View style={styles.roleTextWrap}>
                 <Text style={styles.roleTitle}>Clinic Admin</Text>
-                <Text style={styles.roleSubtitle}>Manages clinic</Text>
+                <Text style={styles.roleSubtitle}>Manages Clinic</Text>
               </View>
             </Animated.View>
 
@@ -229,23 +229,23 @@ export default function AboutScreen() {
               </View>
               <View style={styles.roleTextWrap}>
                 <Text style={styles.roleTitle}>Platform Admin</Text>
-                <Text style={styles.roleSubtitle}>Oversees system</Text>
+                <Text style={styles.roleSubtitle}>Oversees System</Text>
               </View>
             </Animated.View>
 
             <Animated.View style={[styles.syncCenter, { transform: [{ scale: pulse }] }]}>
               <Ionicons name="sync-outline" size={22} color="#FFFFFF"/>
-              <Text style={styles.syncText}>Synced care</Text>
+              <Text style={styles.syncText}>Synced Healthcare</Text>
             </Animated.View>
           </View>
         </View>
 
         <View style={styles.downloadSection}>
           <View style={styles.downloadTextBlock}>
-            <Text style={styles.downloadEyebrow}>Mobile experience</Text>
-            <Text style={styles.downloadTitle}>Download the MedSync app</Text>
+            <Text style={styles.downloadEyebrow}>Mobile Experience</Text>
+            <Text style={styles.downloadTitle}>Download the MedSync App</Text>
             <Text style={styles.downloadSubtitle}>
-              Access appointments, clinic updates, patient tools, and smart care workflows from your phone. Access appointments, clinic updates, patient tools, and smart care workflows from your phone.
+              Placeholder description
             </Text>
           </View>
 
@@ -268,9 +268,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="business-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Multi-Clinic Ready</Text>
+            <Text style={styles.cardTitle}>Placeholder Title</Text>
             <Text style={styles.cardText}>
-              One system can support multiple clinics, each with its own users, data, branding, and workflows.
+              Placeholder description
             </Text>
           </HoverCard>
 
@@ -278,9 +278,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="phone-portrait-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Web + Mobile</Text>
+            <Text style={styles.cardTitle}>Placeholder Title</Text>
             <Text style={styles.cardText}>
-              Built as a shared experience for web, iOS, and Android, while keeping each platform adapted to its context.
+              Placeholder description
             </Text>
           </HoverCard>
 
@@ -288,9 +288,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="sparkles-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>AI Expansion Path</Text>
+            <Text style={styles.cardTitle}>Placeholder Title</Text>
             <Text style={styles.cardText}>
-              The platform can later include AI summaries, assisted onboarding, triage, chatbot support.
+              Placeholder description
             </Text>
           </HoverCard>
 
@@ -298,9 +298,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="shield-checkmark-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Secure by Design</Text>
+            <Text style={styles.cardTitle}>Placeholder Title</Text>
             <Text style={styles.cardText}>
-              Role-based access keeps patient, doctor, clinic, and admin experiences separated and organized.
+              Placeholder description
             </Text>
           </HoverCard>
 
@@ -308,9 +308,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="calendar-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Appointment Workflows</Text>
+            <Text style={styles.cardTitle}>Placeholder Title</Text>
             <Text style={styles.cardText}>
-              Patients can manage appointments while clinics keep schedules clear and easy to follow.
+              Placeholder description
             </Text>
           </HoverCard>
 
@@ -318,29 +318,29 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Connected Communication</Text>
+            <Text style={styles.cardTitle}>Placeholder Title</Text>
             <Text style={styles.cardText}>
-              MedSync supports clearer communication between patients, doctors, and clinic teams.
+              Placeholder description
             </Text>
           </HoverCard>
 
           <HoverCard style={styles.card}>
             <View style={styles.iconWrap}>
-              <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Connected Communication</Text>
+            <Text style={styles.cardTitle}>Placeholder Title</Text>
             <Text style={styles.cardText}>
-              MedSync supports clearer communication between patients, doctors, and clinic teams.
+              Placeholder description
             </Text>
           </HoverCard>
 
           <HoverCard style={styles.card}>
             <View style={styles.iconWrap}>
-              <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
+              <Ionicons name="alarm-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Connected Communication</Text>
+            <Text style={styles.cardTitle}>Placeholder Title</Text>
             <Text style={styles.cardText}>
-              MedSync supports clearer communication between patients, doctors, and clinic teams.
+              Placeholder description
             </Text>
           </HoverCard>
           

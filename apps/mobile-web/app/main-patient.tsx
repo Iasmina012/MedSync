@@ -149,18 +149,19 @@ export default function PatientDashboard() {
 
   const featureItems = [
 
-    { title: 'Clinic Info', icon: 'business-outline' as const, description: 'Clinic details.', onPress: () => go('/clinic-info') },
-    { title: 'Doctors Info', icon: 'people-outline' as const, description: 'Doctors and availability.', onPress: () => go('/clinic-doctors') },
-    { title: 'Services Info', icon: 'list-outline' as const, description: 'Consultations and procedures.', onPress: () => go('/clinic-services') },
-    { title: 'Technology Info', icon: 'hardware-chip-outline' as const, description: 'Clinic innovations.', onPress: () => go('/clinic-tech') },
-    { title: 'Health Tips', icon: 'leaf-outline' as const, description: 'Personalized clinic wellness tips.', onPress: () => go('/health-tips') },
-    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Book, cancel, reschedule.', onPress: openAppointmentsModal },
-    { title: 'Self-Diagnosis', icon: 'pulse-outline' as const, description: 'Triage support.', onPress: () => go('/self-diagnosis') },
-    { title: 'Documents', icon: 'document-attach-outline' as const, description: 'Onboarding and uploads.', onPress: () => go('/documents') },
-    { title: 'AI Summary', icon: 'sparkles-outline' as const, description: 'Report summaries.', onPress: () => go('/ai-summary') },
-    { title: 'History', icon: 'document-text-outline' as const, description: 'Medical history.', onPress: () => go('/history') },
-    { title: 'Patient Charts', icon: 'bar-chart-outline' as const, description: 'Health trends.', onPress: () => go('/patient-charts') },
-
+    { title: 'About Us', icon: 'business-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-info') },
+    { title: 'Our Doctors', icon: 'people-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-doctors') },
+    { title: 'Our Services', icon: 'list-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-services') },
+    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Placeholder description.', onPress: openAppointmentsModal },
+    { title: 'Our Technology', icon: 'hardware-chip-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-tech') },
+    { title: 'Health Tips', icon: 'leaf-outline' as const, description: 'Placeholder description.', onPress: () => go('/health-tips') },
+    { title: 'Self-Diagnosis', icon: 'pulse-outline' as const, description: 'Placeholder description.', onPress: () => go('/self-diagnosis') },
+    { title: 'AI Summary', icon: 'sparkles-outline' as const, description: 'Placeholder description.', onPress: () => go('/ai-summary') },
+    { title: 'Documents', icon: 'document-attach-outline' as const, description: 'Placeholder description.', onPress: () => go('/documents') },
+    { title: 'History', icon: 'document-text-outline' as const, description: 'Placeholder description.', onPress: () => go('/history') },
+    { title: 'Charts', icon: 'bar-chart-outline' as const, description: 'Placeholder description.', onPress: () => go('/patient-charts') },
+    { title: 'Placeholder', icon: 'sparkles-outline' as const, description: 'Placeholder description.', onPress: () => go('/placeholder') },
+  
   ];
 
   return (
@@ -189,11 +190,11 @@ export default function PatientDashboard() {
           </Text>
 
           <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
-            Care that feels connected in {clinicName || 'your clinic'}
+            Placeholder Title in {clinicName || 'your clinic'}
           </Text>
 
           <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-            Manage appointments, explore doctors and services, access AI support, and follow your health journey.
+            Placeholder Subtitle.
           </Text>
 
           <View style={[styles.heroButtons, isMobile && styles.heroButtonsMobile]}>
@@ -219,22 +220,22 @@ export default function PatientDashboard() {
 
         {!isMobile && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Medical Ads & Highlights</Text>
+            <Text style={styles.sectionTitle}>Highlights</Text>
 
             <View style={styles.adsGrid}>
               <View style={styles.adCard}>
-                <Text style={styles.adTitle}>Prevention Package</Text>
-                <Text style={styles.adText}>Annual consultation with digital summary.</Text>
+                <Text style={styles.adTitle}>Placeholder Title</Text>
+                <Text style={styles.adText}>Placeholder description.</Text>
               </View>
 
               <View style={styles.adCard}>
-                <Text style={styles.adTitle}>AI Health Assistant</Text>
-                <Text style={styles.adText}>Guided onboarding and symptom support.</Text>
+                <Text style={styles.adTitle}>Placeholder Title</Text>
+                <Text style={styles.adText}>Placeholder description.</Text>
               </View>
 
               <View style={styles.adCard}>
-                <Text style={styles.adTitle}>Cardiology Week</Text>
-                <Text style={styles.adText}>Fast slots for selected consultations.</Text>
+                <Text style={styles.adTitle}>Placeholder Title</Text>
+                <Text style={styles.adText}>Placeholder description.</Text>
               </View>
             </View>
           </View>
@@ -327,7 +328,7 @@ export default function PatientDashboard() {
 
           <View style={styles.panel}>
             <Text style={styles.panelTitle}>Chat with Doctor</Text>
-            <Text style={styles.adText}>Frontend demo page can be added next.</Text>
+            <Text style={styles.adText}>Placeholder description.</Text>
           </View>
         </View>
 
@@ -354,12 +355,12 @@ export default function PatientDashboard() {
               )}
             </View>
 
-            <Text style={styles.modalEyebrow}>Welcome back</Text>
+            <Text style={styles.modalEyebrow}>Welcome Back</Text>
 
             <Text style={styles.modalTitle}>{patientName}</Text>
 
             <Text style={styles.modalText}>
-              What would you like to do today? You can book a new appointment or review your existing appointments.
+              What would you like to do today? You can book a new appointment or review your existing ones.
             </Text>
 
             <View style={styles.modalActions}>
@@ -368,7 +369,7 @@ export default function PatientDashboard() {
                 onPress={() => go('/book-appointment')}
               >
                 <Ionicons name="calendar-outline" size={18} color="#FFFFFF"/>
-                <Text style={styles.modalPrimaryButtonText}>Book an Appointment</Text>
+                <Text style={styles.modalPrimaryButtonText}>Book An Appointment</Text>
               </Pressable>
 
               <Pressable

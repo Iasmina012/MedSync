@@ -19,15 +19,15 @@ export default function WebFooter() {
 
         <View style={styles.brandBlock}>
           <Text style={styles.brandTitle}>MedSync</Text>
-          <Text style={styles.brandText}>Connected care, smarter clinics.</Text>
+          <Text style={styles.brandText}>Placeholder motto</Text>
           <Text style={styles.brandSubtext}>
-            A modern multi-clinic medical platform for patients, doctors, and administrators.
+            Placeholder description.
           </Text>
         </View>
 
         <View style={styles.linksBlock}>
           <Text style={styles.sectionTitle}>Contact</Text>
-          <Text style={styles.linkText}>contact@medsync.com</Text>
+          <Text style={styles.linkText}>office@medsync.com</Text>
           <Text style={styles.linkText}>+40 777 777 777</Text>
           <Text style={styles.linkText}>Mon - Fri · 08:00 - 18:00</Text>
         </View>

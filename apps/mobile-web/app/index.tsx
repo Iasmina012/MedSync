@@ -52,23 +52,23 @@ const primaryFeatures: FeatureCard[] = [
 
   {
     icon: 'calendar-outline',
-    title: 'Quick appointments',
+    title: 'Placeholder Title',
     description:
-      'Patients can easily create, modify, or cancel appointments from any device.',
+      'Placeholder description.',
   },
 
   {
     icon: 'business-outline',
-    title: 'Multi-clinic system',
+    title: 'Placeholder Title',
     description:
-      'The same platform can be reused by multiple clinics with their own identity and users.',
+      'Placeholder description.',
   },
 
   {
     icon: 'sparkles-outline',
-    title: 'AI-ready foundation',
+    title: 'Placeholder Title',
     description:
-      'Built to expand gradually with chatbot, summaries, onboarding, and triage support.',
+      'Placeholder description.',
   },
 
 ];
@@ -77,30 +77,30 @@ const secondaryFeatures: FeatureCard[] = [
 
   {
     icon: 'chatbubbles-outline',
-    title: 'Doctor-patient chat',
+    title: 'Placeholder Title',
     description:
-      'Secure communication between patients and doctors inside the platform.',
+      'Placeholder description.',
   },
 
   {
     icon: 'document-text-outline',
-    title: 'Smart documents',
+    title: 'Placeholder Title',
     description:
-      'Onboarding, uploads, and automatic document validation workflows.',
+      'Placeholder description.',
   },
 
   {
     icon: 'bar-chart-outline',
-    title: 'Charts & analytics',
+    title: 'Placeholder Title',
     description:
-      'Patient trends, clinic activity, and role-based statistics.',
+      'Placeholder description.',
   },
 
   {
     icon: 'watch-outline',
-    title: 'Wearable integration',
+    title: 'Placeholder Title',
     description:
-      'Later extension for smartwatch vitals and AI summaries.',
+      'Placeholder description.',
   },
 
 ];
@@ -108,24 +108,24 @@ const secondaryFeatures: FeatureCard[] = [
 const clinicPreviews: ClinicPreview[] = [
 
   {
-    name: 'MedNova Clinic',
-    subtitle: 'Personalized branding for each center',
+    name: 'Placeholder Clinic Name',
+    subtitle: 'Placeholder description',
     patients: 128,
     appointments: 24,
     primary: '#1D4ED8',
   },
 
   {
-    name: 'Health Plus Clinic',
-    subtitle: 'Prevention-oriented modern care',
+    name: 'Placeholder Clinic Name',
+    subtitle: 'Placeholder description',
     patients: 214,
     appointments: 31,
     primary: '#059669',
   },
 
   {
-    name: 'Nova Care Clinic',
-    subtitle: 'Premium digital patient experience',
+    name: 'Placeholder Clinic Name',
+    subtitle: 'Placeholder description',
     patients: 176,
     appointments: 19,
     primary: '#7C3AED',
@@ -233,7 +233,7 @@ function LiveDot() {
         ]}
       />
       <View style={styles.liveDotCoreOuter}>
-        <View style={styles.liveDotCoreInner} />
+        <View style={styles.liveDotCoreInner}/>
       </View>
     </View>
 
@@ -750,15 +750,15 @@ export default function HomeScreen() {
           <View style={[styles.heroLeft, isMobile && styles.heroLeftMobile]}>
             <View style={styles.badge}>
               <Ionicons name="pulse-outline" size={16} color={BRAND.primary}/>
-              <Text style={styles.badgeText}>MedSync · Connected care, smarter clinics</Text>
+              <Text style={styles.badgeText}>MedSync · Motto</Text>
             </View>
 
             <Text style={[styles.heroTitle, isSmall && styles.heroTitleSmall]}>
-              One modern platform for clinics, doctors, and patients.
+              Placeholder Title
             </Text>
 
             <Text style={styles.heroDescription}>
-              A scalable medical system for web and mobile, built for multiple clinics, personalized branding, smart workflows, and gradual AI integration.
+              Placeholder description.
             </Text>
 
             <View
@@ -825,7 +825,7 @@ export default function HomeScreen() {
                     value={randomClinic.patients}
                     style={styles.previewSmallValue}
                   />
-                  <Text style={styles.previewSmallLabel}>Active patients</Text>
+                  <Text style={styles.previewSmallLabel}>Active Patients</Text>
                 </View>
 
                 <View style={styles.previewSmallCard}>
@@ -838,16 +838,16 @@ export default function HomeScreen() {
                     value={randomClinic.appointments}
                     style={styles.previewSmallValue}
                   />
-                  <Text style={styles.previewSmallLabel}>Appointments today</Text>
+                  <Text style={styles.previewSmallLabel}>Appointments Today</Text>
                 </View>
               </View>
 
               <View style={styles.previewListCard}>
-                <Text style={styles.previewListTitle}>Fast functions</Text>
+                <Text style={styles.previewListTitle}>Features</Text>
                 {[
-                  'Check-in and appointments',
-                  'Doctor-patient chat',
-                  'AI summaries and onboarding',
+                  'Placeholder text',
+                  'Placeholder text',
+                  'Placeholder text',
                 ].map((item) => (
                   <View key={item} style={styles.previewListItem}>
                     <Ionicons
@@ -865,7 +865,7 @@ export default function HomeScreen() {
 
         <SectionTitle
           title="What does the app offer?"
-          subtitle="A strong medical platform foundation that can be extended gradually with new AI and clinic features."
+          subtitle="Placeholder text."
         />
 
         <View style={styles.primaryFeaturesRow}>
@@ -887,7 +887,7 @@ export default function HomeScreen() {
           <View style={styles.customSectionLeft}>
             <SectionTitle
               title="Designed for multiple clinics"
-              subtitle="A single application that adapts to multiple medical centers through branding, users, roles, and clinic-specific data."
+              subtitle="A single application that adapts to multiple medical centers through branding, users, roles and clinic-specific data."
             />
             <View style={styles.checkListWrap}>
               {[
@@ -915,9 +915,9 @@ export default function HomeScreen() {
               <View style={styles.themeRow}>
                 <View style={[styles.themeSwatch, { backgroundColor: '#1D4ED8' }]}/>
                 <View>
-                  <Text style={styles.themeName}>Blue Clinic</Text>
+                  <Text style={styles.themeName}>Placeholder theme</Text>
                   <Text style={styles.themeDescription}>
-                    Professional, modern, trusted
+                    Placeholder text
                   </Text>
                 </View>
               </View>
@@ -925,9 +925,9 @@ export default function HomeScreen() {
               <View style={styles.themeRow}>
                 <View style={[styles.themeSwatch, { backgroundColor: '#059669' }]}/>
                 <View>
-                  <Text style={styles.themeName}>Green Clinic</Text>
+                  <Text style={styles.themeName}>Placeholder theme</Text>
                   <Text style={styles.themeDescription}>
-                    Calm, preventive, friendly
+                    Placeholder text
                   </Text>
                 </View>
               </View>
@@ -935,9 +935,9 @@ export default function HomeScreen() {
               <View style={styles.themeRow}>
                 <View style={[styles.themeSwatch, { backgroundColor: '#7C3AED' }]}/>
                 <View>
-                  <Text style={styles.themeName}>Purple Clinic</Text>
+                  <Text style={styles.themeName}>Placeholder theme</Text>
                   <Text style={styles.themeDescription}>
-                    Premium, elegant, distinct
+                    Placeholder text
                   </Text>
                 </View>
               </View>
@@ -945,9 +945,9 @@ export default function HomeScreen() {
               <View style={styles.themeRow}>
                 <View style={[styles.themeSwatch, { backgroundColor: '#F59E0B' }]}/>
                 <View>
-                  <Text style={styles.themeName}>Warm Clinic</Text>
+                  <Text style={styles.themeName}>Placeholder theme</Text>
                   <Text style={styles.themeDescription}>
-                    Friendly, accessible, welcoming
+                    Placeholder text
                   </Text>
                 </View>
               </View>
@@ -956,8 +956,8 @@ export default function HomeScreen() {
         </View>
 
         <SectionTitle
-          title="Great extensions for later"
-          subtitle="Useful advanced directions you can add after the stable base is done."
+          title="Placeholder Title"
+          subtitle="Placeholder text"
         />
 
         <View style={styles.secondaryGrid}>
@@ -988,7 +988,7 @@ export default function HomeScreen() {
 
         <SectionTitle
           title="Reviews"
-          subtitle="Real platform feedback submitted by users."
+          subtitle="Real platform feedback submitted by users"
         />
 
         <View style={styles.reviewSubmitCard}>
@@ -998,9 +998,9 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.reviewSubmitHeaderTextWrap}>
-              <Text style={styles.reviewSubmitTitle}>Leave a platform review</Text>
+              <Text style={styles.reviewSubmitTitle}>Leave a review for our platform!</Text>
               <Text style={styles.reviewSubmitSubtitle}>
-                Share your feedback about the MedSync experience.
+                Share your feedback about the experience provided by the MedSync app.
               </Text>
             </View>
           </View>
@@ -1110,7 +1110,7 @@ export default function HomeScreen() {
                 <Ionicons name="chatbox-outline" size={22} color="#64748B"/>
                 <Text style={styles.noReviewsTitle}>No reviews yet</Text>
                 <Text style={styles.noReviewsText}>
-                  Be the first person to leave a platform review.
+                  Be the first person to leave a review for our platform.
                 </Text>
               </View>
             ) : (

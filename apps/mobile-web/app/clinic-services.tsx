@@ -165,7 +165,7 @@ export default function ClinicServicesScreen() {
         </Text>
 
         <Text style={styles.heroSubtitle}>
-          Search consultations, procedures, and categories.
+          Search for consultations, procedures and categories. Sort them by name or price.
         </Text>
       </View>
 
@@ -174,7 +174,7 @@ export default function ClinicServicesScreen() {
           <InfoSearchBar
             value={search}
             onChangeText={setSearch}
-            placeholder="Search services..."
+            placeholder="Search for services..."
           />
         </View>
 
@@ -186,8 +186,8 @@ export default function ClinicServicesScreen() {
               { label: 'Default', value: 'default' },
               { label: 'Name A-Z', value: 'name_asc' },
               { label: 'Name Z-A', value: 'name_desc' },
-              { label: 'Price low-high', value: 'price_asc' },
-              { label: 'Price high-low', value: 'price_desc' },
+              { label: 'Price ↑', value: 'price_asc' },
+              { label: 'Price ↓', value: 'price_desc' },
             ]}
           />
         </View>
@@ -241,7 +241,7 @@ export default function ClinicServicesScreen() {
 
             <Text style={styles.emptyText}>
               {hasFilters
-                ? 'Try another service name, category, or clear your filters.'
+                ? 'Try another service name, category or clear your filters.'
                 : 'This clinic has not added any services yet.'}
             </Text>
           </View>
@@ -278,7 +278,7 @@ export default function ClinicServicesScreen() {
         ]}
         actions={[
           {
-            label: 'Book service',
+            label: 'Book Service',
             icon: 'calendar-outline',
             primary: true,
             onPress: () => {

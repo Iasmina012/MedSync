@@ -200,7 +200,7 @@ export default function HealthTipsScreen() {
           .eq('profile_id', user.id);
 
         if (feedbackError) {
-          setScreenError(`Could not load tip reactions. ${feedbackError.message}`);
+          setScreenError(`Could not load tips reactions. ${feedbackError.message}`);
           return;
         }
 
@@ -584,7 +584,7 @@ export default function HealthTipsScreen() {
               { color: theme.primary },
             ]}
           >
-            Health Tips
+            Healthcare Tips
           </Text>
 
           <Text
@@ -594,18 +594,18 @@ export default function HealthTipsScreen() {
               { color: theme.secondary },
             ]}
           >
-            Wellness guidance made for you
+            Placeholder Title
           </Text>
 
           <Text style={[styles.heroSubtitle, isMobile && styles.centerText]}>
-            Personalized clinic-based tips, useful daily suggestions, and healthier small habits.
+            Placeholder Subtitle
           </Text>
 
           <View style={[styles.heroPills, isMobile && styles.heroPillsMobile]}>
             <View style={styles.heroPill}>
               <Ionicons name="sparkles-outline" size={16} color={theme.primary}/>
               <Text style={[styles.heroPillText, { color: theme.primary }]}>
-                Personalized
+                Custom
               </Text>
             </View>
 
@@ -619,7 +619,7 @@ export default function HealthTipsScreen() {
             <View style={styles.heroPill}>
               <Ionicons name="leaf-outline" size={16} color={theme.primary}/>
               <Text style={[styles.heroPillText, { color: theme.primary }]}>
-                Daily habits
+                Daily Habits
               </Text>
             </View>
           </View>
@@ -810,7 +810,7 @@ export default function HealthTipsScreen() {
             <InfoSearchBar
               value={search}
               onChangeText={setSearch}
-              placeholder="Search health tips..."
+              placeholder="Search for healthcare tips..."
             />
           </View>
 
@@ -823,8 +823,8 @@ export default function HealthTipsScreen() {
                 { label: 'Best match', value: 'best_match' },
                 { label: 'Name A-Z', value: 'title_asc' },
                 { label: 'Name Z-A', value: 'title_desc' },
-                { label: 'Priority low-high', value: 'priority_asc' },
-                { label: 'Priority high-low', value: 'priority_desc' },
+                { label: 'Priority ↑', value: 'priority_asc' },
+                { label: 'Priority ↓', value: 'priority_desc' },
                 { label: 'Saved first', value: 'saved_first' },
                 { label: 'Saved last', value: 'saved_last' },
                 { label: 'Completed first', value: 'done_first' },
@@ -878,12 +878,12 @@ export default function HealthTipsScreen() {
               />
 
               <Text style={styles.emptyTitle}>
-                {search.trim() ? 'No health tips found' : 'No tips available right now'}
+                {search.trim() ? 'No health tips found' : 'No health tips available right now'}
               </Text>
 
               <Text style={styles.emptyText}>
                 {search.trim()
-                  ? 'Try another keyword, mood, category, or clear your search.'
+                  ? 'Try another keyword, mood, category or clear your search.'
                   : 'This clinic has not added any tips yet.'}
               </Text>
             </View>

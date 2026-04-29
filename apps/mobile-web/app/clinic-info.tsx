@@ -124,10 +124,7 @@ export default function ClinicInfoScreen() {
   const [details, setDetails] = useState<ClinicDetails | null>(null);
   const [mapSearch, setMapSearch] = useState('');
   const [activeMapQuery, setActiveMapQuery] = useState('');
-  const [mapCoords, setMapCoords] = useState<MapCoords>({
-    latitude: 44.4268,
-    longitude: 26.1025,
-  });
+  const [mapCoords, setMapCoords] = useState<MapCoords>({latitude: 44.4268, longitude: 26.1025, });
   const [geocoding, setGeocoding] = useState(false);
   const [mapError, setMapError] = useState('');
 
@@ -191,7 +188,7 @@ export default function ClinicInfoScreen() {
 
       if (!Array.isArray(results) || results.length === 0) {
         if (showError) {
-          setMapError('No location found. Try a more specific address.');
+          setMapError('No location found! Try a more specific address.');
         }
         return;
       }
@@ -288,7 +285,7 @@ export default function ClinicInfoScreen() {
       try {
         await Linking.openURL(fallbackUrl);
       } catch {
-        setMapError('Could not open maps on this device.');
+        setMapError('Could not open the maps app on this device.');
       }
     }
   };
@@ -296,7 +293,7 @@ export default function ClinicInfoScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.primary} />
+        <ActivityIndicator size="large" color={theme.primary}/>
       </View>
     );
   }
@@ -340,22 +337,21 @@ export default function ClinicInfoScreen() {
           </Text>
 
           <Text style={styles.heroSubtitle}>
-            {details?.hero_subtitle ||
-              'Explore the clinic story, contact details, schedule, and location in one place.'}
+            {details?.hero_subtitle || 'Explore the clinic story, contact details, schedule and location in one place.'}
           </Text>
 
           <View style={styles.heroPills}>
             <View style={styles.heroPill}>
               <Ionicons name="location-outline" size={16} color={theme.primary}/>
               <Text style={[styles.heroPillText, { color: theme.primary }]}>
-                Easy to find
+                Easy to Find
               </Text>
             </View>
 
             <View style={styles.heroPill}>
               <Ionicons name="call-outline" size={16} color={theme.primary}/>
               <Text style={[styles.heroPillText, { color: theme.primary }]}>
-                Direct contact
+                Contact Support
               </Text>
             </View>
           </View>
@@ -405,28 +401,28 @@ export default function ClinicInfoScreen() {
           <View style={styles.infoRow}>
             <Ionicons name="location-outline" size={18} color={theme.primary}/>
             <Text style={styles.infoText}>
-              {details?.address || 'No address added yet.'}
+              {details?.address || 'No clinic address added yet.'}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Ionicons name="call-outline" size={18} color={theme.primary}/>
             <Text style={styles.infoText}>
-              {details?.phone || 'No phone added yet.'}
+              {details?.phone || 'No clinic phone added yet.'}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Ionicons name="mail-outline" size={18} color={theme.primary}/>
             <Text style={styles.infoText}>
-              {details?.email || 'No email added yet.'}
+              {details?.email || 'No clinic email added yet.'}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Ionicons name="time-outline" size={18} color={theme.primary}/>
             <Text style={styles.infoText}>
-              {details?.opening_hours || 'No opening hours added yet.'}
+              {details?.opening_hours || 'No clinic schedule added yet.'}
             </Text>
           </View>
         </View>
@@ -436,12 +432,12 @@ export default function ClinicInfoScreen() {
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Emergency Information</Text>
         <Text style={styles.panelText}>
-          {details?.emergency_text || 'No emergency information added yet.'}
+          {details?.emergency_text || 'No clinic emergency information added yet.'}
         </Text>
       </View>
 
       <View style={styles.mapPanel}>
-        <Text style={styles.panelTitle}>Clinic Map</Text>
+        <Text style={styles.panelTitle}>Clinic Headquarters</Text>
 
         <View style={styles.mapControls}>
           <View style={styles.searchInputWrap}>

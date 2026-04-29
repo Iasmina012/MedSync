@@ -105,10 +105,10 @@ export default function PlatformAdminDashboard() {
 
   const featureItems = [
 
+    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Platform appointment overview.', onPress: () => go('/manage-appointments'), },
     { title: 'Manage Clinics', icon: 'business-outline' as const, description: 'Configure clinics platform-wide.' },
     { title: 'Manage Users', icon: 'people-outline' as const, description: 'See users across all clinics.' },
     { title: 'Analytics', icon: 'bar-chart-outline' as const, description: 'Global usage and reporting.' },
-    { title: 'All Appointments', icon: 'calendar-clear-outline' as const, description: 'Platform appointment overview.', onPress: () => go('/manage-appointments'), },
 
   ];
 
@@ -135,10 +135,10 @@ export default function PlatformAdminDashboard() {
           MedSync Admin Dashboard
         </Text>
         <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
-          Global control over the full platform
+          Placeholder Title
         </Text>
         <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-          View all clinics, users, analytics, and global appointment activity.
+          Placeholder Subtitle
         </Text>
       </View>
 

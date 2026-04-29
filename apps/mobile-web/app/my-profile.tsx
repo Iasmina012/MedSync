@@ -320,10 +320,10 @@ export default function MyProfileScreen() {
           My Profile
         </Text>
         <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-          Manage your account details
+          Manage Your Account Details
         </Text>
         <Text style={styles.heroSubtitle}>
-          Update your personal information, profile photo, and account security.
+          Update your personal information, profile photo and account security.
         </Text>
       </View>
 
@@ -414,11 +414,11 @@ export default function MyProfileScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Phone</Text>
+            <Text style={styles.label}>Phone Number</Text>
             <TextInput
               value={phone}
               onChangeText={setPhone}
-              placeholder="Phone number"
+              placeholder="e.g. 07xx xxx xxx"
               placeholderTextColor="#94A3B8"
               keyboardType="phone-pad"
               style={styles.input}
@@ -536,7 +536,7 @@ export default function MyProfileScreen() {
             <TextInput
               value={insurance}
               onChangeText={setInsurance}
-              placeholder="Insurance provider"
+              placeholder="e.g. private insurance"
               placeholderTextColor="#94A3B8"
               style={styles.input}
             />

@@ -1,9 +1,15 @@
 import 'react-native-gesture-handler';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { Platform } from 'react-native';
 
 export default function RootLayout() {
+  
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      document.title = 'MedSync';
+    }
+  }, []);
   
   return (
 

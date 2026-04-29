@@ -78,22 +78,22 @@ export default function PrivacyScreen() {
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Data we store</Text>
         <Text style={styles.text}>
-          We store account details, clinic membership, profile information, appointments, and health-related platform records that are necessary for the services you use.
+          We store account details, clinic membership, profile information, appointments and health-related platform records that are necessary for the services you use.
         </Text>
 
         <Text style={styles.sectionTitle}>How we use your data</Text>
         <Text style={styles.text}>
-          Your data is used to provide appointments, communication, onboarding, health information, and clinic-specific features. Access is limited by role.
+          Your data is used to provide appointments, communication, onboarding, health information and clinic-specific features. Access is limited by role.
         </Text>
 
         <Text style={styles.sectionTitle}>Your control</Text>
         <Text style={styles.text}>
-          You can update your profile details, manage certain preferences, and request support for account-related privacy questions.
+          You can update your profile details, manage certain preferences and request support for account-related privacy questions.
         </Text>
 
         <Text style={styles.sectionTitle}>Security</Text>
         <Text style={styles.text}>
-          We use authentication, role-based access, and secure storage practices to reduce unauthorized access to your information.
+          We use authentication, role-based access and secure storage practices to reduce unauthorized access to your information.
         </Text>
       </View>
 

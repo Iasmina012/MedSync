@@ -1,24 +1,32 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import 'react-native-gesture-handler';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { Platform } from 'react-native';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
+  
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      document.title = 'MedSync';
+    }
+  }, []);
+  
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+
+    <Stack screenOptions={{headerShown: false,}}>
+      
+      <Stack.Screen
+        name="login"
+        options={{animation: Platform.OS === 'web' ? 'none' : 'slide_from_right',}}
+      />
+
+      <Stack.Screen
+        name="signup"
+        options={{animation: Platform.OS === 'web' ? 'none' : 'slide_from_left',}}
+      />
+
+    </Stack>
+    
   );
+
 }

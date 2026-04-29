@@ -172,41 +172,41 @@ export default function SettingsScreen() {
           Control your account preferences
         </Text>
         <Text style={styles.heroSubtitle}>
-          Customize reminders, communication, and account behavior.
+          Customize reminders, communication and account behavior.
         </Text>
       </View>
 
       <View style={styles.card}>
         <SettingRow
-          label="Email notifications"
+          label="Email Notifications"
           description="Receive account and activity updates by email."
           value={settings.email_notifications}
           onChange={(value) => updateField('email_notifications', value)}
         />
 
         <SettingRow
-          label="SMS notifications"
+          label="SMS Notifications"
           description="Receive important updates by SMS."
           value={settings.sms_notifications}
           onChange={(value) => updateField('sms_notifications', value)}
         />
 
         <SettingRow
-          label="Marketing emails"
+          label="Marketing Emails"
           description="Receive clinic offers and product updates."
           value={settings.marketing_emails}
           onChange={(value) => updateField('marketing_emails', value)}
         />
 
         <SettingRow
-          label="Appointment reminders"
+          label="Appointment Reminders"
           description="Get reminders before scheduled appointments."
           value={settings.appointment_reminders}
           onChange={(value) => updateField('appointment_reminders', value)}
         />
 
         <SettingRow
-          label="Dark mode preference"
+          label="Dark Mode"
           description="Saved preference for future UI appearance support."
           value={settings.dark_mode}
           onChange={(value) => updateField('dark_mode', value)}

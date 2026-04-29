@@ -152,7 +152,7 @@ export default function ClinicTechnologiesScreen() {
           Technology used in {clinicName || 'this clinic'}
         </Text>
         <Text style={styles.heroSubtitle}>
-          Search equipment, digital tools, and innovation highlights.
+          Search for equipment, tools and innovation highlights. Sort them by category or name.
         </Text>
       </View>
 
@@ -161,7 +161,7 @@ export default function ClinicTechnologiesScreen() {
           <InfoSearchBar
             value={search}
             onChangeText={setSearch}
-            placeholder="Search technologies..."
+            placeholder="Search for technologies..."
           />
         </View>
 
@@ -230,7 +230,7 @@ export default function ClinicTechnologiesScreen() {
 
             <Text style={styles.emptyText}>
               {hasFilters
-                ? 'Try another technology name, category, or clear your filters.'
+                ? 'Try another technology name, category or clear your filters.'
                 : 'This clinic has not added any technologies yet.'}
             </Text>
           </View>

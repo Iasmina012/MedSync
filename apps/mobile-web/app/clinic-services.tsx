@@ -17,7 +17,7 @@ type Service = {
   category: string | null;
   description: string | null;
   price_text: string | null;
-  duration_text: string | null;
+  duration_minutes: number | null;
   image_url: string | null;
 
 };
@@ -61,7 +61,7 @@ export default function ClinicServicesScreen() {
 
       const { data } = await supabase
         .from('clinic_services')
-        .select('id, title, category, description, price_text, duration_text, image_url')
+        .select('id, title, category, description, price_text, duration_minutes, image_url')
         .eq('clinic_id', clinicId)
         .eq('is_active', true);
 
@@ -95,7 +95,7 @@ export default function ClinicServicesScreen() {
 
     if (q) {
       items = items.filter((service) =>
-        `${service.title} ${service.category || ''} ${service.description || ''} ${service.price_text || ''} ${service.duration_text || ''}`
+      `${service.title} ${service.category || ''} ${service.description || ''} ${service.price_text || ''} ${service.duration_minutes ? `${service.duration_minutes} min` : ''}`          
           .toLowerCase()
           .includes(q)
       );
@@ -165,7 +165,7 @@ export default function ClinicServicesScreen() {
         </Text>
 
         <Text style={styles.heroSubtitle}>
-          Search consultations, procedures, and categories.
+          Search for consultations, procedures and categories. Sort them by name or price.
         </Text>
       </View>
 
@@ -174,7 +174,7 @@ export default function ClinicServicesScreen() {
           <InfoSearchBar
             value={search}
             onChangeText={setSearch}
-            placeholder="Search services..."
+            placeholder="Search for services..."
           />
         </View>
 
@@ -186,8 +186,8 @@ export default function ClinicServicesScreen() {
               { label: 'Default', value: 'default' },
               { label: 'Name A-Z', value: 'name_asc' },
               { label: 'Name Z-A', value: 'name_desc' },
-              { label: 'Price low-high', value: 'price_asc' },
-              { label: 'Price high-low', value: 'price_desc' },
+              { label: 'Price ↑', value: 'price_asc' },
+              { label: 'Price ↓', value: 'price_desc' },
             ]}
           />
         </View>
@@ -241,7 +241,7 @@ export default function ClinicServicesScreen() {
 
             <Text style={styles.emptyText}>
               {hasFilters
-                ? 'Try another service name, category, or clear your filters.'
+                ? 'Try another service name, category or clear your filters.'
                 : 'This clinic has not added any services yet.'}
             </Text>
           </View>
@@ -274,18 +274,22 @@ export default function ClinicServicesScreen() {
         color={theme.primary}
         sections={[
           { label: 'Price', value: selectedService?.price_text },
-          { label: 'Duration', value: selectedService?.duration_text },
+          { label: 'Duration', value: selectedService?.duration_minutes? `${selectedService.duration_minutes} min` : undefined,},
         ]}
         actions={[
           {
-            label: 'Book service',
+            label: 'Book Service',
             icon: 'calendar-outline',
             primary: true,
             onPress: () => {
               if (!selectedService) return;
+
+              const selectedServiceId = selectedService.id;
+              setSelectedService(null);
+
               router.push({
-                pathname: '/manage-appointments' as any,
-                params: { clinicId, clinicName, serviceId: selectedService.id },
+                pathname: '/book-appointment' as any,
+                params: { clinicId, clinicName, serviceId: selectedServiceId },
               });
             },
           },

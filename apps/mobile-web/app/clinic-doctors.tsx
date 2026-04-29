@@ -169,7 +169,7 @@ function DoctorRowCard({
               </Text>
 
               <Text style={styles.doctorDescription} numberOfLines={2}>
-                {doctor.bio || doctor.expertise || 'No details added yet.'}
+                {doctor.bio || doctor.expertise || 'No details added for this doctor yet.'}
               </Text>
 
               <View style={styles.seeMoreRow}>
@@ -324,13 +324,13 @@ export default function ClinicDoctorsScreen() {
           Meet the doctors in {clinicName || 'this clinic'}
         </Text>
         <Text style={styles.heroSubtitle}>
-          Search by doctor name, specialty, or area of expertise.
+          Search by the doctor&apos;s name, specialty or area of expertise. Sort results by their name or experience.
         </Text>
       </View>
 
       <View style={[styles.topControls, isMobile && styles.topControlsMobile]}>
         <View style={styles.searchWrap}>
-          <InfoSearchBar value={search} onChangeText={setSearch} placeholder="Search doctors..."/>
+          <InfoSearchBar value={search} onChangeText={setSearch} placeholder="Search for doctors..."/>
         </View>
 
         <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
@@ -341,8 +341,8 @@ export default function ClinicDoctorsScreen() {
               { label: 'Default', value: 'default' },
               { label: 'Name A-Z', value: 'name_asc' },
               { label: 'Name Z-A', value: 'name_desc' },
-              { label: 'Experience low-high', value: 'experience_asc' },
-              { label: 'Experience high-high', value: 'experience_desc' },
+              { label: 'Experience ↑', value: 'experience_asc' },
+              { label: 'Experience ↓', value: 'experience_desc' },
             ]}
           />
         </View>
@@ -396,7 +396,7 @@ export default function ClinicDoctorsScreen() {
 
           <Text style={styles.emptyText}>
             {hasFilters
-              ? 'Try another name, specialty, or clear your filters.'
+              ? 'Try another name, specialty or clear your filters.'
               : 'This clinic has not added any doctors yet.'}
           </Text>
         </View>
@@ -433,19 +433,23 @@ export default function ClinicDoctorsScreen() {
         ]}
         actions={[
           {
-            label: 'Book appointment',
+            label: 'Book an Appointment',
             icon: 'calendar-outline',
             primary: true,
             onPress: () => {
               if (!selectedDoctor) return;
+
+              const selectedDoctorId = selectedDoctor.id;
+              setSelectedDoctor(null);
+
               router.push({
-                pathname: '/manage-appointments' as any,
-                params: { clinicId, clinicName, doctorId: selectedDoctor.id },
+                pathname: '/book-appointment' as any,
+                params: { clinicId, clinicName, doctorId: selectedDoctorId },
               });
             },
           },
           {
-            label: 'Chat with me',
+            label: 'Chat with Doctor',
             icon: 'chatbubble-ellipses-outline',
             onPress: () => {
               if (!selectedDoctor) return;
@@ -456,7 +460,7 @@ export default function ClinicDoctorsScreen() {
             },
           },
           {
-            label: 'Call doctor',
+            label: 'Call the Doctor',
             icon: 'call-outline',
             onPress: () => {
               if (selectedDoctor?.phone) Linking.openURL(`tel:${selectedDoctor.phone}`);

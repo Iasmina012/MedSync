@@ -1,11 +1,102 @@
-import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useClinicTheme } from '../lib/clinicTheme';
+import { supabase } from '../lib/supabase';
+import TypingDots from './ChatTypingDots';
 
-export default function FloatingChatButton() {
+type ChatbotMessage = {
+
+  id: string;
+  role: 'bot' | 'user';
+  text: string;
+
+};
+
+export default function FloatingChatButton({
+  clinicId,
+  clinicName,
+}: {
+  clinicId?: string;
+  clinicName?: string;
+}) {
+
+  const scrollRef = useRef<ScrollView | null>(null);
 
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
+  const [typing, setTyping] = useState(false);
+  const [messages, setMessages] = useState<ChatbotMessage[]>([
+    {
+      id: 'welcome',
+      role: 'bot',
+      text: clinicName
+        ? `Hi! I am MedSync's chatbot. I can help you with ${clinicName}, appointments, doctors, messages and app navigation.`
+        : "Hi! I am MedSync's chatbot. I can help you with the app, clinics, appointments and account navigation.",
+    },
+  ]);
+
+  const { theme } = useClinicTheme(clinicId);
+  const primaryColor = clinicId ? theme.primary : '#1D4ED8';
+
+  const sendMessage = async () => {
+
+    const value = message.trim();
+    if (!value || typing) return;
+
+    setMessages((prev) => [
+      ...prev,
+      { id: `${Date.now()}-user`, role: 'user', text: value },
+    ]);
+
+    setMessage('');
+    setTyping(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('medsync-chatbot', {
+        body: {
+          message: value,
+          clinicName,
+        },
+      });
+
+      if (error) {
+        console.log('SUPABASE FUNCTION ERROR:', error);
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-err`,
+            role: 'bot',
+            text: JSON.stringify(error, null, 2),
+          },
+        ]);
+
+        return;
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-bot`,
+          role: 'bot',
+          text: data?.reply || 'I could not generate a response right now.',
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-catch`,
+          role: 'bot',
+          text: 'Could not connect to the assistant right now.',
+        },
+      ]);
+    } finally {
+      setTyping(false);
+    }
+
+  };
 
   return (
 
@@ -14,7 +105,7 @@ export default function FloatingChatButton() {
       <Pressable
         onPress={() => setOpen(true)}
         style={({ pressed }) => [
-          styles.floatingButton,
+          styles.floatingButton, { backgroundColor: primaryColor },
           pressed && styles.pressed,
         ]}
       >
@@ -27,7 +118,7 @@ export default function FloatingChatButton() {
             <View style={styles.chatHeader}>
               <View>
                 <Text style={styles.chatTitle}>MedSync Chatbot</Text>
-                <Text style={styles.chatSubtitle}>Help Assistant for You</Text>
+                <Text style={styles.chatSubtitle}>{clinicName ? `${clinicName} Assistant` : 'Help Assistant for You'}</Text>
               </View>
 
               <Pressable onPress={() => setOpen(false)}>
@@ -35,24 +126,53 @@ export default function FloatingChatButton() {
               </Pressable>
             </View>
 
-            <View style={styles.chatBody}>
-              <View style={styles.botBubble}>
-                <Text style={styles.botBubbleText}>
-                  Hi! I am MedSync&apos;s chatbot.
-                </Text>
-              </View>
-            </View>
+            <ScrollView
+              ref={scrollRef}
+              contentContainerStyle={styles.chatBody}
+              onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+            >
+              {messages.map((item) => {
+                const mine = item.role === 'user';
+
+                return (
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.messageBubble,
+                     mine ? [styles.userBubble, { backgroundColor: primaryColor }] : styles.botBubble
+                    ]}
+                  >
+                    <Text style={[styles.messageText, mine && styles.userBubbleText]}>
+                      {item.text}
+                    </Text>
+                  </View>
+                );
+              })}
+
+              {typing && (
+                <View style={styles.typingBubble}>
+                  <TypingDots/>
+                </View>
+              )}
+            </ScrollView>
 
             <View style={styles.chatInputRow}>
               <TextInput
                 value={message}
                 onChangeText={setMessage}
                 placeholder="Write a message..."
+                placeholderTextColor="#94A3B8"
                 style={styles.input}
+                onSubmitEditing={sendMessage}
               />
-              <Pressable style={styles.sendButton}>
-                <Ionicons name="send" size={18} color="#FFFFFF"/>
-              </Pressable>
+
+            <Pressable
+              style={[styles.sendButton, { backgroundColor: primaryColor }]}
+              onPress={sendMessage}
+            >
+              <Ionicons name="send" size={18} color="#FFFFFF"/>
+            </Pressable>
+
             </View>
           </View>
         </View>
@@ -126,24 +246,46 @@ const styles = StyleSheet.create({
   },
 
   chatBody: {
-    flex: 1,
+    flexGrow: 1,
     padding: 16,
+    gap: 10,
     backgroundColor: '#F8FAFC',
   },
 
-  botBubble: {
-    alignSelf: 'flex-start',
+  messageBubble: {
     maxWidth: '85%',
-    backgroundColor: '#EFF6FF',
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
 
-  botBubbleText: {
+  botBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EFF6FF',
+  },
+
+  userBubble: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#1D4ED8',
+  },
+
+  messageText: {
     color: '#0F172A',
     fontSize: 14,
     lineHeight: 22,
+    fontWeight: '600',
+  },
+
+  userBubbleText: {
+    color: '#FFFFFF',
+  },
+
+  typingBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
 
   chatInputRow: {
@@ -163,6 +305,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
+    color: '#0F172A',
   },
 
   sendButton: {

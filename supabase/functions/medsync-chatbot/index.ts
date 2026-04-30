@@ -7,17 +7,94 @@ import "@supabase/functions-js/edge-runtime.d.ts"
 
 console.log("Hello from Functions!")
 
+const corsHeaders = {
+
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+
+};
+
 Deno.serve(async (req) => {
-  const { name } = await req.json()
-  const data = {
-    message: `Hello ${name}!`,
+
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  return new Response(
-    JSON.stringify(data),
-    { headers: { "Content-Type": "application/json" } },
-  )
-})
+  try {
+    const body = await req.json();
+    const message = body.message;
+    const clinicName = body.clinicName || "";
+
+    if (!message) {
+      return new Response(
+        JSON.stringify({ error: "Missing message" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
+
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: "Missing GEMINI_API_KEY in Supabase secrets" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const prompt = `
+      You are a helpful medical assistant chatbot for the app MedSync.
+      Clinic: ${clinicName || "General"}
+
+      User message: ${message}
+
+      Respond clearly and helpfully.
+      `;
+
+    const url = new URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent");
+
+    url.searchParams.set("key", apiKey);
+
+    const geminiRes = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+      }),
+    });
+
+    const data = await geminiRes.json();
+
+    if (!geminiRes.ok) {
+      return new Response(
+        JSON.stringify({
+          error: data?.error?.message || "Gemini API error",
+          raw: data,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response from AI";
+
+    return new Response(
+      JSON.stringify({ reply }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+});
 
 /* To invoke locally:
 

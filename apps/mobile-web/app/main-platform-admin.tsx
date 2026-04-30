@@ -7,6 +7,7 @@ import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 import { supabase } from '../src/lib/supabase';
+import FloatingChatButton from '../src/common/FloatingChatButton';
 
 function hexToRgb(hex: string) {
 
@@ -113,6 +114,8 @@ export default function PlatformAdminDashboard() {
   ];
 
   return (
+
+    <>
 
     <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
 
@@ -221,6 +224,10 @@ export default function PlatformAdminDashboard() {
       </View>
 
     </ScrollView>
+    
+    <FloatingChatButton clinicId={clinicId} clinicName={clinicName}/>
+
+    </>
 
   );
 

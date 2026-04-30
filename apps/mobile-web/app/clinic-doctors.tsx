@@ -453,9 +453,13 @@ export default function ClinicDoctorsScreen() {
             icon: 'chatbubble-ellipses-outline',
             onPress: () => {
               if (!selectedDoctor) return;
+
+              const selectedDoctorId = selectedDoctor.id;
+              setSelectedDoctor(null);
+
               router.push({
-                pathname: '/chat-doctor' as any,
-                params: { clinicId, clinicName, doctorId: selectedDoctor.id },
+                pathname: '/chat' as any,
+                params: { clinicId, clinicName, doctorId: selectedDoctorId },
               });
             },
           },

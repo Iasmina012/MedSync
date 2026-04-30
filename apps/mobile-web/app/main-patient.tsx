@@ -7,6 +7,7 @@ import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import FloatingChatButton from '../src/common/FloatingChatButton';
 
 type PatientProfile = {
 
@@ -160,7 +161,7 @@ export default function PatientDashboard() {
     { title: 'Documents', icon: 'document-attach-outline' as const, description: 'Placeholder description.', onPress: () => go('/documents') },
     { title: 'History', icon: 'document-text-outline' as const, description: 'Placeholder description.', onPress: () => go('/history') },
     { title: 'Charts', icon: 'bar-chart-outline' as const, description: 'Placeholder description.', onPress: () => go('/patient-charts') },
-    { title: 'Placeholder', icon: 'sparkles-outline' as const, description: 'Placeholder description.', onPress: () => go('/placeholder') },
+    { title: 'Messages', icon: 'chatbubble-ellipses-outline' as const, description: 'Chat with your doctors.', onPress: () => go('/messages'), },
   
   ];
 
@@ -384,6 +385,8 @@ export default function PatientDashboard() {
         </View>
 
       </Modal>
+
+      <FloatingChatButton clinicId={clinicId} clinicName={clinicName}/>
 
     </>
 

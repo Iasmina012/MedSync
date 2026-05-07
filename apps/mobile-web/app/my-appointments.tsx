@@ -65,10 +65,9 @@ type Appointment = {
 
 const INSURANCE_LABELS: Record<string, string> = {
 
-  private_pay: 'Private pay',
+  self_pay: 'Self pay',
   public_insurance: 'Public insurance',
   private_insurance: 'Private insurance',
-  clinic_subscription: 'Clinic subscription',
   other: 'Other',
 
 };

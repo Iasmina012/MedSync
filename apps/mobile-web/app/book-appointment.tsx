@@ -87,10 +87,9 @@ const WEEKDAY_TO_NUMBER: Record<string, number> = {
 
 const INSURANCE_OPTIONS: InsuranceOption[] = [
 
-  { label: 'Private pay', value: 'private_pay' },
+  { label: 'Self pay', value: 'self_pay' },
   { label: 'Public insurance', value: 'public_insurance' },
   { label: 'Private insurance', value: 'private_insurance' },
-  { label: 'Clinic subscription', value: 'clinic_subscription' },
   { label: 'Other', value: 'other' },
 
 ];

@@ -11,6 +11,69 @@ import { getBackPathWithClinicFallback } from '../src/lib/navigation';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 
+type SelectOption = {
+
+  label: string;
+  value: string;
+
+};
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  placeholder,
+  zIndex = 1000,
+}: {
+
+  label: string;
+  value: string;
+  options: SelectOption[];
+  onChange: (value: string) => void;
+  placeholder: string;
+  zIndex?: number;
+}) {
+
+  const [open, setOpen] = useState(false);
+  const selectedLabel = options.find((option) => option.value === value)?.label || '';
+
+  return (
+
+    <View style={[styles.selectWrap, { zIndex }]}>
+
+      <Text style={styles.label}>{label}</Text>
+
+      <Pressable style={styles.selectButton} onPress={() => setOpen(!open)}>
+        <Text style={[styles.selectText, !selectedLabel && styles.selectPlaceholder]}>
+          {selectedLabel || placeholder}
+        </Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color="#64748B"/>
+      </Pressable>
+
+      {open && (
+        <View style={styles.selectMenu}>
+          {options.map((option) => (
+            <Pressable
+              key={option.value}
+              style={styles.selectOption}
+              onPress={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+            >
+              <Text style={styles.selectOptionText}>{option.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+    </View>
+
+  );
+
+}
+
 export default function MyProfileScreen() {
 
   const { clinicId, clinicName } = useLocalSearchParams<{
@@ -107,7 +170,7 @@ export default function MyProfileScreen() {
         updatePayload.blood_type = bloodType.trim() || null;
         updatePayload.allergies = allergies.trim() || null;
         updatePayload.chronic_conditions = conditions.trim() || null;
-        updatePayload.insurance_provider = insurance.trim() || null;
+        updatePayload.insurance_provider = insurance || null;
         updatePayload.address = address.trim() || null;
       }
 
@@ -294,6 +357,38 @@ export default function MyProfileScreen() {
       </View>
     );
   }
+
+  const genderOptions = [
+
+    { label: 'Male', value: 'male' },
+    { label: 'Female', value: 'female' },
+    { label: 'Other', value: 'other' },
+    { label: 'Prefer not to say', value: 'prefer_not_to_say' },
+
+  ];
+
+  const bloodTypeOptions = [
+
+    { label: 'A+', value: 'A+' },
+    { label: 'A-', value: 'A-' },
+    { label: 'B+', value: 'B+' },
+    { label: 'B-', value: 'B-' },
+    { label: 'AB+', value: 'AB+' },
+    { label: 'AB-', value: 'AB-' },
+    { label: 'O+', value: 'O+' },
+    { label: 'O-', value: 'O-' },
+    { label: 'Unknown', value: 'unknown' },
+
+  ];
+
+  const insuranceOptions = [
+
+    { label: 'Public insurance', value: 'public_insurance' },
+    { label: 'Private insurance', value: 'private_insurance' },
+    { label: 'Self Pay', value: 'self_pay' },
+    { label: 'Other', value: 'other' },
+  
+  ];
 
   return (
 
@@ -484,25 +579,24 @@ export default function MyProfileScreen() {
 
           <View style={styles.row}>
             <View style={styles.field}>
-              <Text style={styles.label}>Gender</Text>
-              <TextInput
+              <SelectField
+                label="Gender"
                 value={gender}
-                onChangeText={setGender}
-                placeholder="Male / Female / Other"
-                placeholderTextColor="#94A3B8"
-                style={styles.input}
+                onChange={setGender}
+                options={genderOptions}
+                placeholder="Select gender"
+                zIndex={3000}
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Blood type</Text>
-              <TextInput
+              <SelectField
+                label="Blood type"
                 value={bloodType}
-                onChangeText={setBloodType}
-                placeholder="A+, O-, etc."
-                placeholderTextColor="#94A3B8"
-                autoCapitalize="characters"
-                style={styles.input}
+                onChange={setBloodType}
+                options={bloodTypeOptions}
+                placeholder="Select blood type"
+                zIndex={2000}
               />
             </View>
           </View>
@@ -532,13 +626,13 @@ export default function MyProfileScreen() {
           </View>
 
           <View style={styles.fieldFull}>
-            <Text style={styles.label}>Insurance provider</Text>
-            <TextInput
+            <SelectField
+              label="Insurance"
               value={insurance}
-              onChangeText={setInsurance}
-              placeholder="e.g. private insurance"
-              placeholderTextColor="#94A3B8"
-              style={styles.input}
+              onChange={setInsurance}
+              options={insuranceOptions}
+              placeholder="Select insurance type"
+              zIndex={1000}
             />
           </View>
 
@@ -570,10 +664,8 @@ export default function MyProfileScreen() {
       )}
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Security</Text>
-        <Text style={styles.securityText}>
-          Send a password reset link to your account email.
-        </Text>
+        <Text style={styles.sectionTitle}>Password & Security</Text>
+        <Text style={styles.securityText}>For security, password changes are handled through a reset link sent to your account email.</Text>
 
         <Pressable
           style={[styles.secondaryButton, sendingReset && styles.buttonDisabled]}
@@ -606,6 +698,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     padding: 24,
     gap: 18,
+    overflow: 'visible',
   },
 
   hero: {
@@ -639,6 +732,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     padding: 22,
     gap: 14,
+    overflow: 'visible',
   },
 
   sectionTitle: {
@@ -682,15 +776,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
     flexWrap: 'wrap',
+    overflow: 'visible',
+    zIndex: 20,
   },
 
   field: {
     flex: 1,
     minWidth: 240,
+    position: 'relative',
+    overflow: 'visible',
   },
 
   fieldFull: {
     width: '100%',
+    position: 'relative',
+    overflow: 'visible',
   },
 
   label: {
@@ -781,6 +881,66 @@ const styles = StyleSheet.create({
 
   buttonDisabled: {
     opacity: 0.7,
+  },
+
+  selectWrap: {
+    width: '100%',
+    position: 'relative',
+    overflow: 'visible',
+  },
+
+  selectButton: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  selectText: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+
+  selectPlaceholder: {
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+
+  selectMenu: {
+    position: 'absolute',
+    top: 76,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    zIndex: 9999,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+  },
+
+  selectOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+
+  selectOptionText: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '700',
   },
   
 });

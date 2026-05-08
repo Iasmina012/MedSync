@@ -39,6 +39,10 @@ type Appointment = {
   insurance_method: string | null;
   insurance_details: string | null;
   notes: string | null;
+  ai_triage_patient_note: string | null;
+  ai_triage_summary: string | null;
+  ai_triage_level: string | null;
+  triage_session_id: string | null;
 
   doctors: {
     id: string;
@@ -317,6 +321,10 @@ export default function ManageAppointmentsScreen() {
           insurance_method,
           insurance_details,
           notes,
+          ai_triage_patient_note,
+          ai_triage_summary,
+          ai_triage_level,
+          triage_session_id,
           doctors (
             id,
             first_name,
@@ -721,8 +729,13 @@ export default function ManageAppointmentsScreen() {
 
             <Text style={styles.modalTitle}>Appointment Details</Text>
 
-            {detailsTarget && (
-              <View style={styles.modalDetailsBlock}>
+              {detailsTarget && (
+                <ScrollView
+                  style={styles.modalScroll}
+                  contentContainerStyle={styles.modalScrollContent}
+                  showsVerticalScrollIndicator
+                >
+                  <View style={styles.modalDetailsBlock}>
                 {!!detailsTarget.notes?.trim() && (
                   <View style={styles.modalWarningBox}>
                     <Ionicons name="warning-outline" size={18} color="#B45309"/>
@@ -795,8 +808,17 @@ export default function ManageAppointmentsScreen() {
                   label="Notes / observations"
                   value={detailsTarget.notes?.trim() || 'No notes provided'}
                 />
+
+                {!!detailsTarget.ai_triage_summary?.trim() && (
+                  <DetailRow
+                    icon="sparkles-outline"
+                    label="AI triage summary"
+                    value={detailsTarget.ai_triage_summary}
+                  />
+                )}
               </View>
-            )}
+            </ScrollView>
+          )}
 
             <Pressable
               style={[styles.modalFullButton, { backgroundColor: theme.primary }]}
@@ -1254,6 +1276,7 @@ const styles = StyleSheet.create({
   modalCardLarge: {
     width: '100%',
     maxWidth: 560,
+    maxHeight: '86%',
     backgroundColor: '#FFFFFF',
     borderRadius: 28,
     borderWidth: 1,
@@ -1265,7 +1288,6 @@ const styles = StyleSheet.create({
   modalDetailsBlock: {
     width: '100%',
     gap: 12,
-    marginBottom: 18,
   },
 
   modalWarningBox: {
@@ -1403,6 +1425,16 @@ const styles = StyleSheet.create({
   modalPlainButtonText: {
     color: '#64748B',
     fontWeight: '800',
+  },
+
+  modalScroll: {
+    width: '100%',
+    maxHeight: 420,
+    marginBottom: 18,
+  },
+
+  modalScrollContent: {
+    paddingBottom: 6,
   },
 
   disabledButton: {

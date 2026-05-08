@@ -39,6 +39,10 @@ type Appointment = {
   insurance_method: string | null;
   insurance_details: string | null;
   notes: string | null;
+  ai_triage_patient_note: string | null;
+  ai_triage_summary: string | null;
+  ai_triage_level: string | null;
+  triage_session_id: string | null;
 
   doctors: {
     id: string;
@@ -306,6 +310,10 @@ export default function MyAppointmentsScreen() {
           insurance_method,
           insurance_details,
           notes,
+          ai_triage_patient_note,
+          ai_triage_summary,
+          ai_triage_level,
+          triage_session_id,
           doctors (
             id,
             first_name,
@@ -701,72 +709,87 @@ export default function MyAppointmentsScreen() {
             <Text style={styles.modalTitle}>Appointment Details</Text>
 
             {detailsTarget && (
-              <View style={styles.modalDetailsBlock}>
-                {!!detailsTarget.notes?.trim() && (
-                  <View style={styles.modalWarningBox}>
-                    <Ionicons name="warning-outline" size={18} color="#B45309"/>
-                    <Text style={styles.modalWarningText}>
-                      You added notes for this appointment.
-                    </Text>
-                  </View>
-                )}
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator
+              >
+                <View style={styles.modalDetailsBlock}>
 
-                <DetailRow
-                  icon="calendar-outline"
-                  label="Date and time"
-                  value={formatDateTime(buildAppointmentDateTime(detailsTarget))}
-                />
+                  {!!detailsTarget.notes?.trim() && (
+                    <View style={styles.modalWarningBox}>
+                      <Ionicons name="warning-outline" size={18} color="#B45309"/>
+                      <Text style={styles.modalWarningText}>
+                        You added notes for this appointment.
+                      </Text>
+                    </View>
+                  )}
 
-                <DetailRow
-                  icon="list-outline"
-                  label="Service"
-                  value={detailsTarget.clinic_services?.title || 'Medical appointment'}
-                />
-
-                <DetailRow
-                  icon="medkit-outline"
-                  label="Doctor"
-                  value={getDoctorName(detailsTarget.doctors)}
-                />
-
-                <DetailRow
-                  icon="location-outline"
-                  label={detailsTarget.clinic_locations?.name || 'Clinic location'}
-                  value={detailsTarget.clinic_locations?.address || 'Not provided'}
-                />
-
-                <DetailRow
-                  icon="cash-outline"
-                  label="Price"
-                  value={detailsTarget.clinic_services?.price_text || 'Not provided'}
-                />
-
-                <DetailRow
-                  icon="time-outline"
-                  label="Duration"
-                  value={detailsTarget.clinic_services?.duration_minutes ? `${detailsTarget.clinic_services.duration_minutes} min` : 'Not provided' }
-                />
-
-                <DetailRow
-                  icon="card-outline"
-                  label="Insurance"
-                  value={detailsTarget.insurance_method ? INSURANCE_LABELS[detailsTarget.insurance_method] || detailsTarget.insurance_method : 'Not provided'}
-                />
-
-                {!!detailsTarget.insurance_details && (
                   <DetailRow
-                    icon="document-text-outline"
-                    label="Insurance details"
-                    value={detailsTarget.insurance_details}
+                    icon="calendar-outline"
+                    label="Date and time"
+                    value={formatDateTime(buildAppointmentDateTime(detailsTarget))}
                   />
-                )}
 
-                <DetailRow
-                  icon="chatbox-ellipses-outline"
-                  label="Notes"
-                  value={detailsTarget.notes?.trim() || 'No notes provided'}
-                />
-              </View>
+                  <DetailRow
+                    icon="list-outline"
+                    label="Service"
+                    value={detailsTarget.clinic_services?.title || 'Medical appointment'}
+                  />
+
+                  <DetailRow
+                    icon="medkit-outline"
+                    label="Doctor"
+                    value={getDoctorName(detailsTarget.doctors)}
+                  />
+
+                  <DetailRow
+                    icon="location-outline"
+                    label={detailsTarget.clinic_locations?.name || 'Clinic location'}
+                    value={detailsTarget.clinic_locations?.address || 'Not provided'}
+                  />
+
+                  <DetailRow
+                    icon="cash-outline"
+                    label="Price"
+                    value={detailsTarget.clinic_services?.price_text || 'Not provided'}
+                  />
+
+                  <DetailRow
+                    icon="time-outline"
+                    label="Duration"
+                    value={detailsTarget.clinic_services?.duration_minutes ? `${detailsTarget.clinic_services.duration_minutes} min` : 'Not provided' }
+                  />
+
+                  <DetailRow
+                    icon="card-outline"
+                    label="Insurance"
+                    value={detailsTarget.insurance_method ? INSURANCE_LABELS[detailsTarget.insurance_method] || detailsTarget.insurance_method : 'Not provided'}
+                  />
+
+                  {!!detailsTarget.insurance_details && (
+                    <DetailRow
+                      icon="document-text-outline"
+                      label="Insurance details"
+                      value={detailsTarget.insurance_details}
+                    />
+                  )}
+
+                  <DetailRow
+                    icon="chatbox-ellipses-outline"
+                    label="Notes"
+                    value={detailsTarget.notes?.trim() || 'No notes provided'}
+                  />
+
+                  {!!detailsTarget.ai_triage_patient_note?.trim() && (
+                    <DetailRow
+                      icon="sparkles-outline"
+                      label="AI triage note"
+                      value={detailsTarget.ai_triage_patient_note}
+                    />
+                  )}
+                </View>
+              </ScrollView>
             )}
 
             <Pressable
@@ -1216,6 +1239,7 @@ const styles = StyleSheet.create({
   modalCardLarge: {
     width: '100%',
     maxWidth: 560,
+    maxHeight: '86%',
     backgroundColor: '#FFFFFF',
     borderRadius: 28,
     borderWidth: 1,
@@ -1227,7 +1251,6 @@ const styles = StyleSheet.create({
   modalDetailsBlock: {
     width: '100%',
     gap: 12,
-    marginBottom: 18,
   },
 
   modalWarningBox: {
@@ -1331,6 +1354,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '900',
     fontSize: 14,
+  },
+
+  modalScroll: {
+    width: '100%',
+    maxHeight: 420,
+    marginBottom: 18,
+  },
+
+  modalScrollContent: {
+    paddingBottom: 6,
   },
 
   disabledButton: {

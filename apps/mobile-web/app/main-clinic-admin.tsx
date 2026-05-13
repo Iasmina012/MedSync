@@ -8,6 +8,7 @@ import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import FloatingChatButton from '../src/common/FloatingChatButton';
 
 function hexToRgb(hex: string) {
 
@@ -129,110 +130,116 @@ export default function ClinicAdminDashboard() {
   }
 
   return (
+  
+    <>
+      
+      <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
 
-    <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
+        <ClinicNavbar
+          clinicName={clinicName}
+          clinicId={clinicId}
+          primaryColor={theme.primary}
+          roleLabel="Clinic Admin"
+          onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
+        />
 
-      <ClinicNavbar
-        clinicName={clinicName}
-        clinicId={clinicId}
-        primaryColor={theme.primary}
-        roleLabel="Clinic Admin"
-        onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
-      />
-
-      <View
-        style={[
-          styles.hero,
-          isMobile && styles.heroMobile,
-          { backgroundColor: theme.soft, borderColor: theme.borderSoft },
-        ]}
-      >
-        <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>
-          Clinic Admin Dashboard
-        </Text>
-        <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
-          Manage Your Clinic
-        </Text>
-        <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-          Placeholder subtitle
-        </Text>
-      </View>
-
-      <View style={styles.statsGrid}>
-        <AnimatedStatsCard label="Doctors" value={12} icon="medkit-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Patients" value={248} icon="people-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Upcoming Appointments" value={upcomingAppointments} icon="calendar-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Pending Requests" value={5} icon="notifications-outline" color={theme.primary}/>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Features</Text>
-        <View style={styles.featuresGrid}>
-          {featureItems.map((item, index) => {
-            const isAlt = index % 2 === 0;
-
-            return (
-              <FeaturesCard
-                key={item.title}
-                compact={isMobile}
-                mobileTwoColumns={isMobile}
-                hideDescription={isMobile}
-                title={item.title}
-                icon={item.icon}
-                description={item.description}
-                color={theme.primary}
-                backgroundColor={isAlt ? featureAccentA : featureAccentB}
-                borderColor={isAlt ? featureBorderA : featureBorderB}
-                onPress={item.onPress}
-              />
-            );
-          })}
+        <View
+          style={[
+            styles.hero,
+            isMobile && styles.heroMobile,
+            { backgroundColor: theme.soft, borderColor: theme.borderSoft },
+          ]}
+        >
+          <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>
+            Clinic Admin Dashboard
+          </Text>
+          <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
+            Manage Your Clinic
+          </Text>
+          <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
+            Placeholder subtitle
+          </Text>
         </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
+        <View style={styles.statsGrid}>
+          <AnimatedStatsCard label="Doctors" value={12} icon="medkit-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="Patients" value={248} icon="people-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="Upcoming Appointments" value={upcomingAppointments} icon="calendar-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="Pending Requests" value={5} icon="notifications-outline" color={theme.primary}/>
+        </View>
 
-        {upcomingList.length === 0 ? (
-          <Text style={styles.emptyUpcomingText}>No upcoming appointments.</Text>
-        ) : (
-          upcomingList.map((appointment) => {
-            const doctor = Array.isArray(appointment.doctors)
-              ? appointment.doctors[0]
-              : appointment.doctors;
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Features</Text>
+          <View style={styles.featuresGrid}>
+            {featureItems.map((item, index) => {
+              const isAlt = index % 2 === 0;
 
-            const service = Array.isArray(appointment.clinic_services)
-              ? appointment.clinic_services[0]
-              : appointment.clinic_services;
+              return (
+                <FeaturesCard
+                  key={item.title}
+                  compact={isMobile}
+                  mobileTwoColumns={isMobile}
+                  hideDescription={isMobile}
+                  title={item.title}
+                  icon={item.icon}
+                  description={item.description}
+                  color={theme.primary}
+                  backgroundColor={isAlt ? featureAccentA : featureAccentB}
+                  borderColor={isAlt ? featureBorderA : featureBorderB}
+                  onPress={item.onPress}
+                />
+              );
+            })}
+          </View>
+        </View>
 
-            const patientName = `${appointment.patient_first_name || ''} ${appointment.patient_last_name || ''}`.trim() || 'Patient';
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
 
-            return (
-              <View key={appointment.id} style={styles.upcomingCard}>
-                <View style={[styles.upcomingDateBadge, { backgroundColor: `${theme.primary}12` }]}>
-                  <Ionicons name="calendar-outline" size={17} color={theme.primary}/>
+          {upcomingList.length === 0 ? (
+            <Text style={styles.emptyUpcomingText}>No upcoming appointments.</Text>
+          ) : (
+            upcomingList.map((appointment) => {
+              const doctor = Array.isArray(appointment.doctors)
+                ? appointment.doctors[0]
+                : appointment.doctors;
+
+              const service = Array.isArray(appointment.clinic_services)
+                ? appointment.clinic_services[0]
+                : appointment.clinic_services;
+
+              const patientName = `${appointment.patient_first_name || ''} ${appointment.patient_last_name || ''}`.trim() || 'Patient';
+
+              return (
+                <View key={appointment.id} style={styles.upcomingCard}>
+                  <View style={[styles.upcomingDateBadge, { backgroundColor: `${theme.primary}12` }]}>
+                    <Ionicons name="calendar-outline" size={17} color={theme.primary}/>
+                  </View>
+
+                  <View style={styles.upcomingContent}>
+                    <Text style={styles.upcomingService}>
+                      {service?.title || 'Medical appointment'}
+                    </Text>
+
+                    <Text style={styles.upcomingDoctor}>
+                      {patientName} · Dr. {doctor?.first_name || ''} {doctor?.last_name || ''}
+                    </Text>
+
+                    <Text style={styles.upcomingMeta}>
+                      {appointment.appointment_date} · {appointment.start_time}
+                    </Text>
+                  </View>
                 </View>
+              );
+            })
+          )}
+        </View>
 
-                <View style={styles.upcomingContent}>
-                  <Text style={styles.upcomingService}>
-                    {service?.title || 'Medical appointment'}
-                  </Text>
+      </ScrollView>
 
-                  <Text style={styles.upcomingDoctor}>
-                    {patientName} · Dr. {doctor?.first_name || ''} {doctor?.last_name || ''}
-                  </Text>
+      <FloatingChatButton clinicId={clinicId} clinicName={clinicName}/>
 
-                  <Text style={styles.upcomingMeta}>
-                    {appointment.appointment_date} · {appointment.start_time}
-                  </Text>
-                </View>
-              </View>
-            );
-          })
-        )}
-      </View>
-
-    </ScrollView>
+    </>
 
   );
 

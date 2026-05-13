@@ -15,6 +15,7 @@ type Props = {
   showBackButton?: boolean;
   onBackPress?: () => void;
   showRolePill?: boolean;
+  canChangeClinic?: boolean;
 
 };
 
@@ -27,6 +28,7 @@ export default function ClinicNavbar({
   showBackButton = false,
   onBackPress,
   showRolePill = true,
+  canChangeClinic = true,
 }: Props) {
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -139,7 +141,7 @@ export default function ClinicNavbar({
   const dropdownContent = (
 
     <View style={[styles.dropdown, isMobile && styles.dropdownMobile]}>
-      {!!onChangeClinic && (
+     {!!onChangeClinic && canChangeClinic && (
         <Pressable style={styles.menuItem} onPress={handleChangeClinic}>
           <Ionicons name="swap-horizontal-outline" size={18} color={primaryColor}/>
           <Text style={styles.menuItemText}>Change Clinic</Text>

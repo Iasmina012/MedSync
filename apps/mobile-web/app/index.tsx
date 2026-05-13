@@ -40,10 +40,14 @@ type Review = {
 
 type ClinicPreview = {
 
+  id: string;
   name: string;
   subtitle: string;
   patients: number;
   appointments: number;
+  doctors: number;
+  services: number;
+  technologies: number;
   primary: string;
 
 };
@@ -101,34 +105,6 @@ const secondaryFeatures: FeatureCard[] = [
     title: 'Placeholder Title',
     description:
       'Placeholder description.',
-  },
-
-];
-
-const clinicPreviews: ClinicPreview[] = [
-
-  {
-    name: 'Placeholder Clinic Name',
-    subtitle: 'Placeholder description',
-    patients: 128,
-    appointments: 24,
-    primary: '#1D4ED8',
-  },
-
-  {
-    name: 'Placeholder Clinic Name',
-    subtitle: 'Placeholder description',
-    patients: 214,
-    appointments: 31,
-    primary: '#059669',
-  },
-
-  {
-    name: 'Placeholder Clinic Name',
-    subtitle: 'Placeholder description',
-    patients: 176,
-    appointments: 19,
-    primary: '#7C3AED',
   },
 
 ];
@@ -430,9 +406,28 @@ export default function HomeScreen() {
   const isSmall = width < 640;
   const isWeb = Platform.OS === 'web';
 
+  const [clinicPreviews, setClinicPreviews] = useState<ClinicPreview[]>([]);
+  const [clinicsLoading, setClinicsLoading] = useState(true);
+
   const randomClinic = useMemo(() => {
+
+    if (clinicPreviews.length === 0) {
+      return {
+        id: 'fallback',
+        name: 'MedSync Clinic',
+        subtitle: 'Digital clinic dashboard',
+        patients: 0,
+        appointments: 0,
+        doctors: 0,
+        services: 0,
+        technologies: 0,
+        primary: BRAND.primary,
+      };
+    }
+
     return clinicPreviews[Math.floor(Math.random() * clinicPreviews.length)];
-  }, []);
+
+  }, [clinicPreviews]);
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
@@ -510,6 +505,82 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadReviews();
+  }, []);
+
+  const loadClinicPreviews = async () => {
+
+    try {
+      setClinicsLoading(true);
+
+      const { data: clinics, error } = await supabase
+        .from('clinics')
+        .select('id, name, description, primary_color, is_active')
+        .eq('is_active', true)
+        .limit(3);
+
+      if (error) {
+        setClinicPreviews([]);
+        return;
+      }
+
+      const mapped = await Promise.all(
+        (clinics ?? []).map(async (clinic) => {
+          const today = new Date().toISOString().slice(0, 10);
+
+          const { count: patientsCount } = await supabase
+            .from('clinic_memberships')
+            .select('id', { count: 'exact', head: true })
+            .eq('clinic_id', clinic.id)
+            .eq('role', 'patient')
+            .eq('is_active', true);
+
+          const { count: appointmentsCount } = await supabase
+            .from('appointments')
+            .select('id', { count: 'exact', head: true })
+            .eq('clinic_id', clinic.id)
+            .eq('appointment_date', today)
+            .in('status', ['scheduled', 'rescheduled', 'checked_in']);
+
+          const { count: doctorsCount } = await supabase
+            .from('doctors')
+            .select('id', { count: 'exact', head: true })
+            .eq('clinic_id', clinic.id)
+            .eq('is_active', true);
+
+          const { count: servicesCount } = await supabase
+            .from('clinic_services')
+            .select('id', { count: 'exact', head: true })
+            .eq('clinic_id', clinic.id)
+            .eq('is_active', true);
+
+          const { count: technologiesCount } = await supabase
+            .from('clinic_technologies')
+            .select('id', { count: 'exact', head: true })
+            .eq('clinic_id', clinic.id);
+
+          return {
+            id: clinic.id,
+            name: clinic.name || 'Clinic',
+            subtitle: clinic.description || 'Digital clinic dashboard',
+            patients: patientsCount ?? 0,
+            appointments: appointmentsCount ?? 0,
+            doctors: doctorsCount ?? 0,
+            services: servicesCount ?? 0,
+            technologies: technologiesCount ?? 0,
+            primary: clinic.primary_color || BRAND.primary,
+          };
+        })
+      );
+
+      setClinicPreviews(mapped);
+    } finally {
+      setClinicsLoading(false);
+    }
+  
+  };
+
+  useEffect(() => {
+    loadClinicPreviews();
   }, []);
 
   useEffect(() => {
@@ -801,11 +872,9 @@ export default function HomeScreen() {
                   { backgroundColor: randomClinic.primary },
                 ]}
               >
-                <View>
-                  <Text style={styles.previewBannerTitle}>{randomClinic.name}</Text>
-                  <Text style={styles.previewBannerSubtitle}>
-                    {randomClinic.subtitle}
-                  </Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.previewBannerTitle} numberOfLines={1}>{randomClinic.name}</Text>
+                  <Text style={styles.previewBannerSubtitle} numberOfLines={2}>{randomClinic.subtitle}</Text>
                 </View>
 
                 <View style={styles.previewStatusPillLive}>
@@ -822,7 +891,7 @@ export default function HomeScreen() {
                     color={randomClinic.primary}
                   />
                   <AnimatedNumber
-                    value={randomClinic.patients}
+                    value={clinicsLoading ? 0 : randomClinic.patients}
                     style={styles.previewSmallValue}
                   />
                   <Text style={styles.previewSmallLabel}>Active Patients</Text>
@@ -835,7 +904,7 @@ export default function HomeScreen() {
                     color={randomClinic.primary}
                   />
                   <AnimatedNumber
-                    value={randomClinic.appointments}
+                    value={clinicsLoading ? 0 : randomClinic.appointments}
                     style={styles.previewSmallValue}
                   />
                   <Text style={styles.previewSmallLabel}>Appointments Today</Text>
@@ -843,21 +912,27 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.previewListCard}>
-                <Text style={styles.previewListTitle}>Features</Text>
+                <Text style={styles.previewListTitle}>Clinic Flow</Text>
+
                 {[
-                  'Placeholder text',
-                  'Placeholder text',
-                  'Placeholder text',
-                ].map((item) => (
-                  <View key={item} style={styles.previewListItem}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={18}
-                      color={BRAND.success}
-                    />
-                    <Text style={styles.previewListItemText}>{item}</Text>
-                  </View>
-                ))}
+                  {
+                    icon: 'medkit-outline' as const,
+                    label: `${randomClinic.doctors} available doctors`,
+                  },
+                  {
+                    icon: 'list-outline' as const,
+                    label: `${randomClinic.services} available services`,
+                  },
+                  {
+                    icon: 'hardware-chip-outline' as const,
+                    label: `${randomClinic.technologies} available technologies`,
+                  },
+                  ].map((item) => (
+                    <View key={item.label} style={styles.previewListItem}>
+                      <Ionicons name={item.icon} size={18} color={randomClinic.primary}/>
+                      <Text style={styles.previewListItemText}>{item.label}</Text>
+                    </View>
+                  ))}
               </View>
             </HoverCard>
           </View>
@@ -1456,18 +1531,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
+    overflow: 'hidden',
   },
 
   previewBannerTitle: {
     color: '#FFFFFF',
     fontSize: 20,
     fontWeight: '800',
+    flexShrink: 1,
   },
 
   previewBannerSubtitle: {
     color: '#E2E8F0',
     fontSize: 13,
     marginTop: 4,
+    flexShrink: 1,
   },
 
   previewStatusPillLive: {
@@ -1478,6 +1556,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
 
   liveDotWrap: {

@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   syncCenter: {
     position: 'absolute',
     top: 122,
-    left: 174,
+    left: 140,
     zIndex: 8,
     backgroundColor: '#1D4ED8',
     borderRadius: 999,

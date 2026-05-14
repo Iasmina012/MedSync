@@ -344,10 +344,18 @@ export default function ManageAppointmentsScreen() {
             address
           )
         `)
-        .eq('clinic_id', clinicId)
         .in('status', ['scheduled', 'rescheduled'])
         .order('appointment_date', { ascending: true })
         .order('start_time', { ascending: true });
+
+      if (profileData.role !== 'platform_admin') {
+        if (!clinicId) {
+          router.replace('/clinic-selection');
+          return;
+        }
+
+        query = query.eq('clinic_id', clinicId);
+      }
 
       if (profileData.role === 'doctor') {
         const { data: doctorData, error: doctorError } = await supabase
@@ -505,17 +513,22 @@ export default function ManageAppointmentsScreen() {
           showRolePill={false}
           showBackButton
           onBackPress={() =>
-            router.replace({
-              pathname:
-                profile?.role === 'doctor'
-                  ? '/main-doctor'
-                  : profile?.role === 'platform_admin'
-                    ? '/main-platform-admin'
-                    : '/main-clinic-admin',
-              params: { clinicId, clinicName },
-            } as any)
+            router.replace(
+              profile?.role === 'doctor'
+                ? {
+                    pathname: '/main-doctor',
+                    params: { clinicId, clinicName },
+                  }
+                : profile?.role === 'platform_admin'
+                  ? '/main-platform-admin'
+                  : {
+                      pathname: '/main-clinic-admin',
+                      params: { clinicId, clinicName },
+                    }
+            )
           }
-          onChangeClinic={() => router.replace('/clinic-selection')}
+          canChangeClinic={profile?.role !== 'platform_admin'}
+          onChangeClinic={() => router.replace('/clinic-selection')} 
         />
 
         <View style={[styles.hero, isMobile && styles.heroMobile, { backgroundColor: theme.soft, borderColor: theme.borderSoft }, ]}>

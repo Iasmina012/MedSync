@@ -183,18 +183,7 @@ export default function ClinicSelectionScreen() {
         }
 
         if (profile.role === 'platform_admin') {
-          const { data, error: clinicsError } = await supabase
-            .from('clinics')
-            .select('id, name, slug, description, primary_color, is_active')
-            .eq('is_active', true)
-            .order('name', { ascending: true });
-
-          if (clinicsError) {
-            setError(clinicsError.message);
-            return;
-          }
-
-          setClinics(data ?? []);
+          router.replace('/main-platform-admin');
           return;
         }
 

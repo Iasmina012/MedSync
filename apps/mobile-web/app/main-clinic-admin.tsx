@@ -9,6 +9,25 @@ import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 import FloatingChatButton from '../src/common/FloatingChatButton';
+import { getUserClinicCount } from '../src/lib/adminData';
+
+type AppointmentRow = {
+
+  id: string;
+  appointment_date: string;
+  start_time: string;
+  patient_first_name: string | null;
+  patient_last_name: string | null;
+  doctors: 
+    | { first_name: string | null; last_name: string | null; }
+    | { first_name: string | null; last_name: string | null; } []
+    | null;
+  clinic_services:
+    | { title: string | null; }
+    | { title: string | null; } []
+    | null;
+  
+};
 
 function hexToRgb(hex: string) {
 
@@ -38,6 +57,15 @@ function rgbaFromHex(hex: string, alpha: number) {
 
 }
 
+function formatTime(time?: string | null) {
+
+  if (!time) 
+    return 'Not scheduled';
+
+  return time.slice(0, 5);
+
+}
+
 export default function ClinicAdminDashboard() {
 
   const { clinicId, clinicName } = useLocalSearchParams<{
@@ -46,12 +74,20 @@ export default function ClinicAdminDashboard() {
   }>();
 
   const [loading, setLoading] = useState(true);
+  const [canChangeClinic, setCanChangeClinic] = useState(false);
   const { width } = useWindowDimensions();
   const isMobile = width < 720;
   const { theme } = useClinicTheme(clinicId);
 
   const [upcomingAppointments, setUpcomingAppointments] = useState(0);
-  const [upcomingList, setUpcomingList] = useState<any[]>([]);
+  const [upcomingList, setUpcomingList] = useState<AppointmentRow[]>([]);
+  const [patientsCount, setPatientsCount] = useState(0);
+  const [doctorsCount, setDoctorsCount] = useState(0);
+  const [servicesCount, setServicesCount] = useState(0);
+
+  const [todayAppointments, setTodayAppointments] = useState(0);
+  const [firstAppointmentTime, setFirstAppointmentTime] = useState<string | null>(null);
+  const [lastAppointmentTime, setLastAppointmentTime] = useState<string | null>(null);
 
   const go = (pathname: string) => {
     router.push({
@@ -63,44 +99,95 @@ export default function ClinicAdminDashboard() {
   useEffect(() => {
 
     const check = async () => {
+      if (!clinicId) {
+        router.replace('/clinic-selection');
+        return;
+      }
+
       const { user, profile } = await getCurrentUserProfile();
-      if (!user) return router.replace('/login');
-      if (profile?.role !== 'clinic_admin') return router.replace('/main-patient');
+
+      if (!user) {
+        router.replace('/login');
+        return;
+      }
+
+      if (profile?.role !== 'clinic_admin') {
+        router.replace('/main-patient');
+        return;
+      }
+
       const today = new Date().toISOString().slice(0, 10);
 
-    const { count } = await supabase
-      .from('appointments')
-      .select('id', { count: 'exact', head: true })
-      .eq('clinic_id', clinicId)
-      .in('status', ['scheduled', 'rescheduled'])
-      .gte('appointment_date', today);
+      const clinicCount = await getUserClinicCount(user.id);
+      setCanChangeClinic(clinicCount > 1);
 
-    const { data } = await supabase
-      .from('appointments')
-      .select(`
-        id,
-        appointment_date,
-        start_time,
-        patient_first_name,
-        patient_last_name,
-        doctors (
-          first_name,
-          last_name
-        ),
-        clinic_services (
-          title
-        )
-      `)
-      .eq('clinic_id', clinicId)
-      .in('status', ['scheduled', 'rescheduled'])
-      .gte('appointment_date', today)
-      .order('appointment_date', { ascending: true })
-      .order('start_time', { ascending: true })
-      .limit(3);
+      const { count: upcomingCount } = await supabase
+        .from('appointments')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .in('status', ['scheduled', 'rescheduled'])
+        .gte('appointment_date', today);
 
-    setUpcomingAppointments(count ?? 0);
-    setUpcomingList(data ?? []);
+      const { data: upcomingData } = await supabase
+        .from('appointments')
+        .select(`
+          id,
+          appointment_date,
+          start_time,
+          patient_first_name,
+          patient_last_name,
+          doctors (
+            first_name,
+            last_name
+          ),
+          clinic_services (
+            title
+          )
+        `)
+        .eq('clinic_id', clinicId)
+        .in('status', ['scheduled', 'rescheduled'])
+        .gte('appointment_date', today)
+        .order('appointment_date', { ascending: true })
+        .order('start_time', { ascending: true })
+        .limit(3);
 
+      const { data: todayData, count: todayCount } = await supabase
+        .from('appointments')
+        .select('id, start_time', { count: 'exact' })
+        .eq('clinic_id', clinicId)
+        .in('status', ['scheduled', 'rescheduled'])
+        .eq('appointment_date', today)
+        .order('start_time', { ascending: true });
+
+      const { count: doctors } = await supabase
+        .from('doctors')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .eq('is_active', true);
+
+      const { count: services } = await supabase
+        .from('clinic_services')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .eq('is_active', true);
+
+      const { data: patientRows } = await supabase
+        .from('appointments')
+        .select('patient_id')
+        .eq('clinic_id', clinicId);
+
+      const uniquePatients = Array.from(new Set((patientRows ?? []).map((item: any) => item.patient_id).filter(Boolean)));
+      const firstToday = todayData?.[0]?.start_time ?? null;
+      const lastToday = todayData?.[(todayData?.length ?? 0) - 1]?.start_time ?? null;
+
+      setUpcomingAppointments(upcomingCount ?? 0);
+      setUpcomingList((upcomingData ?? []) as AppointmentRow[]);
+      setDoctorsCount(doctors ?? 0);
+      setServicesCount(services ?? 0);
+      setPatientsCount(uniquePatients.length);
+      setTodayAppointments(todayCount ?? 0);
+      setFirstAppointmentTime(firstToday);
+      setLastAppointmentTime(lastToday);
       setLoading(false);
     };
     check();
@@ -115,9 +202,9 @@ export default function ClinicAdminDashboard() {
   const featureItems = [
 
     { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Modify, cancel or sort appointments, view details and check-in patients.', onPress: () => go('/manage-appointments') },
-    { title: 'Manage Doctors', icon: 'medkit-outline' as const, description: 'Placeholder description.' },
-    { title: 'Manage Patients', icon: 'people-outline' as const, description: 'Placeholder description.' },
-    { title: 'Clinic Settings', icon: 'settings-outline' as const, description: 'Placeholder description.' },
+    { title: 'Manage Users', icon: 'people-outline' as const, description: 'Manage clinic doctors, patients and clinic admins.', onPress: () => go('/manage-users') },
+    { title: 'Clinic Content', icon: 'albums-outline' as const, description: 'Edit doctors, services, technologies and health tips.', onPress: () => go('/manage-clinic-content') },
+    { title: 'Clinic Settings', icon: 'settings-outline' as const, description: 'Customize branding, contact details and homepage content.', onPress: () => go('/clinic-settings') },
 
   ];
 
@@ -140,6 +227,7 @@ export default function ClinicAdminDashboard() {
           clinicId={clinicId}
           primaryColor={theme.primary}
           roleLabel="Clinic Admin"
+          canChangeClinic={canChangeClinic}
           onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
         />
 
@@ -150,26 +238,23 @@ export default function ClinicAdminDashboard() {
             { backgroundColor: theme.soft, borderColor: theme.borderSoft },
           ]}
         >
-          <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>
-            Clinic Admin Dashboard
-          </Text>
-          <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
-            Manage Your Clinic
-          </Text>
-          <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-            Placeholder subtitle
-          </Text>
+          <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>Clinic Admin Dashboard</Text>
+
+          <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>Manage Your Clinic</Text>
+
+          <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>View real clinic activity, manage users, update appointments and keep public clinic content up to date.</Text>
         </View>
 
         <View style={styles.statsGrid}>
-          <AnimatedStatsCard label="Doctors" value={12} icon="medkit-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Patients" value={248} icon="people-outline" color={theme.primary}/>
           <AnimatedStatsCard label="Upcoming Appointments" value={upcomingAppointments} icon="calendar-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Pending Requests" value={5} icon="notifications-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="Patients" value={patientsCount} icon="people-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="Doctors" value={doctorsCount} icon="medkit-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="Services" value={servicesCount} icon="list-outline" color={theme.primary}/>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Features</Text>
+
           <View style={styles.featuresGrid}>
             {featureItems.map((item, index) => {
               const isAlt = index % 2 === 0;
@@ -193,53 +278,116 @@ export default function ClinicAdminDashboard() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
+        <View style={styles.bottomGrid}>
+          <View style={styles.sectionHalf}>
+            <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
 
-          {upcomingList.length === 0 ? (
-            <Text style={styles.emptyUpcomingText}>No upcoming appointments.</Text>
-          ) : (
-            upcomingList.map((appointment) => {
-              const doctor = Array.isArray(appointment.doctors)
-                ? appointment.doctors[0]
-                : appointment.doctors;
+            {upcomingList.length === 0 ? (
+              <Text style={styles.emptyUpcomingText}>No upcoming appointments.</Text>
+            ) : (
+              upcomingList.map((appointment) => {
+                const doctor = Array.isArray(appointment.doctors)
+                  ? appointment.doctors[0]
+                  : appointment.doctors;
 
-              const service = Array.isArray(appointment.clinic_services)
-                ? appointment.clinic_services[0]
-                : appointment.clinic_services;
+                const service = Array.isArray(appointment.clinic_services)
+                  ? appointment.clinic_services[0]
+                  : appointment.clinic_services;
 
-              const patientName = `${appointment.patient_first_name || ''} ${appointment.patient_last_name || ''}`.trim() || 'Patient';
+                const patientName =
+                  `${appointment.patient_first_name || ''} ${appointment.patient_last_name || ''}`.trim() ||
+                  'Patient';
 
-              return (
-                <View key={appointment.id} style={styles.upcomingCard}>
-                  <View style={[styles.upcomingDateBadge, { backgroundColor: `${theme.primary}12` }]}>
-                    <Ionicons name="calendar-outline" size={17} color={theme.primary}/>
+                return (
+                  <View key={appointment.id} style={styles.upcomingCard}>
+                    <View style={[styles.upcomingDateBadge, { backgroundColor: `${theme.primary}12` }]}>
+                      <Ionicons name="calendar-outline" size={17} color={theme.primary} />
+                    </View>
+
+                    <View style={styles.upcomingContent}>
+                      <Text style={styles.upcomingService}>
+                        {service?.title || 'Medical appointment'}
+                      </Text>
+
+                      <Text style={styles.upcomingDoctor}>
+                        {patientName} · Dr. {doctor?.first_name || ''} {doctor?.last_name || ''}
+                      </Text>
+
+                      <Text style={styles.upcomingMeta}>
+                        {appointment.appointment_date} · {formatTime(appointment.start_time)}
+                      </Text>
+                    </View>
                   </View>
+                );
+              })
+            )}
+          </View>
 
-                  <View style={styles.upcomingContent}>
-                    <Text style={styles.upcomingService}>
-                      {service?.title || 'Medical appointment'}
-                    </Text>
+          <View style={styles.sectionHalf}>
+            <Text style={styles.sectionTitle}>Today at a Glance</Text>
 
-                    <Text style={styles.upcomingDoctor}>
-                      {patientName} · Dr. {doctor?.first_name || ''} {doctor?.last_name || ''}
-                    </Text>
+            <View style={styles.glanceList}>
+              <GlanceRow
+                icon="today-outline"
+                label="Today’s appointments"
+                value={String(todayAppointments)}
+                color={theme.primary}
+              />
 
-                    <Text style={styles.upcomingMeta}>
-                      {appointment.appointment_date} · {appointment.start_time}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })
-          )}
+              <GlanceRow
+                icon="time-outline"
+                label="First appointment"
+                value={formatTime(firstAppointmentTime)}
+                color={theme.primary}
+              />
+
+              <GlanceRow
+                icon="time-outline"
+                label="Last appointment"
+                value={formatTime(lastAppointmentTime)}
+                color={theme.primary}
+              />
+            </View>
+
+            <Text style={styles.overviewText}>Live overview based on todays schedule.</Text>
+          </View>
         </View>
-
       </ScrollView>
 
       <FloatingChatButton clinicId={clinicId} clinicName={clinicName}/>
 
     </>
+
+  );
+
+}
+
+function GlanceRow({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  color: string;
+}) {
+
+  return (
+
+    <View style={styles.glanceRow}>
+
+      <View style={[styles.glanceIcon, { backgroundColor: `${color}12` }]}>
+        <Ionicons name={icon} size={18} color={color}/>
+      </View>
+
+      <View style={styles.glanceTextWrap}>
+        <Text style={styles.glanceLabel}>{label}</Text>
+        <Text style={styles.glanceValue}>{value}</Text>
+      </View>
+
+    </View>
 
   );
 
@@ -320,6 +468,22 @@ const styles = StyleSheet.create({
     gap: 16 
   },
 
+  bottomGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+
+  sectionHalf: {
+    flex: 1,
+    minWidth: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+  },
+
   emptyUpcomingText: {
     fontSize: 14,
     lineHeight: 22,
@@ -367,6 +531,54 @@ const styles = StyleSheet.create({
   upcomingMeta: {
     fontSize: 13,
     color: '#64748B',
+    fontWeight: '700',
+  },
+
+  glanceList: {
+    gap: 12,
+  },
+
+  glanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 14,
+  },
+
+  glanceIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  glanceTextWrap: {
+    flex: 1,
+  },
+
+  glanceLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '800',
+  },
+
+  glanceValue: {
+    marginTop: 3,
+    fontSize: 18,
+    color: '#0F172A',
+    fontWeight: '900',
+  },
+
+  overviewText: {
+    marginTop: 16,
+    color: '#64748B',
+    fontSize: 14,
+    lineHeight: 22,
     fontWeight: '700',
   },
 

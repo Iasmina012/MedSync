@@ -6,6 +6,7 @@ import { supabase } from '../src/lib/supabase';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 import SortDropdown from '../src/common/SortDropdown';
+import { getUserClinicCount } from '../src/lib/adminData';
 
 type Role = 'patient' | 'doctor' | 'clinic_admin' | 'platform_admin';
 
@@ -268,6 +269,7 @@ export default function ManageAppointmentsScreen() {
   const [savingAction, setSavingAction] = React.useState(false);
   const [attendanceAction, setAttendanceAction] = React.useState<'present' | 'missed' | null>(null);
   const [sortBy, setSortBy] = React.useState<AppointmentSort>('default');
+  const [canChangeClinic, setCanChangeClinic] = React.useState(false);
 
   const isDoctor = profile?.role === 'doctor';
   const canCheckIn = profile?.role === 'clinic_admin' || profile?.role === 'platform_admin';
@@ -299,6 +301,13 @@ export default function ManageAppointmentsScreen() {
       }
 
       setProfile(profileData as Profile);
+
+      if (profileData.role === 'clinic_admin' || profileData.role === 'doctor') {
+        const clinicCount = await getUserClinicCount(user.id);
+        setCanChangeClinic(clinicCount > 1);
+      } else {
+        setCanChangeClinic(false);
+      }
 
       if (profileData.role === 'patient') {
         router.replace({
@@ -498,10 +507,9 @@ export default function ManageAppointmentsScreen() {
     <>
 
       <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
-
         <ClinicNavbar
-          clinicName={clinicName}
-          clinicId={clinicId}
+          clinicName={profile?.role === 'platform_admin' ? 'MedSync Platform' : clinicName}
+          clinicId={profile?.role === 'platform_admin' ? undefined : clinicId}
           primaryColor={theme.primary}
           roleLabel={
             profile?.role === 'doctor'
@@ -527,8 +535,8 @@ export default function ManageAppointmentsScreen() {
                     }
             )
           }
-          canChangeClinic={profile?.role !== 'platform_admin'}
-          onChangeClinic={() => router.replace('/clinic-selection')} 
+          canChangeClinic={profile?.role === 'platform_admin' ? false : canChangeClinic}
+          onChangeClinic={() => router.replace('/clinic-selection')}
         />
 
         <View style={[styles.hero, isMobile && styles.heroMobile, { backgroundColor: theme.soft, borderColor: theme.borderSoft }, ]}>

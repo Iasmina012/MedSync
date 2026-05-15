@@ -311,6 +311,7 @@ export default function ManageUsersScreen() {
                 ? 'Clinic Admin'
                 : 'Platform Admin'
           }
+          showRolePill={false}
           showBackButton
           canChangeClinic={false}
           onBackPress={() =>

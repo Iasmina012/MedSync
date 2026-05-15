@@ -381,6 +381,7 @@ export default function ClinicSettingsScreen() {
           clinicId={clinicId}
           primaryColor={theme.primary}
           roleLabel="Clinic Admin"
+          showRolePill={false}
           showBackButton
           onBackPress={() =>
             router.replace({

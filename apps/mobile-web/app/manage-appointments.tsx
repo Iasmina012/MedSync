@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
 import ClinicNavbar from '../src/common/ClinicNavbar';
@@ -31,6 +32,9 @@ type Profile = {
 type Appointment = {
 
   id: string;
+  clinic_id: string;
+  doctor_id: string | null;
+  patient_id: string | null;
   appointment_date: string;
   start_time: string;
   end_time: string | null;
@@ -65,6 +69,15 @@ type Appointment = {
     name: string;
     address: string | null;
   } | null;
+
+};
+
+type PendingFile = {
+
+  id: string;
+  name: string;
+  uri: string;
+  mimeType: string | null;
 
 };
 
@@ -143,15 +156,7 @@ function getRelativeLabel(appointmentStart: string, status: AppointmentStatus) {
 
 }
 
-function AppointmentHoverCard({
-  children,
-  color,
-  onPress,
-}: {
-  children: React.ReactNode;
-  color: string;
-  onPress: () => void;
-}) {
+function AppointmentHoverCard({ children, color, onPress, }: { children: React.ReactNode; color: string; onPress: () => void; }) {
 
   const scale = React.useRef(new Animated.Value(1)).current;
   const translateY = React.useRef(new Animated.Value(0)).current;
@@ -179,7 +184,7 @@ function AppointmentHoverCard({
         duration: 180,
         useNativeDriver: false,
       }),
-
+    
     ]).start();
 
   };
@@ -226,8 +231,7 @@ function AppointmentHoverCard({
         style={[
           styles.appointmentCard,
           { borderColor: color },
-          { transform: [{ scale }, { translateY }],
-            shadowOpacity: shadow.interpolate({
+          { transform: [{ scale }, { translateY }], shadowOpacity: shadow.interpolate({
               inputRange: [0, 1],
               outputRange: [0.04, 0.12],
             }) as any,
@@ -263,18 +267,86 @@ export default function ManageAppointmentsScreen() {
   const [profile, setProfile] = React.useState<Profile | null>(null);
   const [appointments, setAppointments] = React.useState<Appointment[]>([]);
   const [error, setError] = React.useState('');
+
   const [cancelTarget, setCancelTarget] = React.useState<Appointment | null>(null);
   const [checkTarget, setCheckTarget] = React.useState<Appointment | null>(null);
   const [detailsTarget, setDetailsTarget] = React.useState<Appointment | null>(null);
+  const [recordTarget, setRecordTarget] = React.useState<Appointment | null>(null);
+
+  const [existingRecordAppointmentIds, setExistingRecordAppointmentIds] = React.useState<Set<string>>(new Set());
+
   const [savingAction, setSavingAction] = React.useState(false);
   const [attendanceAction, setAttendanceAction] = React.useState<'present' | 'missed' | null>(null);
   const [sortBy, setSortBy] = React.useState<AppointmentSort>('default');
   const [canChangeClinic, setCanChangeClinic] = React.useState(false);
 
+  const [recordTitle, setRecordTitle] = React.useState('');
+  const [recordCategory, setRecordCategory] = React.useState('Consultation');
+  const [recordSymptoms, setRecordSymptoms] = React.useState('');
+  const [recordDiagnosis, setRecordDiagnosis] = React.useState('');
+  const [recordTreatment, setRecordTreatment] = React.useState('');
+  const [recordPrescription, setRecordPrescription] = React.useState('');
+  const [recordRecommendations, setRecordRecommendations] = React.useState('');
+  const [recordNotes, setRecordNotes] = React.useState('');
+  const [recordBloodPressure, setRecordBloodPressure] = React.useState('');
+  const [recordHeartRate, setRecordHeartRate] = React.useState('');
+  const [recordTemperature, setRecordTemperature] = React.useState('');
+  const [recordWeightKg, setRecordWeightKg] = React.useState('');
+  const [recordHeightCm, setRecordHeightCm] = React.useState('');
+  const [recordFollowUpDate, setRecordFollowUpDate] = React.useState('');
+
+  const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
+  const [savingRecord, setSavingRecord] = React.useState(false);
+
   const isDoctor = profile?.role === 'doctor';
   const canCheckIn = profile?.role === 'clinic_admin' || profile?.role === 'platform_admin';
 
   const canManage = profile?.role === 'doctor' || profile?.role === 'clinic_admin' || profile?.role === 'platform_admin';
+
+  const resetRecordForm = () => {
+    setRecordTitle('');
+    setRecordCategory('Consultation');
+    setRecordSymptoms('');
+    setRecordDiagnosis('');
+    setRecordTreatment('');
+    setRecordPrescription('');
+    setRecordRecommendations('');
+    setRecordNotes('');
+    setRecordBloodPressure('');
+    setRecordHeartRate('');
+    setRecordTemperature('');
+    setRecordWeightKg('');
+    setRecordHeightCm('');
+    setRecordFollowUpDate('');
+    setPendingFiles([]);
+  };
+
+  const closeRecordModal = () => {
+    setRecordTarget(null);
+    resetRecordForm();
+  };
+
+  const openCreateRecordModal = (appointment: Appointment) => {
+    if (!isDoctor) {
+      Alert.alert('Unavailable', 'Only doctors can create medical records.');
+      return;
+    }
+
+    if (!appointment.patient_id) {
+      Alert.alert('Missing patient', 'This appointment is not connected to a patient profile.');
+      return;
+    }
+
+    if (existingRecordAppointmentIds.has(appointment.id)) {
+      Alert.alert(
+        'Medical record already exists',
+        'You already created a medical record for this appointment.'
+      );
+      return;
+    }
+
+    setRecordTarget(appointment);
+  };
 
   const loadAppointments = async () => {
 
@@ -321,6 +393,9 @@ export default function ManageAppointmentsScreen() {
         .from('appointments')
         .select(`
           id,
+          clinic_id,
+          doctor_id,
+          patient_id,
           appointment_date,
           start_time,
           end_time,
@@ -402,6 +477,29 @@ export default function ManageAppointmentsScreen() {
       }));
 
       setAppointments(mappedAppointments);
+
+      const appointmentIds = mappedAppointments.map((item) => item.id);
+
+      if (appointmentIds.length > 0) {
+        const { data: recordRows, error: recordLookupError } = await supabase
+          .from('patient_medical_records')
+          .select('appointment_id')
+          .in('appointment_id', appointmentIds);
+
+        if (recordLookupError) {
+          console.log('Existing records lookup error:', recordLookupError.message);
+        }
+
+        setExistingRecordAppointmentIds(
+          new Set(
+            (recordRows ?? [])
+              .map((item: any) => item.appointment_id)
+              .filter(Boolean)
+          )
+        );
+      } else {
+        setExistingRecordAppointmentIds(new Set());
+      }
     } finally {
       setLoading(false);
     }
@@ -460,8 +558,152 @@ export default function ManageAppointmentsScreen() {
   
   }, [appointments, appointmentId, sortBy]);
 
-  const updateAppointmentStatus = async (
+  const pickPendingFile = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false, });
+    if (result.canceled || !result.assets?.[0]) 
+      return;
 
+    const file = result.assets[0];
+    setPendingFiles((prev) => [...prev, { id: `${Date.now()}-${file.name}`, name: file.name, uri: file.uri, mimeType: file.mimeType ?? null }]);
+  };
+
+  const removePendingFile = (id: string) => { setPendingFiles((prev) => prev.filter((file) => file.id !== id)); };
+
+  const saveMedicalRecord = async () => {
+    if (!recordTarget) 
+      return;
+
+    const appointment = recordTarget;
+    if (!appointment.patient_id) {
+      Alert.alert('Missing patient', 'This appointment is not connected to a patient profile.');
+      return;
+    }
+
+    if (!isDoctor) {
+      Alert.alert('Unavailable', 'Only doctors can create medical records.');
+      return;
+    }
+
+    if (existingRecordAppointmentIds.has(appointment.id)) {
+      Alert.alert('Medical record already exists', 'You already created a medical record for this appointment.');
+      return;
+    }
+
+    const toNull = (value: string) => {
+      const clean = value.trim();
+      return clean.length > 0 ? clean : null;
+    };
+
+    const toNumberOrNull = (value: string) => {
+      const clean = value.trim();
+      if (!clean) 
+        return null;
+
+      const parsed = Number(clean.replace(',', '.'));
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    try {
+      setSavingRecord(true);
+
+      const { data: existingRecord, error: existingRecordError } = await supabase
+        .from('patient_medical_records')
+        .select('id')
+        .eq('appointment_id', appointment.id)
+        .maybeSingle();
+
+      if (existingRecordError) {
+        Alert.alert('Error', existingRecordError.message);
+        return;
+      }
+
+      if (existingRecord?.id) {
+        setExistingRecordAppointmentIds((prev) => new Set(prev).add(appointment.id));
+        Alert.alert('Medical record already exists', 'You already created a medical record for this appointment.');
+        return;
+      }
+
+      const { data: createdRecord, error: recordError } = await supabase
+        .from('patient_medical_records')
+        .insert({
+          clinic_id: appointment.clinic_id,
+          patient_id: appointment.patient_id,
+          doctor_id: appointment.doctor_id || null,
+          appointment_id: appointment.id,
+          title: recordTitle.trim() || `Medical record for ${getPatientName(appointment)}`,
+          category: toNull(recordCategory),
+          symptoms: toNull(recordSymptoms),
+          diagnosis: toNull(recordDiagnosis),
+          treatment_plan: toNull(recordTreatment),
+          prescription: toNull(recordPrescription),
+          recommendations: toNull(recordRecommendations),
+          notes: toNull(recordNotes),
+          blood_pressure: toNull(recordBloodPressure),
+          heart_rate: toNumberOrNull(recordHeartRate),
+          temperature: toNumberOrNull(recordTemperature),
+          weight_kg: toNumberOrNull(recordWeightKg),
+          height_cm: toNumberOrNull(recordHeightCm),
+          follow_up_date: toNull(recordFollowUpDate),
+        })
+        .select('id')
+        .single();
+
+      if (recordError || !createdRecord?.id) {
+        console.log('Medical record insert error:', recordError);
+        Alert.alert('Error', recordError?.message || 'Could not create medical record.');
+        return;
+      }
+
+      for (const file of pendingFiles) {
+        try {
+          const response = await fetch(file.uri);
+          const blob = await response.blob();
+          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const extension = safeName.includes('.') ? safeName.split('.').pop() : 'file';
+          const filePath = `${appointment.clinic_id}/${appointment.patient_id}/${createdRecord.id}/${Date.now()}-${safeName}`;
+
+          const { error: uploadError } = await supabase.storage.from('patient-files').upload(filePath, blob, { contentType: file.mimeType || 'application/octet-stream', upsert: false, });
+          if (uploadError) {
+            console.log('Storage upload error:', uploadError);
+            Alert.alert('Upload error', uploadError.message);
+            continue;
+          }
+
+          const { data: publicUrlData } = supabase.storage.from('patient-files').getPublicUrl(filePath);
+
+          const { error: fileError } = await supabase.from('patient_files').insert({
+            clinic_id: appointment.clinic_id,
+            patient_id: appointment.patient_id,
+            doctor_id: appointment.doctor_id || null,
+            appointment_id: appointment.id,
+            medical_record_id: createdRecord.id,
+            title: file.name,
+            description: 'Uploaded with medical record.',
+            file_url: publicUrlData.publicUrl,
+            file_type: file.mimeType || extension || 'file',
+            category: 'medical_record_file',
+            uploaded_by: profile?.id ?? null,
+          });
+
+          if (fileError) {
+            console.log('Patient file insert error:', fileError);
+            Alert.alert('Database error', fileError.message);
+          }
+        } catch (uploadException: any) {
+          console.log('Upload exception:', uploadException);
+          Alert.alert('Upload error', uploadException?.message || 'Could not upload file.');
+        }
+      }
+
+      setExistingRecordAppointmentIds((prev) => new Set(prev).add(appointment.id));
+      Alert.alert('Success', 'Medical record saved successfully.');
+      closeRecordModal();
+    } finally {
+      setSavingRecord(false);
+    }
+  };
+
+  const updateAppointmentStatus = async (
     appointment: Appointment,
     status: AppointmentStatus,
     successMessage: string
@@ -499,7 +741,7 @@ export default function ManageAppointmentsScreen() {
       setSavingAction(false);
       setAttendanceAction(null);
     }
-  
+
   };
 
   return (
@@ -540,45 +782,33 @@ export default function ManageAppointmentsScreen() {
         />
 
         <View style={[styles.hero, isMobile && styles.heroMobile, { backgroundColor: theme.soft, borderColor: theme.borderSoft }, ]}>
-          
-          <Text style={[styles.heroEyebrow, { color: theme.primary }]}>
-            Appointments
-          </Text>
-
-          <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-            Manage Clinic Appointments
-          </Text>
-
-          <Text style={styles.heroSubtitle}>
-            Placeholder Subtitle
-          </Text>
+          <Text style={[styles.heroEyebrow, { color: theme.primary }]}>Appointments</Text>
+          <Text style={[styles.heroTitle, { color: theme.secondary }]}>Manage Clinic Appointments</Text>
+          <Text style={styles.heroSubtitle}>Review appointments, open details, cancel, reschedule or create one medical record.</Text>
 
           <View style={[styles.heroControls, isMobile && styles.heroControlsMobile]}>
-
-          <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
-            <SortDropdown
-              value={sortBy}
-              onChange={(value) => setSortBy(value as AppointmentSort)}
-              items={[
-                { label: 'Default', value: 'default' },
-                { label: 'Date ↑', value: 'date_asc' },
-                { label: 'Date ↓', value: 'date_desc' },
-                { label: 'Patient A-Z', value: 'patient_asc' },
-                { label: 'Patient Z-A', value: 'patient_desc' },
-                ...(!isDoctor
-                  ? [
-                      { label: 'Doctor A-Z', value: 'doctor_asc' },
-                      { label: 'Doctor Z-A', value: 'doctor_desc' },
-                    ]
-                  : []),
-                { label: 'Service A-Z', value: 'service_asc' },
-                { label: 'Service Z-A', value: 'service_desc' },
-              ]}
-            />
+            <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
+              <SortDropdown
+                value={sortBy}
+                onChange={(value) => setSortBy(value as AppointmentSort)}
+                items={[
+                  { label: 'Default', value: 'default' },
+                  { label: 'Date ↑', value: 'date_asc' },
+                  { label: 'Date ↓', value: 'date_desc' },
+                  { label: 'Patient A-Z', value: 'patient_asc' },
+                  { label: 'Patient Z-A', value: 'patient_desc' },
+                  ...(!isDoctor
+                    ? [
+                        { label: 'Doctor A-Z', value: 'doctor_asc' },
+                        { label: 'Doctor Z-A', value: 'doctor_desc' },
+                      ]
+                    : []),
+                  { label: 'Service A-Z', value: 'service_asc' },
+                  { label: 'Service Z-A', value: 'service_desc' },
+                ]}
+              />
+            </View>
           </View>
-
-        </View>
-
         </View>
 
         {!!error && (
@@ -596,9 +826,7 @@ export default function ManageAppointmentsScreen() {
           <View style={styles.emptyCard}>
             <Ionicons name="lock-closed-outline" size={28} color={theme.primary}/>
             <Text style={styles.emptyTitle}>Access unavailable</Text>
-            <Text style={styles.emptyText}>
-              This page is available only for doctors and clinic admins.
-            </Text>
+            <Text style={styles.emptyText}>This page is available only for doctors and clinic admins.</Text>
           </View>
         ) : sortedAppointments.length === 0 ? (
           <View style={styles.emptyCard}>
@@ -610,12 +838,10 @@ export default function ManageAppointmentsScreen() {
           <View style={styles.listWrap}>
             {sortedAppointments.map((appointment) => {
               const appointmentDateTime = buildAppointmentDateTime(appointment);
-              const relativeLabel = getRelativeLabel(
-                appointmentDateTime,
-                appointment.status
-              );
+              const relativeLabel = getRelativeLabel(appointmentDateTime, appointment.status);
               const isMissed = relativeLabel === 'Missed';
               const hasNotes = Boolean(appointment.notes?.trim());
+              const hasRecord = existingRecordAppointmentIds.has(appointment.id);
 
               return (
 
@@ -644,25 +870,25 @@ export default function ManageAppointmentsScreen() {
                           <Text style={styles.notesWarningText}>Notes added</Text>
                         </View>
                       )}
+
+                      {hasRecord && (
+                        <View style={styles.recordBadge}>
+                          <Ionicons name="document-text-outline" size={16} color="#166534"/>
+                          <Text style={styles.recordBadgeText}>Record created</Text>
+                        </View>
+                      )}
                     </View>
 
                     <Text style={styles.dateText}>{formatDateTime(appointmentDateTime)}</Text>
                   </View> 
 
-                  <Text style={styles.serviceTitle}>
-                    {appointment.clinic_services?.title || 'Medical appointment'}
-                  </Text>
-
-                  <Text style={styles.patientText}>
-                    Patient: {getPatientName(appointment)}
-                  </Text>
+                  <Text style={styles.serviceTitle}>{appointment.clinic_services?.title || 'Medical appointment'}</Text>
+                  <Text style={styles.patientText}>Patient: {getPatientName(appointment)}</Text>
 
                   {!isDoctor && (
                     <Text style={styles.doctorText}>
                       {getDoctorName(appointment.doctors)}
-                      {appointment.doctors?.specialty
-                        ? ` · ${appointment.doctors.specialty}`
-                        : ''}
+                      {appointment.doctors?.specialty ? ` · ${appointment.doctors.specialty}` : ''}
                     </Text>
                   )}
 
@@ -708,12 +934,31 @@ export default function ManageAppointmentsScreen() {
                             clinicId,
                             clinicName,
                             appointmentId: appointment.id,
+                            returnTo: 'manage-appointments',
+                            returnRole: profile?.role,
                           },
                         })
                       }
                     >
                       <Text style={styles.primaryActionText}>Reschedule</Text>
                     </Pressable>
+
+                    {isDoctor && (
+                      <Pressable
+                        style={[styles.recordAction, hasRecord && styles.disabledAction]}
+                        onPress={() => openCreateRecordModal(appointment)}
+                        disabled={hasRecord}
+                      >
+                        <Ionicons
+                          name="document-text-outline"
+                          size={16}
+                          color={hasRecord ? '#94A3B8' : '#0F172A'}
+                        />
+                        <Text style={[styles.recordActionText, hasRecord && styles.disabledActionText]}>
+                          {hasRecord ? 'Record Created' : 'Create Record'}
+                        </Text>
+                      </Pressable>
+                    )}
 
                     <Pressable
                       style={styles.dangerAction}
@@ -732,13 +977,14 @@ export default function ManageAppointmentsScreen() {
                       </Pressable>
                     )}
                   </View>
+
                 </AppointmentHoverCard>
 
               );
             })}
           </View>
         )}
-      
+
       </ScrollView>
 
       <Modal visible={!!detailsTarget} transparent animationType="fade">
@@ -750,103 +996,346 @@ export default function ManageAppointmentsScreen() {
 
             <Text style={styles.modalTitle}>Appointment Details</Text>
 
-              {detailsTarget && (
-                <ScrollView
-                  style={styles.modalScroll}
-                  contentContainerStyle={styles.modalScrollContent}
-                  showsVerticalScrollIndicator
+            {detailsTarget && (
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator
+              >
+                <View style={styles.modalDetailsBlock}>
+                  {!!detailsTarget.notes?.trim() && (
+                    <View style={styles.modalWarningBox}>
+                      <Ionicons name="warning-outline" size={18} color="#B45309"/>
+                      <Text style={styles.modalWarningText}>
+                        The patient left notes for this appointment.
+                      </Text>
+                    </View>
+                  )}
+
+                  <DetailRow
+                    icon="calendar-outline"
+                    label="Date and time"
+                    value={formatDateTime(buildAppointmentDateTime(detailsTarget))}
+                  />
+
+                  <DetailRow
+                    icon="list-outline"
+                    label="Service"
+                    value={detailsTarget.clinic_services?.title || 'Medical appointment'}
+                  />
+
+                  <DetailRow
+                    icon="person-outline"
+                    label="Patient"
+                    value={getPatientName(detailsTarget)}
+                  />
+
+                  {!isDoctor && (
+                    <DetailRow
+                      icon="medkit-outline"
+                      label="Doctor"
+                      value={getDoctorName(detailsTarget.doctors)}
+                    />
+                  )}
+
+                  <DetailRow
+                    icon="location-outline"
+                    label={detailsTarget.clinic_locations?.name || 'Clinic location'}
+                    value={detailsTarget.clinic_locations?.address || 'Not provided'}
+                  />
+
+                  <DetailRow
+                    icon="cash-outline"
+                    label="Price"
+                    value={detailsTarget.clinic_services?.price_text || 'Not provided'}
+                  />
+
+                  <DetailRow
+                    icon="time-outline"
+                    label="Duration"
+                    value={
+                      detailsTarget.clinic_services?.duration_minutes
+                        ? `${detailsTarget.clinic_services.duration_minutes} min`
+                        : 'Not provided'
+                    }
+                  />
+
+                  <DetailRow
+                    icon="card-outline"
+                    label="Insurance"
+                    value={
+                      detailsTarget.insurance_method
+                        ? INSURANCE_LABELS[detailsTarget.insurance_method] ||
+                          detailsTarget.insurance_method
+                        : 'Not provided'
+                    }
+                  />
+
+                  {!!detailsTarget.insurance_details && (
+                    <DetailRow
+                      icon="document-text-outline"
+                      label="Insurance details"
+                      value={detailsTarget.insurance_details}
+                    />
+                  )}
+
+                  <DetailRow
+                    icon="chatbox-ellipses-outline"
+                    label="Notes / observations"
+                    value={detailsTarget.notes?.trim() || 'No notes provided'}
+                  />
+
+                  {!!detailsTarget.ai_triage_summary?.trim() && (
+                    <DetailRow
+                      icon="sparkles-outline"
+                      label="AI triage summary"
+                      value={detailsTarget.ai_triage_summary}
+                    />
+                  )}
+
+                </View>
+              </ScrollView>
+            )}
+
+            <View style={styles.detailsModalActions}>
+              <Pressable
+                style={styles.detailsCloseButton}
+                onPress={() => setDetailsTarget(null)}
+              >
+                <Text style={styles.detailsCloseText}>Close</Text>
+              </Pressable>
+
+              {detailsTarget && isDoctor && (
+                <Pressable
+                  style={[
+                    styles.detailsCreateButton,
+                    {
+                      backgroundColor: existingRecordAppointmentIds.has(detailsTarget.id)
+                        ? '#CBD5E1'
+                        : theme.primary,
+                    },
+                  ]}
+                  disabled={existingRecordAppointmentIds.has(detailsTarget.id)}
+                  onPress={() => {
+                    const appointment = detailsTarget;
+                    setDetailsTarget(null);
+                    openCreateRecordModal(appointment);
+                  }}
                 >
-                  <View style={styles.modalDetailsBlock}>
-                {!!detailsTarget.notes?.trim() && (
-                  <View style={styles.modalWarningBox}>
-                    <Ionicons name="warning-outline" size={18} color="#B45309"/>
-                    <Text style={styles.modalWarningText}>
-                      The patient left notes for this appointment.
-                    </Text>
-                  </View>
-                )}
+                  <Text style={styles.detailsCreateText}>
+                    {existingRecordAppointmentIds.has(detailsTarget.id)
+                      ? 'Record Created'
+                      : 'Create Medical Record'}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
-                <DetailRow
-                  icon="calendar-outline"
-                  label="Date and time"
-                  value={formatDateTime(buildAppointmentDateTime(detailsTarget))}
+      <Modal visible={!!recordTarget} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.recordModalCard}>
+            <View style={[styles.modalIconPrimary, { backgroundColor: `${theme.primary}14` }]}>
+              <Ionicons name="document-text-outline" size={34} color={theme.primary}/>
+            </View>
+
+            <Text style={styles.modalTitle}>Create Medical Record</Text>
+
+            {recordTarget && (
+              <Text style={styles.modalSmallSubtitle}>
+                {getPatientName(recordTarget)} · {recordTarget.appointment_date}
+              </Text>
+            )}
+
+            <ScrollView
+              style={styles.recordModalScroll}
+              contentContainerStyle={styles.recordModalScrollContent}
+              showsVerticalScrollIndicator
+            >
+              <TextInput
+                value={recordTitle}
+                onChangeText={setRecordTitle}
+                placeholder="Title"
+                placeholderTextColor="#94A3B8"
+                style={styles.input}
+              />
+
+              <TextInput
+                value={recordCategory}
+                onChangeText={setRecordCategory}
+                placeholder="Category"
+                placeholderTextColor="#94A3B8"
+                style={styles.input}
+              />
+
+              <TextInput
+                value={recordSymptoms}
+                onChangeText={setRecordSymptoms}
+                placeholder="Symptoms"
+                placeholderTextColor="#94A3B8"
+                style={[styles.input, styles.multilineInput]}
+                multiline
+              />
+
+              <TextInput
+                value={recordDiagnosis}
+                onChangeText={setRecordDiagnosis}
+                placeholder="Diagnosis"
+                placeholderTextColor="#94A3B8"
+                style={[styles.input, styles.multilineInput]}
+                multiline
+              />
+
+              <TextInput
+                value={recordTreatment}
+                onChangeText={setRecordTreatment}
+                placeholder="Treatment plan"
+                placeholderTextColor="#94A3B8"
+                style={[styles.input, styles.multilineInput]}
+                multiline
+              />
+
+              <TextInput
+                value={recordPrescription}
+                onChangeText={setRecordPrescription}
+                placeholder="Prescription"
+                placeholderTextColor="#94A3B8"
+                style={[styles.input, styles.multilineInput]}
+                multiline
+              />
+
+              <TextInput
+                value={recordRecommendations}
+                onChangeText={setRecordRecommendations}
+                placeholder="Recommendations"
+                placeholderTextColor="#94A3B8"
+                style={[styles.input, styles.multilineInput]}
+                multiline
+              />
+
+              <View style={styles.inputGrid}>
+                <TextInput
+                  value={recordBloodPressure}
+                  onChangeText={setRecordBloodPressure}
+                  placeholder="Blood pressure"
+                  placeholderTextColor="#94A3B8"
+                  style={[styles.input, styles.inputHalf]}
                 />
 
-                <DetailRow
-                  icon="list-outline"
-                  label="Service"
-                  value={detailsTarget.clinic_services?.title || 'Medical appointment'}
+                <TextInput
+                  value={recordHeartRate}
+                  onChangeText={setRecordHeartRate}
+                  placeholder="Heart rate"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  style={[styles.input, styles.inputHalf]}
                 />
 
-                <DetailRow
-                  icon="person-outline"
-                  label="Patient"
-                  value={getPatientName(detailsTarget)}
+                <TextInput
+                  value={recordTemperature}
+                  onChangeText={setRecordTemperature}
+                  placeholder="Temperature"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  style={[styles.input, styles.inputHalf]}
                 />
 
-                {!isDoctor && (
-                  <DetailRow
-                    icon="medkit-outline"
-                    label="Doctor"
-                    value={getDoctorName(detailsTarget.doctors)}
-                  />
-                )}
-
-                <DetailRow
-                  icon="location-outline"
-                  label={detailsTarget.clinic_locations?.name || 'Clinic location'}
-                  value={detailsTarget.clinic_locations?.address || 'Not provided'}
+                <TextInput
+                  value={recordWeightKg}
+                  onChangeText={setRecordWeightKg}
+                  placeholder="Weight kg"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  style={[styles.input, styles.inputHalf]}
                 />
 
-                <DetailRow
-                  icon="cash-outline"
-                  label="Price"
-                  value={detailsTarget.clinic_services?.price_text || 'Not provided'}
+                <TextInput
+                  value={recordHeightCm}
+                  onChangeText={setRecordHeightCm}
+                  placeholder="Height cm"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  style={[styles.input, styles.inputHalf]}
                 />
 
-                <DetailRow
-                  icon="time-outline"
-                  label="Duration"
-                  value={detailsTarget.clinic_services?.duration_minutes ? `${detailsTarget.clinic_services.duration_minutes} min` : 'Not provided'}
+                <TextInput
+                  value={recordFollowUpDate}
+                  onChangeText={setRecordFollowUpDate}
+                  placeholder="Follow-up date YYYY-MM-DD"
+                  placeholderTextColor="#94A3B8"
+                  style={[styles.input, styles.inputHalf]}
                 />
+              </View>
 
-                <DetailRow
-                  icon="card-outline"
-                  label="Insurance"
-                  value={detailsTarget.insurance_method ? INSURANCE_LABELS[detailsTarget.insurance_method] || detailsTarget.insurance_method : 'Not provided'}
-                />
+              <TextInput
+                value={recordNotes}
+                onChangeText={setRecordNotes}
+                placeholder="Doctor notes"
+                placeholderTextColor="#94A3B8"
+                style={[styles.input, styles.multilineInput]}
+                multiline
+              />
 
-                {!!detailsTarget.insurance_details && (
-                  <DetailRow
-                    icon="document-text-outline"
-                    label="Insurance details"
-                    value={detailsTarget.insurance_details}
-                  />
-                )}
+              <View style={styles.uploadSection}>
+                <Text style={styles.formSectionTitle}>Medical files</Text>
+                <Text style={styles.formHelpText}>
+                  Add PDFs, lab results or other files before saving the record.
+                </Text>
 
-                <DetailRow
-                  icon="chatbox-ellipses-outline"
-                  label="Notes / observations"
-                  value={detailsTarget.notes?.trim() || 'No notes provided'}
-                />
+                <Pressable
+                  style={[styles.uploadButton, { borderColor: theme.primary }]}
+                  onPress={pickPendingFile}
+                >
+                  <Ionicons name="cloud-upload-outline" size={17} color={theme.primary}/>
+                  <Text style={[styles.uploadButtonText, { color: theme.primary }]}>Upload file</Text>
+                </Pressable>
 
-                {!!detailsTarget.ai_triage_summary?.trim() && (
-                  <DetailRow
-                    icon="sparkles-outline"
-                    label="AI triage summary"
-                    value={detailsTarget.ai_triage_summary}
-                  />
+                {pendingFiles.length === 0 ? (
+                  <Text style={styles.emptyFileText}>No files selected.</Text>
+                ) : (
+                  pendingFiles.map((file) => (
+                    <View key={file.id} style={styles.pendingFileRow}>
+                      <View style={styles.pendingFileTextWrap}>
+                        <View style={styles.fileTitleRow}>
+                          <Ionicons name="document-attach-outline" size={16} color="#64748B"/>
+                          <Text style={styles.pendingFileTitle}>{file.name}</Text>
+                        </View>
+                      </View>
+
+                      <Pressable
+                        style={styles.removeFileButton}
+                        onPress={() => removePendingFile(file.id)}
+                      >
+                        <Ionicons name="trash-outline" size={15} color="#BE123C"/>
+                        <Text style={styles.removeFileText}>Remove</Text>
+                      </Pressable>
+                    </View>
+                  ))
                 )}
               </View>
             </ScrollView>
-          )}
 
-            <Pressable
-              style={[styles.modalFullButton, { backgroundColor: theme.primary }]}
-              onPress={() => setDetailsTarget(null)}
-            >
-              <Text style={styles.modalFullButtonText}>Close</Text>
-            </Pressable>
+            <View style={styles.recordModalActions}>
+              <Pressable
+                style={styles.recordCloseButton}
+                onPress={closeRecordModal}
+                disabled={savingRecord}
+              >
+                <Text style={styles.recordCloseText}>Close</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.recordSaveButton, { backgroundColor: theme.primary }]}
+                onPress={saveMedicalRecord}
+                disabled={savingRecord}
+              >
+                <Text style={styles.recordSaveText}>
+                  {savingRecord ? 'Saving...' : 'Save Medical Record'}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -900,8 +1389,7 @@ export default function ManageAppointmentsScreen() {
             </View>
 
             <Text style={styles.modalTitle}>Patient Attendance</Text>
-
-            <Text style={styles.modalText}> Select whether the patient is present or not. After this action, the appointment will be archived from the active list.</Text>
+            <Text style={styles.modalText}>Select whether the patient is present or not. After this action, the appointment will be archived from the active list.</Text>
 
             <View style={styles.modalActionsColumn}>
               <Pressable
@@ -909,11 +1397,7 @@ export default function ManageAppointmentsScreen() {
                 onPress={() => {
                   if (!checkTarget) return;
                   setAttendanceAction('present');
-                  updateAppointmentStatus(
-                    checkTarget,
-                    'checked_in',
-                    'Patient marked as checked in.'
-                  );
+                  updateAppointmentStatus(checkTarget, 'checked_in', 'Patient marked as checked in.');
                 }}
                 disabled={savingAction}
               >
@@ -927,11 +1411,7 @@ export default function ManageAppointmentsScreen() {
                 onPress={() => {
                   if (!checkTarget) return;
                   setAttendanceAction('missed');
-                  updateAppointmentStatus(
-                    checkTarget,
-                    'missed',
-                    'Patient marked as missed.'
-                  );
+                  updateAppointmentStatus(checkTarget, 'missed', 'Patient marked as missed.');
                 }}
                 disabled={savingAction}
               >
@@ -958,18 +1438,9 @@ export default function ManageAppointmentsScreen() {
 
 }
 
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-}) {
+function DetailRow({ icon, label, value, }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; }) {
 
   return (
-
     <View style={styles.detailRow}>
       <Ionicons name={icon} size={17} color="#64748B"/>
       <View style={styles.detailTextWrap}>
@@ -977,7 +1448,6 @@ function DetailRow({
         {!!value && <Text style={styles.detailValue}>{value}</Text>}
       </View>
     </View>
-
   );
 
 }
@@ -1126,6 +1596,25 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
+  recordBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderRadius: 999,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+
+  recordBadgeText: {
+    color: '#166534',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+
   dateText: {
     fontSize: 13,
     color: '#64748B',
@@ -1217,10 +1706,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     width: '100%',
+    flexWrap: 'wrap',
   },
 
   primaryAction: {
     flex: 1,
+    minWidth: 130,
     minHeight: 48,
     borderRadius: 999,
     paddingHorizontal: 16,
@@ -1237,6 +1728,7 @@ const styles = StyleSheet.create({
 
   dangerAction: {
     flex: 1,
+    minWidth: 120,
     minHeight: 48,
     borderRadius: 999,
     paddingHorizontal: 16,
@@ -1254,8 +1746,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
+  recordAction: {
+    flex: 1,
+    minWidth: 150,
+    minHeight: 48,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+
+  recordActionText: {
+    color: '#0F172A',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+
+  disabledAction: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+  },
+
+  disabledActionText: {
+    color: '#94A3B8',
+  },
+
   checkAction: {
     flex: 1,
+    minWidth: 120,
     minHeight: 48,
     borderRadius: 999,
     paddingHorizontal: 16,
@@ -1296,8 +1820,20 @@ const styles = StyleSheet.create({
 
   modalCardLarge: {
     width: '100%',
-    maxWidth: 560,
-    maxHeight: '86%',
+    maxWidth: 620,
+    maxHeight: '90%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  recordModalCard: {
+    width: '100%',
+    maxWidth: 720,
+    maxHeight: '92%',
     backgroundColor: '#FFFFFF',
     borderRadius: 28,
     borderWidth: 1,
@@ -1353,6 +1889,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0F172A',
     marginBottom: 8,
+    textAlign: 'center',
+  },
+
+  modalSmallSubtitle: {
+    color: '#64748B',
+    fontWeight: '800',
+    marginBottom: 14,
     textAlign: 'center',
   },
 
@@ -1450,12 +1993,22 @@ const styles = StyleSheet.create({
 
   modalScroll: {
     width: '100%',
-    maxHeight: 420,
+    maxHeight: 520,
     marginBottom: 18,
   },
 
   modalScrollContent: {
     paddingBottom: 6,
+  },
+
+  recordModalScroll: {
+    width: '100%',
+    maxHeight: 530,
+  },
+
+  recordModalScrollContent: {
+    gap: 12,
+    paddingBottom: 12,
   },
 
   disabledButton: {
@@ -1482,6 +2035,212 @@ const styles = StyleSheet.create({
   sortWrapMobile: {
     width: '100%',
     height: 64,
+  },
+
+  input: {
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  multilineInput: {
+    minHeight: 78,
+    textAlignVertical: 'top',
+  },
+
+  inputGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+
+  inputHalf: {
+    flex: 1,
+    minWidth: 190,
+  },
+
+  formButton: {
+    minHeight: 50,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  formButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+
+  formSectionTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+
+  formHelpText: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+
+  uploadSection: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    padding: 16,
+    gap: 12,
+  },
+
+  uploadButton: {
+    minHeight: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  uploadButtonText: {
+    fontWeight: '900',
+    fontSize: 14,
+  },
+
+  emptyFileText: {
+    color: '#94A3B8',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+
+  pendingFileRow: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  pendingFileTextWrap: {
+    flex: 1,
+  },
+
+  fileTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+
+  pendingFileTitle: {
+    color: '#0F172A',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+
+  removeFileButton: {
+    minHeight: 36,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+
+  removeFileText: {
+    color: '#BE123C',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+
+  recordModalActions: {
+    marginTop: 16,
+    width: '100%',
+    flexDirection: 'row',
+    gap: 12,
+  },
+
+  recordCloseButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  recordCloseText: {
+    color: '#0F172A',
+    fontWeight: '900',
+  },
+
+  recordSaveButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  recordSaveText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+
+  detailsModalActions: {
+    marginTop: 16,
+    width: '100%',
+    flexDirection: 'row',
+    gap: 12,
+  },
+
+  detailsCloseButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  detailsCloseText: {
+    color: '#0F172A',
+    fontWeight: '900',
+  },
+
+  detailsCreateButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  detailsCreateText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
   },
 
 });

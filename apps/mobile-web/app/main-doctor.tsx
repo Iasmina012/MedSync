@@ -9,6 +9,7 @@ import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 import FloatingChatButton from '../src/common/FloatingChatButton';
+import { countRows, getUserClinicCount } from '../src/lib/adminData';
 
 function hexToRgb(hex: string) {
 
@@ -53,6 +54,7 @@ export default function DoctorDashboard() {
 
   const [appointmentsToday, setAppointmentsToday] = useState(0);
   const [upcomingList, setUpcomingList] = useState<any[]>([]);
+  const [canChangeClinic, setCanChangeClinic] = useState(false);
 
   const go = (pathname: string) => {
     router.push({
@@ -65,8 +67,13 @@ export default function DoctorDashboard() {
 
     const check = async () => {
       const { user, profile } = await getCurrentUserProfile();
-      if (!user) return router.replace('/login');
-      if (profile?.role !== 'doctor') return router.replace('/main-patient');
+      if (!user) 
+        return router.replace('/login');
+      if (profile?.role !== 'doctor') 
+        return router.replace('/main-patient');
+
+      const clinicCount = await getUserClinicCount(user.id);
+      setCanChangeClinic(clinicCount > 1);
 
       const { data: doctorData } = await supabase
         .from('doctors')
@@ -75,9 +82,18 @@ export default function DoctorDashboard() {
         .or(`profile_id.eq.${user.id},email.eq.${profile.email}`)
         .maybeSingle();
 
-      const today = new Date().toISOString().slice(0, 10);
-
       if (doctorData?.id) {
+
+        const today = new Date().toISOString().slice(0, 10);
+        const [appointmentsToday, patients, unreadChats, triageAttached] = await Promise.all([
+          countRows('appointments', (q) => q.eq('clinic_id', clinicId).eq('doctor_id', doctorData.id).in('status', ['scheduled', 'rescheduled']).eq('appointment_date', today)),
+          supabase.from('appointments').select('patient_id').eq('clinic_id', clinicId).eq('doctor_id', doctorData.id),
+          countRows('chat_conversations', (q) => q.eq('clinic_id', clinicId).eq('doctor_id', doctorData.id).gt('doctor_unread_count', 0)),
+          countRows('appointments', (q) => q.eq('clinic_id', clinicId).eq('doctor_id', doctorData.id).not('triage_session_id', 'is', null)),
+        ]);
+        const uniquePatients = new Set((patients.data ?? []).map((item: any) => item.patient_id));
+        setStats({ appointmentsToday, myPatients: uniquePatients.size, unreadChats, triageAttached, });
+
         const { count } = await supabase
           .from('appointments')
           .select('id', { count: 'exact', head: true })
@@ -88,16 +104,7 @@ export default function DoctorDashboard() {
 
         const { data } = await supabase
           .from('appointments')
-          .select(`
-            id,
-            appointment_date,
-            start_time,
-            patient_first_name,
-            patient_last_name,
-            clinic_services (
-              title
-            )
-          `)
+          .select(`id, appointment_date, start_time, patient_first_name, patient_last_name, clinic_services (title)`)
           .eq('clinic_id', clinicId)
           .eq('doctor_id', doctorData.id)
           .in('status', ['scheduled', 'rescheduled'])
@@ -108,6 +115,7 @@ export default function DoctorDashboard() {
 
         setAppointmentsToday(count ?? 0);
         setUpcomingList(data ?? []);
+
       }
       
       const cleanFirstName = (profile.first_name ?? '').replace(/^Dr\.?\s*/i, '').trim();
@@ -120,6 +128,7 @@ export default function DoctorDashboard() {
 
   }, [clinicId]);
 
+  const [stats, setStats] = useState({ appointmentsToday: 0, myPatients: 0, unreadChats: 0, triageAttached: 0, });
   const featureAccentA = rgbaFromHex(theme.primary, 0.11);
   const featureAccentB = rgbaFromHex(theme.primary, 0.18);
   const featureBorderA = rgbaFromHex(theme.primary, 0.22);
@@ -128,9 +137,9 @@ export default function DoctorDashboard() {
   const featureItems = [
 
     { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'Modify, cancel or sort appointments and view appointment details.', onPress: () => go('/manage-appointments') },
-    { title: 'Patients List', icon: 'people-outline' as const, description: 'Placeholder description.' },
-    { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Placeholder description.' },
-    { title: 'Messages', icon: 'chatbubble-ellipses-outline' as const, description: 'Chat with your patients.', onPress: () => go('/messages'), },
+    { title: 'My Patients', icon: 'people-outline' as const, description: 'View patients connected to your appointments.', onPress: () => go('/my-patients') },
+    { title: 'Messages', icon: 'chatbubble-ellipses-outline' as const, description: 'Chat with your patients about medical related problems.', onPress: () => go('/messages'), },
+    { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Review appointment history and triage notes.', onPress: () => go('/my-patients-history'), },
 
   ];
 
@@ -153,7 +162,8 @@ export default function DoctorDashboard() {
           clinicId={clinicId}
           primaryColor={theme.primary}
           roleLabel="Doctor"
-          onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
+          canChangeClinic={canChangeClinic}
+          onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })} 
         />
 
         <View
@@ -175,10 +185,10 @@ export default function DoctorDashboard() {
         </View>
 
         <View style={styles.statsGrid}>
-          <AnimatedStatsCard label="Appointments Today" value={appointmentsToday} icon="calendar-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="My Patients" value={22} icon="people-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Pending Notes" value={3} icon="create-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Unread Chats" value={4} icon="chatbubble-ellipses-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="Appointments Today" value={stats.appointmentsToday} icon="calendar-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="My Patients" value={stats.myPatients} icon="people-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="AI Triage Cases" value={stats.triageAttached} icon="sparkles-outline" color={theme.primary}/>
+          <AnimatedStatsCard label="Unread Chats" value={stats.unreadChats} icon="chatbubble-ellipses-outline" color={theme.primary}/>
         </View>
 
         <View style={styles.section}>

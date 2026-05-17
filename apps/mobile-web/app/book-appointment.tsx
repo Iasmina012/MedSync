@@ -152,13 +152,14 @@ function overlaps(startA: string, endA: string, startB: string, endB: string) {
 
 export default function BookAppointmentScreen() {
 
-  const { clinicId, clinicName, appointmentId, doctorId, serviceId } =
+  const { clinicId, clinicName, appointmentId, doctorId, serviceId, returnTo } =
     useLocalSearchParams<{
       clinicId?: string;
       clinicName?: string;
       appointmentId?: string;
       doctorId?: string;
       serviceId?: string;
+      returnTo?: string;
     }>();
 
   const { theme } = useClinicTheme(clinicId);
@@ -174,6 +175,7 @@ export default function BookAppointmentScreen() {
   const [prefillDone, setPrefillDone] = useState(false);
 
   const [profile, setProfile] = useState<PatientProfile | null>(null);
+  const [existingPatientId, setExistingPatientId] = useState<string>('');
   const [userRole, setUserRole] = useState<UserRole>('patient');
   const [locations, setLocations] = useState<Location[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -277,6 +279,7 @@ export default function BookAppointmentScreen() {
             location_id,
             doctor_id,
             service_id,
+            patient_id,
             appointment_date,
             start_time,
             patient_first_name,
@@ -301,6 +304,7 @@ export default function BookAppointmentScreen() {
         setSelectedLocationId(data.location_id);
         setSelectedDoctorId(data.doctor_id);
         setSelectedServiceId(data.service_id);
+        setExistingPatientId(data.patient_id || '');
         setSelectedDate(data.appointment_date);
         setSelectedTime(String(data.start_time).slice(0, 5));
         setPatientFirstName(data.patient_first_name ?? '');
@@ -715,7 +719,7 @@ export default function BookAppointmentScreen() {
 
       const payload = {
         clinic_id: clinicId,
-        patient_id: profile.id,
+        patient_id: appointmentId ? existingPatientId : profile.id,
         doctor_id: selectedDoctorId,
         location_id: selectedLocationId,
         service_id: selectedServiceId,
@@ -725,10 +729,7 @@ export default function BookAppointmentScreen() {
         patient_first_name: patientFirstName.trim(),
         patient_last_name: patientLastName.trim(),
         insurance_method: insuranceProvider,
-        insurance_details:
-          insuranceProvider === 'other'
-            ? customInsurance.trim()
-            : null,
+        insurance_details: insuranceProvider === 'other' ? customInsurance.trim() : null,
         notes: patientNotes.trim() || null,
         updated_by: user.id,
       };
@@ -1104,12 +1105,19 @@ export default function BookAppointmentScreen() {
 
             <Pressable
               style={[styles.successTopButton, { backgroundColor: theme.primary }]}
-              onPress={() =>
+              onPress={() => {
+                if (returnTo === 'manage-appointments') {
+                  router.replace({
+                    pathname: '/manage-appointments' as any,
+                    params: { clinicId, clinicName, appointmentId },
+                  });
+                  return;
+                }
                 router.replace({
                   pathname: '/my-appointments' as any,
-                  params: { clinicId, clinicName, appointmentId: successAppointmentId },
-                })
-              }
+                  params: { clinicId, clinicName },
+                });
+              }}
             >
               <Text style={styles.primaryButtonText}>View My Appointments</Text>
             </Pressable>

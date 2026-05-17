@@ -8,6 +8,7 @@ import FeaturesCard from '../src/common/FeaturesCard';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 import { supabase } from '../src/lib/supabase';
 import FloatingChatButton from '../src/common/FloatingChatButton';
+import { requireRole, countRows } from '../src/lib/adminData';
 
 function hexToRgb(hex: string) {
 
@@ -46,58 +47,94 @@ export default function PlatformAdminDashboard() {
 
   const { width } = useWindowDimensions();
   const isMobile = width < 720;
-  const { theme } = useClinicTheme(clinicId);
+  const { theme } = useClinicTheme(undefined);
 
-  const [upcomingAppointments, setUpcomingAppointments] = useState(0);
-  const [upcomingList, setUpcomingList] = useState<any[]>([]);
+  const [recentClinics, setRecentClinics] = useState<any[]>([]);
+  const [platformActivity, setPlatformActivity] = useState({
+    activeClinics: 0,
+    inactiveClinics: 0,
+    appointmentsToday: 0,
+    triageSessions: 0,
+  });
 
   const go = (pathname: string) => {
-    router.push({
-      pathname: pathname as any,
-      params: { clinicId, clinicName },
-    });
+    router.push(pathname as any);
   };
 
+useEffect(() => {
+  const load = async () => {
+    const roleCheck = await requireRole(['platform_admin']);
+    if (!roleCheck.user) return router.replace('/login');
+    if (roleCheck.error === 'role') return router.replace('/main-patient');
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [
+      clinics,
+      doctors,
+      patients,
+      clinicAdmins,
+      activeClinics,
+      inactiveClinics,
+      appointmentsToday,
+      triageSessions,
+      recentClinicsResult,
+    ] = await Promise.all([
+      countRows('clinics'),
+      countRows('doctors', (q) => q.eq('is_active', true)),
+      countRows('profiles', (q) => q.eq('role', 'patient')),
+      countRows('profiles', (q) => q.eq('role', 'clinic_admin')),
+      countRows('clinics', (q) => q.eq('is_active', true)),
+      countRows('clinics', (q) => q.eq('is_active', false)),
+      countRows('appointments', (q) => q.eq('appointment_date', today)),
+      countRows('ai_triage_sessions'),
+      supabase
+        .from('clinics')
+        .select('id, name, slug, description, is_active, created_at')
+        .order('created_at', { ascending: false })
+        .limit(4),
+    ]);
+
+    setStats({ clinics, doctors, patients, clinicAdmins });
+    setPlatformActivity({
+      activeClinics,
+      inactiveClinics,
+      appointmentsToday,
+      triageSessions,
+    });
+    setRecentClinics(recentClinicsResult.data ?? []);
+  };
+
+  load();
+}, []);
+
+  const [stats, setStats] = useState({
+    clinics: 0,
+    doctors: 0,
+    patients: 0,
+    clinicAdmins: 0,
+  });
+
   useEffect(() => {
+    const load = async () => {
+      const roleCheck = await requireRole(['platform_admin']);
+      if (!roleCheck.user) return router.replace('/login');
+      if (roleCheck.error === 'role') return router.replace('/main-patient');
 
-    const loadStats = async () => {
-      const today = new Date().toISOString().slice(0, 10);
+      const [clinics, doctors, patients, clinicAdmins] = await Promise.all([
+        countRows('clinics'),
+        countRows('doctors', (q) => q.eq('is_active', true)),
+        countRows('profiles', (q) => q.eq('role', 'patient')),
+        countRows('profiles', (q) => q.eq('role', 'clinic_admin')),
+      ]);
 
-      const { count } = await supabase
-        .from('appointments')
-        .select('id', { count: 'exact', head: true })
-        .in('status', ['scheduled', 'rescheduled'])
-        .gte('appointment_date', today);
-
-      const { data } = await supabase
-        .from('appointments')
-        .select(`
-          id,
-          appointment_date,
-          start_time,
-          patient_first_name,
-          patient_last_name,
-          doctors (
-            first_name,
-            last_name
-          ),
-          clinic_services (
-            title
-          )
-        `)
-        .in('status', ['scheduled', 'rescheduled'])
-        .gte('appointment_date', today)
-        .order('appointment_date', { ascending: true })
-        .order('start_time', { ascending: true })
-        .limit(3);
-
-      setUpcomingAppointments(count ?? 0);
-      setUpcomingList(data ?? []);
+      setStats({ clinics, doctors, patients, clinicAdmins });
     };
 
-    loadStats();
-
+    load();
   }, []);
+
+  
 
   const featureAccentA = rgbaFromHex(theme.primary, 0.11);
   const featureAccentB = rgbaFromHex(theme.primary, 0.18);
@@ -106,10 +143,10 @@ export default function PlatformAdminDashboard() {
 
   const featureItems = [
 
-    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Platform appointment overview.', onPress: () => go('/manage-appointments'), },
-    { title: 'Manage Clinics', icon: 'business-outline' as const, description: 'Configure clinics platform-wide.' },
-    { title: 'Manage Users', icon: 'people-outline' as const, description: 'See users across all clinics.' },
-    { title: 'Analytics', icon: 'bar-chart-outline' as const, description: 'Global usage and reporting.' },
+  { title: 'Manage Users', icon: 'people-outline' as const, description: 'Manage platform users and roles.', onPress: () => go('/manage-users') },
+  { title: 'Manage Clinics', icon: 'business-outline' as const, description: 'Configure clinics platform-wide.', onPress: () => go('/manage-clinics') },
+  { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'View all appointments.', onPress: () => go('/manage-appointments'), },
+  { title: 'Analytics', icon: 'bar-chart-outline' as const, description: 'Global usage and reporting.', onPress: () => go('/analytics') },
 
   ];
 
@@ -120,11 +157,10 @@ export default function PlatformAdminDashboard() {
     <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
 
       <ClinicNavbar
-        clinicName={clinicName}
-        clinicId={clinicId}
         primaryColor={theme.primary}
         roleLabel="Platform Admin"
-        onChangeClinic={() => router.replace({ pathname: '/clinic-selection' })}
+        clinicName="MedSync Platform"
+        canChangeClinic={false}
       />
 
       <View
@@ -146,10 +182,10 @@ export default function PlatformAdminDashboard() {
       </View>
 
       <View style={styles.statsGrid}>
-        <AnimatedStatsCard label="Clinics" value={12} icon="business-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Doctors" value={74} icon="medkit-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Patients" value={1430} icon="people-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Upcoming Appointments" value={upcomingAppointments} icon="calendar-outline" color={theme.primary}/>
+        <AnimatedStatsCard label="Clinics" value={stats.clinics} icon="business-outline" color={theme.primary}/>
+        <AnimatedStatsCard label="Doctors" value={stats.doctors} icon="medkit-outline" color={theme.primary}/>
+        <AnimatedStatsCard label="Patients" value={stats.patients} icon="people-outline" color={theme.primary}/>
+        <AnimatedStatsCard label="Clinic Admins" value={stats.clinicAdmins} icon="shield-checkmark-outline" color={theme.primary}/>
       </View>
 
       <View style={styles.section}>
@@ -180,46 +216,63 @@ export default function PlatformAdminDashboard() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
+        <Text style={styles.sectionTitle}>Platform Overview</Text>
 
-        {upcomingList.length === 0 ? (
-          <Text style={styles.emptyUpcomingText}>No upcoming appointments.</Text>
+        <View style={styles.miniStatsGrid}>
+          <View style={styles.miniStatCard}>
+            <Text style={styles.miniStatValue}>{platformActivity.activeClinics}</Text>
+            <Text style={styles.miniStatLabel}>Active clinics</Text>
+          </View>
+
+          <View style={styles.miniStatCard}>
+            <Text style={styles.miniStatValue}>{platformActivity.inactiveClinics}</Text>
+            <Text style={styles.miniStatLabel}>Inactive clinics</Text>
+          </View>
+
+          <View style={styles.miniStatCard}>
+            <Text style={styles.miniStatValue}>{platformActivity.appointmentsToday}</Text>
+            <Text style={styles.miniStatLabel}>Appointments today</Text>
+          </View>
+
+          <View style={styles.miniStatCard}>
+            <Text style={styles.miniStatValue}>{platformActivity.triageSessions}</Text>
+            <Text style={styles.miniStatLabel}>AI triage sessions</Text>
+          </View>
+        </View>
+
+        <Text style={styles.subSectionTitle}>Recently Added Clinics</Text>
+
+        {recentClinics.length === 0 ? (
+          <Text style={styles.emptyUpcomingText}>No clinics added yet.</Text>
         ) : (
-          upcomingList.map((appointment) => {
-            const doctor = Array.isArray(appointment.doctors)
-              ? appointment.doctors[0]
-              : appointment.doctors;
-
-            const service = Array.isArray(appointment.clinic_services)
-              ? appointment.clinic_services[0]
-              : appointment.clinic_services;
-
-            const patientName =
-              `${appointment.patient_first_name || ''} ${appointment.patient_last_name || ''}`.trim() ||
-              'Patient';
-
-            return (
-              <View key={appointment.id} style={styles.upcomingCard}>
-                <View style={[styles.upcomingDateBadge, { backgroundColor: `${theme.primary}12` }]}>
-                  <Ionicons name="calendar-outline" size={17} color={theme.primary} />
-                </View>
-
-                <View style={styles.upcomingContent}>
-                  <Text style={styles.upcomingService}>
-                    {service?.title || 'Medical appointment'}
-                  </Text>
-
-                  <Text style={styles.upcomingDoctor}>
-                    {patientName} · Dr. {doctor?.first_name || ''} {doctor?.last_name || ''}
-                  </Text>
-
-                  <Text style={styles.upcomingMeta}>
-                    {appointment.appointment_date} · {appointment.start_time}
-                  </Text>
-                </View>
+          recentClinics.map((clinic) => (
+            <View key={clinic.id} style={styles.upcomingCard}>
+              <View style={[styles.upcomingDateBadge, { backgroundColor: `${theme.primary}12` }]}>
+                <Ionicons name="business-outline" size={17} color={theme.primary} />
               </View>
-            );
-          })
+
+              <View style={styles.upcomingContent}>
+                <Text style={styles.upcomingService}>{clinic.name}</Text>
+                <Text style={styles.upcomingDoctor}>{clinic.slug || 'No slug'}</Text>
+              </View>
+
+              <View
+                style={[
+                  styles.statusPill,
+                  { backgroundColor: clinic.is_active ? '#DCFCE7' : '#FEE2E2' },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: clinic.is_active ? '#166534' : '#991B1B' },
+                  ]}
+                >
+                  {clinic.is_active ? 'Active' : 'Inactive'}
+                </Text>
+              </View>
+            </View>
+          ))
         )}
       </View>
 
@@ -345,10 +398,53 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
 
-  upcomingMeta: {
+  miniStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+
+  miniStatCard: {
+    flexGrow: 1,
+    flexBasis: 190,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 16,
+  },
+
+  miniStatValue: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+
+  miniStatLabel: {
     fontSize: 13,
+    fontWeight: '800',
     color: '#64748B',
-    fontWeight: '700',
+  },
+
+  subSectionTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+
+  statusPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: 'center',
+  },
+
+  statusText: {
+    fontSize: 12,
+    fontWeight: '900',
   },
 
 });

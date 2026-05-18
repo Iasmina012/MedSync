@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import { getCurrentUserProfile } from '../src/lib/auth';
@@ -78,6 +78,22 @@ type PatientProfile = {
   avatar_url: string | null;
 
 };
+
+
+type PatientAiSummary = {
+
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  doctor_id: string | null;
+  summary: string;
+  risk_flags: string[] | null;
+  recommendations: string[] | null;
+  source_count: number | null;
+  created_at: string | null;
+
+};
+
 
 type PatientHistoryGroup = {
 
@@ -219,7 +235,9 @@ export default function MyPatientsHistoryScreen() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [files, setFiles] = useState<PatientFile[]>([]);
+  const [aiSummaries, setAiSummaries] = useState<PatientAiSummary[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientHistoryGroup | null>(null);
+  const [generatingPatientId, setGeneratingPatientId] = useState<string | null>(null);
 
   useEffect(() => {
 
@@ -248,6 +266,7 @@ export default function MyPatientsHistoryScreen() {
         setHistory([]);
         setRecords([]);
         setFiles([]);
+        setAiSummaries([]);
         setLoading(false);
         return;
       }
@@ -270,6 +289,7 @@ export default function MyPatientsHistoryScreen() {
         setHistory([]);
         setRecords([]);
         setFiles([]);
+        setAiSummaries([]);
         setLoading(false);
         return;
       }
@@ -283,25 +303,12 @@ export default function MyPatientsHistoryScreen() {
 
       const patientIds = Array.from(new Set(mappedAppointments.map((item) => item.patient_id).filter(Boolean))) as string[];
       if (patientIds.length > 0) {
-        const [{ data: profilesData }, { data: recordsData }, { data: filesData }] =
-          await Promise.all([
-            supabase
-              .from('profiles')
-              .select('id, avatar_url')
-              .in('id', patientIds),
-            supabase
-              .from('patient_medical_records')
-              .select('*')
-              .eq('clinic_id', clinicId)
-              .in('patient_id', patientIds)
-              .order('created_at', { ascending: false }),
-            supabase
-              .from('patient_files')
-              .select('*')
-              .eq('clinic_id', clinicId)
-              .in('patient_id', patientIds)
-              .order('created_at', { ascending: false }),
-          ]);
+        const [ { data: profilesData }, { data: recordsData }, { data: filesData }, { data: summariesData }, ] = await Promise.all([
+          supabase.from('profiles').select('id, avatar_url').in('id', patientIds),
+          supabase.from('patient_medical_records').select('*').eq('clinic_id', clinicId).in('patient_id', patientIds).order('created_at', { ascending: false }),
+          supabase.from('patient_files').select('*').eq('clinic_id', clinicId).in('patient_id', patientIds).order('created_at', { ascending: false }),
+          supabase.from('patient_ai_summaries').select('*').eq('clinic_id', clinicId).in('patient_id', patientIds).order('created_at', { ascending: false }),
+        ]);
 
         const profileMap = new Map<string, PatientProfile>();
         ((profilesData ?? []) as PatientProfile[]).forEach((profileItem) => { profileMap.set(profileItem.id, profileItem); });
@@ -313,10 +320,12 @@ export default function MyPatientsHistoryScreen() {
         setHistory(mergedAppointments);
         setRecords((recordsData ?? []) as MedicalRecord[]);
         setFiles((filesData ?? []) as PatientFile[]);
+        setAiSummaries((summariesData ?? []) as PatientAiSummary[]);
       } else {
         setHistory(mappedAppointments);
         setRecords([]);
         setFiles([]);
+        setAiSummaries([]);
       }
 
       setLoading(false);
@@ -371,6 +380,58 @@ export default function MyPatientsHistoryScreen() {
     const canOpen = await Linking.canOpenURL(url);
     if (canOpen) 
       Linking.openURL(url);
+  };
+
+
+  const getLatestAiSummary = (patientId: string) => { return aiSummaries.find((summary) => summary.patient_id === patientId) || null; };
+
+  const generateAiSummary = async (patient: PatientHistoryGroup) => {
+    if (!clinicId) return;
+
+    try {
+      setGeneratingPatientId(patient.patientId);
+
+      const { data, error } = await supabase.functions.invoke('ai-summary', {
+        body: {
+          clinicId,
+          patientId: patient.patientId,
+        },
+      });
+
+      console.log('AI SUMMARY RESPONSE:', { data, error });
+
+      if (error) {
+        const context = (error as any).context;
+        let details = error.message;
+
+        if (context) {
+          const text = await context.text().catch(() => '');
+          if (text) details = text;
+        }
+
+        console.log('AI SUMMARY ERROR DETAILS:', details);
+        Alert.alert('AI summary error', details);
+        return;
+      }
+
+      if (!data?.summary) {
+        Alert.alert('AI summary error', 'No summary was returned.');
+        return;
+      }
+
+      const newSummary = data.summary as PatientAiSummary;
+
+      setAiSummaries((prev) => [
+        newSummary,
+        ...prev.filter((item) => item.patient_id !== patient.patientId),
+      ]);
+
+      Alert.alert('Success', 'AI clinical summary generated.');
+    } catch (summaryError: any) {
+      Alert.alert('AI summary error', summaryError?.message || 'Something went wrong.');
+    } finally {
+      setGeneratingPatientId(null);
+    }
   };
 
   if (loading) {
@@ -472,12 +533,55 @@ export default function MyPatientsHistoryScreen() {
                 </View>
 
                 <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
+
                   <ExpandableSection title="Patient Overview" defaultOpen>
                     <View style={styles.infoCard}>
                       <DetailRow icon="calendar-outline" label="Appointments" value={`${selectedPatient.appointments.length}`}/>
                       <DetailRow icon="document-text-outline" label="Medical records" value={`${selectedPatient.records.length}`}/>
                       <DetailRow icon="folder-outline" label="Medical files" value={`${selectedPatient.files.length}`}/>
                       <DetailRow icon="sparkles-outline" label="AI triage sessions" value={`${selectedPatient.appointments.filter((appointment) => appointment.triage_session_id).length}`}/>
+                    </View>
+                  </ExpandableSection>
+
+                  <ExpandableSection title="AI Clinical Summary">
+                    <View style={styles.aiSummaryCard}>
+                      {getLatestAiSummary(selectedPatient.patientId) ? (
+                        <>
+                          <View style={styles.aiSummaryHeader}>
+                            <Ionicons name="sparkles-outline" size={18} color={theme.primary}/>
+                            <Text style={styles.aiSummaryTitle}>Generated summary</Text>
+                          </View>
+
+                          <Text style={styles.aiSummaryText}>{getLatestAiSummary(selectedPatient.patientId)?.summary}</Text>
+
+                          {!!getLatestAiSummary(selectedPatient.patientId)?.risk_flags?.length && (
+                            <View style={styles.aiListBlock}>
+                              <Text style={styles.aiListTitle}>Risk flags</Text>
+                              {getLatestAiSummary(selectedPatient.patientId)?.risk_flags?.map((flag, index) => (
+                                <Text key={`risk-${index}`} style={styles.aiListItem}>• {flag}</Text>
+                              ))}
+                            </View>
+                          )}
+
+                          {!!getLatestAiSummary(selectedPatient.patientId)?.recommendations?.length && (
+                            <View style={styles.aiListBlock}>
+                              <Text style={styles.aiListTitle}>Recommendations</Text>
+                              {getLatestAiSummary(selectedPatient.patientId)?.recommendations?.map((recommendation, index) => (
+                                <Text key={`rec-${index}`} style={styles.aiListItem}>• {recommendation}</Text>
+                              ))}
+                            </View>
+                          )}
+                        </>
+                      ) : (
+                        <Text style={styles.aiSummaryText}>No AI clinical summary generated yet.</Text>
+                      )}
+
+                      <Pressable style={[styles.aiButton, { backgroundColor: theme.primary }]} onPress={() => generateAiSummary(selectedPatient)} disabled={generatingPatientId === selectedPatient.patientId}>
+                        <Ionicons name="sparkles-outline" size={16} color="#FFFFFF"/>
+                        <Text style={styles.aiButtonText}>{generatingPatientId === selectedPatient.patientId ? 'Generating...' : getLatestAiSummary(selectedPatient.patientId) ? 'Regenerate AI Summary' : 'Generate AI Summary'}</Text>
+                      </Pressable>
+
+                      <Text style={styles.aiDisclaimer}>AI output is informational and must be reviewed by a clinician.</Text>
                     </View>
                   </ExpandableSection>
 
@@ -1005,6 +1109,74 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '900',
     fontSize: 12,
+  },
+
+
+  aiSummaryCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 16,
+    gap: 12,
+  },
+
+  aiSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  aiSummaryTitle: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+
+  aiSummaryText: {
+    color: '#475569',
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+
+  aiListBlock: {
+    gap: 5,
+  },
+
+  aiListTitle: {
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  aiListItem: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+
+  aiButton: {
+    minHeight: 46,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  aiButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+
+  aiDisclaimer: {
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
   },
 
   closeButton: {

@@ -6,6 +6,7 @@ import ClinicNavbar from '../src/common/ClinicNavbar';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { supabase } from '../src/lib/supabase';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import PatientHealthCharts from '../src/common/PatientHealthCharts';
 
 type HistoryItem = {
 
@@ -89,6 +90,7 @@ type PatientAiSummary = {
   summary: string;
   risk_flags: string[] | null;
   recommendations: string[] | null;
+  chart_insights: string[] | null;
   source_count: number | null;
   created_at: string | null;
 
@@ -238,6 +240,7 @@ export default function MyPatientsHistoryScreen() {
   const [aiSummaries, setAiSummaries] = useState<PatientAiSummary[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientHistoryGroup | null>(null);
   const [generatingPatientId, setGeneratingPatientId] = useState<string | null>(null);
+  const [generatingChartInsightsPatientId, setGeneratingChartInsightsPatientId] = useState<string | null>(null);
 
   useEffect(() => {
 
@@ -431,6 +434,53 @@ export default function MyPatientsHistoryScreen() {
       Alert.alert('AI summary error', summaryError?.message || 'Something went wrong.');
     } finally {
       setGeneratingPatientId(null);
+    }
+  };
+
+  const generateChartInsights = async (patient: PatientHistoryGroup) => {
+    if (!clinicId) return;
+
+    try {
+      setGeneratingChartInsightsPatientId(patient.patientId);
+
+      const { data, error } = await supabase.functions.invoke('ai-summary', {
+        body: {
+          clinicId,
+          patientId: patient.patientId,
+          mode: 'chart_insights',
+        },
+      });
+
+      if (error) {
+        const context = (error as any).context;
+        let details = error.message;
+
+        if (context) {
+          const text = await context.text().catch(() => '');
+          if (text) details = text;
+        }
+
+        Alert.alert('AI chart insights error', details);
+        return;
+      }
+
+      if (!data?.summary) {
+        Alert.alert('AI chart insights error', 'No insights were returned.');
+        return;
+      }
+
+      const newSummary = data.summary as PatientAiSummary;
+
+      setAiSummaries((prev) => [
+        newSummary,
+        ...prev.filter((item) => item.patient_id !== patient.patientId),
+      ]);
+
+      Alert.alert('Success', 'AI chart insights generated.');
+    } catch (chartError: any) {
+      Alert.alert('AI chart insights error', chartError?.message || 'Something went wrong.');
+    } finally {
+      setGeneratingChartInsightsPatientId(null);
     }
   };
 
@@ -680,6 +730,17 @@ export default function MyPatientsHistoryScreen() {
                       })
                     )}
                   </ExpandableSection>
+
+                  <ExpandableSection title="Health Charts">
+                    <PatientHealthCharts
+                      records={selectedPatient.records}
+                      primaryColor={theme.primary}
+                      chartInsights={getLatestAiSummary(selectedPatient.patientId)?.chart_insights || []}
+                      generatingInsights={generatingChartInsightsPatientId === selectedPatient.patientId}
+                      onGenerateInsights={() => generateChartInsights(selectedPatient)}
+                    />
+                  </ExpandableSection>
+
                 </ScrollView>
 
                 <Pressable style={[styles.closeButton, { backgroundColor: theme.primary }]} onPress={() => setSelectedPatient(null)}>

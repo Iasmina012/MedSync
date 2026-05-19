@@ -259,7 +259,7 @@ serve(async (req) => {
   if (userError || !user)
     return jsonResponse({ error: 'Not authenticated.' }, 401);
 
-  const { clinicId, patientId } = await req.json().catch(() => ({ clinicId: null, patientId: null, }));
+  const { clinicId, patientId, mode } = await req.json().catch(() => ({ clinicId: null, patientId: null, mode: 'clinical_summary', }));
   if (!clinicId || !patientId)
     return jsonResponse({ error: 'clinicId and patientId are required.' }, 400);
 
@@ -383,11 +383,19 @@ serve(async (req) => {
     Mention uncertainty when data is missing.
     Mention that AI-generated document summaries require clinician review.
 
+    Also analyze available measurement trends from medical records:
+    - heart_rate over time
+    - temperature over time
+    - weight_kg over time
+    - blood_pressure over time
+    Mention only trends supported by data. If there is not enough data, say that.
+
     Return ONLY valid JSON with this exact shape:
     {
       "summary": "string",
       "risk_flags": ["string"],
-      "recommendations": ["string"]
+      "recommendations": ["string"],
+      "chart_insights": ["string"]
     }
 
     Data:
@@ -437,6 +445,7 @@ serve(async (req) => {
       summary: aiResult.summary,
       risk_flags: aiResult.risk_flags,
       recommendations: aiResult.recommendations,
+      chart_insights: aiResult.chart_insights,
       source_count: sourceCount,
       generated_by: user.id,
     })

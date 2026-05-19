@@ -34,6 +34,204 @@ function safeJsonParse(text: string) {
 
 }
 
+function getMimeType(fileType?: string | null) {
+
+  const value = String(fileType || '').toLowerCase();
+
+  if (value.includes('pdf')) 
+    return 'application/pdf';
+  if (value.includes('png')) 
+    return 'image/png';
+  if (value.includes('jpg') || value.includes('jpeg')) 
+    return 'image/jpeg';
+  if (value.includes('webp')) 
+    return 'image/webp';
+  if (value.includes('text') || value.includes('txt')) 
+    return 'text/plain';
+
+  return 'application/pdf';
+
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i += 1)
+    binary += String.fromCharCode(bytes[i]);
+
+  return btoa(binary);
+
+}
+
+async function callGeminiJson(geminiApiKey: string, parts: unknown[]) {
+
+  const geminiUrl = new URL('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent');
+
+  geminiUrl.searchParams.set('key', geminiApiKey);
+
+  const geminiResponse = await fetch(geminiUrl.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  if (!geminiResponse.ok) {
+    const text = await geminiResponse.text();
+    throw new Error(`Gemini request failed: ${geminiResponse.status} ${text}`);
+  }
+
+  const geminiJson = await geminiResponse.json();
+
+  return (
+    geminiJson?.candidates?.[0]?.content?.parts
+      ?.map((part: { text?: string }) => part.text || '')
+      .join('')
+      .trim() || ''
+  );
+}
+
+async function processPatientFile({
+  adminClient,
+  geminiApiKey,
+  file,
+}: {
+  adminClient: any;
+  geminiApiKey: string;
+  file: any;
+}) {
+  if (file.ai_summary) return file;
+
+  if (!file.file_url) {
+    await adminClient
+      .from('patient_files')
+      .update({
+        processing_status: 'failed',
+        notes: file.notes || 'AI processing failed: missing file URL.',
+      })
+      .eq('id', file.id);
+
+    return { ...file, processing_status: 'failed' };
+  }
+
+  try {
+    await adminClient
+      .from('patient_files')
+      .update({ processing_status: 'processing' })
+      .eq('id', file.id);
+
+    const fileResponse = await fetch(file.file_url);
+
+    if (!fileResponse.ok) {
+      throw new Error(`Could not download file. Status ${fileResponse.status}`);
+    }
+
+    const buffer = await fileResponse.arrayBuffer();
+
+    if (buffer.byteLength > 8 * 1024 * 1024) {
+      throw new Error('File is too large for inline AI processing.');
+    }
+
+    const mimeType = getMimeType(file.file_type);
+    const base64Data = arrayBufferToBase64(buffer);
+
+    const documentPrompt = `
+You are a clinical document processing assistant.
+
+Summarize this uploaded patient file for a doctor.
+Do NOT diagnose beyond the document.
+Do NOT invent values.
+If this is a bloodwork/lab report, extract important values, abnormal markers, dates, and units when visible.
+If information is unclear, say that it is unclear.
+
+Return ONLY valid JSON:
+{
+  "summary": "string",
+  "risk_flags": ["string"],
+  "recommendations": ["string"]
+}
+
+File metadata:
+${JSON.stringify(
+  {
+    title: file.title,
+    description: file.description,
+    file_type: file.file_type,
+    category: file.category,
+    notes: file.notes,
+    created_at: file.created_at,
+  },
+  null,
+  2
+)}
+`;
+
+    const text = await callGeminiJson(geminiApiKey, [
+      { text: documentPrompt },
+      {
+        inlineData: {
+          mimeType,
+          data: base64Data,
+        },
+      },
+    ]);
+
+    const result = safeJsonParse(text);
+
+    if (!result.summary) {
+      throw new Error('Gemini returned no document summary.');
+    }
+
+    const { data: updatedFile } = await adminClient
+      .from('patient_files')
+      .update({
+        ai_summary: result.summary,
+        processing_status: 'completed',
+        processed_at: new Date().toISOString(),
+      })
+      .eq('id', file.id)
+      .select(`
+        id,
+        title,
+        description,
+        file_url,
+        file_type,
+        category,
+        notes,
+        ai_summary,
+        processing_status,
+        processed_at,
+        created_at
+      `)
+      .single();
+
+    return updatedFile || { ...file, ai_summary: result.summary, processing_status: 'completed' };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown processing error.';
+
+    await adminClient
+      .from('patient_files')
+      .update({
+        processing_status: 'failed',
+        processed_at: new Date().toISOString(),
+        notes: file.notes || `AI processing failed: ${message}`,
+      })
+      .eq('id', file.id);
+
+    return {
+      ...file,
+      processing_status: 'failed',
+      ai_summary: file.ai_summary || null,
+    };
+  }
+}
+
 serve(async (req) => {
 
   if (req.method === 'OPTIONS')
@@ -134,9 +332,13 @@ serve(async (req) => {
           id,
           title,
           description,
+          file_url,
           file_type,
           category,
           notes,
+          ai_summary,
+          processing_status,
+          processed_at,
           created_at
         `)
         .eq('clinic_id', clinicId)
@@ -162,64 +364,67 @@ serve(async (req) => {
     ]);
 
   const sourceCount = (appointments?.length || 0) + (records?.length || 0) + (files?.length || 0);
-
   if (sourceCount === 0)
     return jsonResponse({ error: 'No patient history sources found.' }, 404);
+
+  const processedFiles = [];
+  for (const file of files || []) {
+    const processedFile = await processPatientFile({ adminClient, geminiApiKey, file, });
+    processedFiles.push(processedFile);
+  }
 
   const prompt = `
     You are a clinical documentation assistant for a doctor.
 
     Create a concise patient history summary from the data below.
+    Use appointments, medical records, and AI-processed uploaded document summaries when available.
     Do NOT diagnose beyond the provided records.
     Do NOT invent facts.
     Mention uncertainty when data is missing.
+    Mention that AI-generated document summaries require clinician review.
 
     Return ONLY valid JSON with this exact shape:
     {
-    "summary": "string",
-    "risk_flags": ["string"],
-    "recommendations": ["string"]
+      "summary": "string",
+      "risk_flags": ["string"],
+      "recommendations": ["string"]
     }
 
     Data:
-    ${JSON.stringify({ patient, appointments, medical_records: records, files }, null, 2)}
+    ${JSON.stringify(
+      {
+        patient,
+        appointments,
+        medical_records: records,
+        files: processedFiles.map((file) => ({
+          id: file.id,
+          title: file.title,
+          description: file.description,
+          file_type: file.file_type,
+          category: file.category,
+          notes: file.notes,
+          ai_summary: file.ai_summary,
+          processing_status: file.processing_status,
+          processed_at: file.processed_at,
+          created_at: file.created_at,
+        })),
+      },
+      null,
+      2
+    )}
   `;
 
-  const geminiUrl = new URL('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent');
-  geminiUrl.searchParams.set('key', geminiApiKey);
+  let aiResult;
+  try {
+    const text = await callGeminiJson(geminiApiKey, [{ text: prompt }]);
+    if (!text)
+      return jsonResponse({ error: 'Gemini returned an empty response.' }, 502);
+    aiResult = safeJsonParse(text);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown Gemini error.';
+    return jsonResponse({ error: message }, 502);
+  }
 
-  const geminiResponse = await fetch(geminiUrl.toString(), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: 'application/json',
-      },
-    }),
-  });
-
-  if (!geminiResponse.ok) {
-    const text = await geminiResponse.text();
-
-    return jsonResponse(
-      { error: 'Gemini request failed.', status: geminiResponse.status, details: text, }, 502 ); }
-
-  const geminiJson = await geminiResponse.json();
-
-  const text = geminiJson?.candidates?.[0]?.content?.parts ?.map((part: { text?: string }) => part.text || '').join('').trim() || '';
-  if (!text)
-    return jsonResponse({ error: 'Gemini returned an empty response.' }, 502);
-
-  const aiResult = safeJsonParse(text);
   if (!aiResult.summary)
     return jsonResponse({ error: 'Could not parse AI summary.' }, 502);
 
@@ -241,6 +446,6 @@ serve(async (req) => {
   if (saveError)
     return jsonResponse({ error: saveError.message }, 400);
 
-  return jsonResponse({ summary: savedSummary });
+  return jsonResponse({ summary: savedSummary, processed_files: processedFiles, });
 
 });

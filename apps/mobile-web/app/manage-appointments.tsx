@@ -81,6 +81,23 @@ type PendingFile = {
 
 };
 
+type OnboardingReview = {
+
+  id: string;
+  appointment_id: string;
+  summary_for_doctor: string | null;
+  missing_information: string[] | null;
+  clarifying_questions: string[] | null;
+  urgency_flags: string[] | null;
+  urgency_level: string | null;
+  form_valid: boolean | null;
+  completion_score: number | null;
+  requires_manual_review: boolean | null;
+  triage_recommendation: string | null;
+  created_at: string | null;
+
+};
+
 const INSURANCE_LABELS: Record<string, string> = {
 
   self_pay: 'Self pay',
@@ -274,6 +291,7 @@ export default function ManageAppointmentsScreen() {
   const [recordTarget, setRecordTarget] = React.useState<Appointment | null>(null);
 
   const [existingRecordAppointmentIds, setExistingRecordAppointmentIds] = React.useState<Set<string>>(new Set());
+  const [onboardingReviews, setOnboardingReviews] = React.useState<OnboardingReview[]>([]);
 
   const [savingAction, setSavingAction] = React.useState(false);
   const [attendanceAction, setAttendanceAction] = React.useState<'present' | 'missed' | null>(null);
@@ -346,6 +364,34 @@ export default function ManageAppointmentsScreen() {
     }
 
     setRecordTarget(appointment);
+  };
+
+
+  const getOnboardingReview = (appointmentIdToFind: string) => { return onboardingReviews.find((review) => review.appointment_id === appointmentIdToFind) || null; };
+
+  const getUrgencyColor = (level?: string | null) => {
+    switch (level) {
+      case 'urgent':
+        return {
+          background: '#FEF2F2',
+          border: '#FECACA',
+          text: '#DC2626',
+        };
+
+      case 'moderate':
+        return {
+          background: '#FFF7ED',
+          border: '#FED7AA',
+          text: '#EA580C',
+        };
+
+      default:
+        return {
+          background: '#F0FDF4',
+          border: '#BBF7D0',
+          text: '#15803D',
+        };
+    }
   };
 
   const loadAppointments = async () => {
@@ -481,14 +527,22 @@ export default function ManageAppointmentsScreen() {
       const appointmentIds = mappedAppointments.map((item) => item.id);
 
       if (appointmentIds.length > 0) {
-        const { data: recordRows, error: recordLookupError } = await supabase
-          .from('patient_medical_records')
-          .select('appointment_id')
-          .in('appointment_id', appointmentIds);
+        const [{ data: recordRows, error: recordLookupError }, { data: reviewRows, error: reviewLookupError }] = await Promise.all([
+          supabase
+            .from('patient_medical_records')
+            .select('appointment_id')
+            .in('appointment_id', appointmentIds),
+          supabase
+            .from('patient_onboarding_reviews')
+            .select('*')
+            .in('appointment_id', appointmentIds)
+            .order('created_at', { ascending: false }),
+        ]);
 
-        if (recordLookupError) {
+        if (recordLookupError)
           console.log('Existing records lookup error:', recordLookupError.message);
-        }
+        if (reviewLookupError)
+          console.log('Onboarding reviews lookup error:', reviewLookupError.message);
 
         setExistingRecordAppointmentIds(
           new Set(
@@ -497,8 +551,11 @@ export default function ManageAppointmentsScreen() {
               .filter(Boolean)
           )
         );
+
+        setOnboardingReviews((reviewRows ?? []) as OnboardingReview[]);
       } else {
         setExistingRecordAppointmentIds(new Set());
+        setOnboardingReviews([]);
       }
     } finally {
       setLoading(false);
@@ -623,6 +680,13 @@ export default function ManageAppointmentsScreen() {
         return;
       }
 
+      const bloodPressureValue = toNull(recordBloodPressure);
+      if (bloodPressureValue && !/^\d{2,3}\/\d{2,3}$/.test(bloodPressureValue)) {
+        Alert.alert('Invalid blood pressure', 'Use format like 120/80.');
+        setSavingRecord(false);
+        return;
+      }
+
       const { data: createdRecord, error: recordError } = await supabase
         .from('patient_medical_records')
         .insert({
@@ -638,7 +702,7 @@ export default function ManageAppointmentsScreen() {
           prescription: toNull(recordPrescription),
           recommendations: toNull(recordRecommendations),
           notes: toNull(recordNotes),
-          blood_pressure: toNull(recordBloodPressure),
+          blood_pressure: bloodPressureValue,
           heart_rate: toNumberOrNull(recordHeartRate),
           temperature: toNumberOrNull(recordTemperature),
           weight_kg: toNumberOrNull(recordWeightKg),
@@ -870,13 +934,6 @@ export default function ManageAppointmentsScreen() {
                           <Text style={styles.notesWarningText}>Notes added</Text>
                         </View>
                       )}
-
-                      {hasRecord && (
-                        <View style={styles.recordBadge}>
-                          <Ionicons name="document-text-outline" size={16} color="#166534"/>
-                          <Text style={styles.recordBadgeText}>Record created</Text>
-                        </View>
-                      )}
                     </View>
 
                     <Text style={styles.dateText}>{formatDateTime(appointmentDateTime)}</Text>
@@ -954,7 +1011,7 @@ export default function ManageAppointmentsScreen() {
                           size={16}
                           color={hasRecord ? '#94A3B8' : '#0F172A'}
                         />
-                        <Text style={[styles.recordActionText, hasRecord && styles.disabledActionText]}>
+                        <Text numberOfLines={1} style={[styles.recordActionText, hasRecord && styles.disabledActionText]}>
                           {hasRecord ? 'Record Created' : 'Create Record'}
                         </Text>
                       </Pressable>
@@ -1084,6 +1141,78 @@ export default function ManageAppointmentsScreen() {
                     label="Notes / observations"
                     value={detailsTarget.notes?.trim() || 'No notes provided'}
                   />
+
+                  {(() => {
+                    const review = getOnboardingReview(detailsTarget.id);
+
+                    if (!review) return null;
+
+                    const urgencyColor = getUrgencyColor(review.urgency_level);
+
+                    return (
+                      <View style={styles.onboardingReviewCard}>
+                        <View style={styles.onboardingReviewHeader}>
+                          <Ionicons name="sparkles-outline" size={18} color={theme.primary}/>
+                          <Text style={styles.onboardingReviewTitle}>AI intake review</Text>
+                        </View>
+
+                        <Text style={styles.onboardingReviewText}>{review.summary_for_doctor || 'No onboarding summary available.'}</Text>
+
+                        <View style={styles.onboardingReviewMetaRow}>
+                          <View style={[styles.onboardingReviewPill, { backgroundColor: urgencyColor.background, borderColor: urgencyColor.border }]}>
+                            <Text style={[styles.onboardingReviewPillText, { color: urgencyColor.text }]}>Urgency: {review.urgency_level || 'routine'}</Text>
+                          </View>
+
+                          <View style={styles.onboardingReviewPill}>
+                            <Text style={styles.onboardingReviewPillText}>{review.form_valid ? 'Intake complete' : 'Clinician review needed'}</Text>
+                          </View>
+
+                          {review.requires_manual_review && (
+                            <View style={[styles.onboardingReviewPill, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }]}>
+                              <Text style={[styles.onboardingReviewPillText, { color: '#C2410C' }]}>Manual review required</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        {!!review.triage_recommendation && (
+                          <View style={styles.onboardingRecommendationBox}>
+                            <Text style={styles.onboardingRecommendationTitle}>Triage recommendation</Text>
+                            <Text style={styles.onboardingRecommendationText}>{review.triage_recommendation}</Text>
+                          </View>
+                        )}
+
+                        {!!review.missing_information?.length && (
+                          <View style={styles.onboardingReviewList}>
+                            <Text style={styles.onboardingReviewListTitle}>Missing information</Text>
+
+                            {review.missing_information.map((item, index) => (
+                              <Text key={`missing-${index}`} style={styles.onboardingReviewListItem}> • {item}</Text>
+                            ))}
+                          </View>
+                        )}
+
+                        {!!review.clarifying_questions?.length && (
+                          <View style={styles.onboardingReviewList}>
+                            <Text style={styles.onboardingReviewListTitle}>Clarifying questions</Text>
+
+                            {review.clarifying_questions.map((item, index) => (
+                              <Text key={`question-${index}`} style={styles.onboardingReviewListItem}> • {item}</Text>
+                            ))}
+                          </View>
+                        )}
+
+                        {!!review.urgency_flags?.length && (
+                          <View style={styles.onboardingReviewList}>
+                            <Text style={styles.onboardingReviewListTitle}>Urgency flags</Text>
+
+                            {review.urgency_flags.map((item, index) => (
+                              <Text key={`flag-${index}`} style={styles.onboardingReviewListItem}> • {item}</Text>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })()}                            
 
                   {!!detailsTarget.ai_triage_summary?.trim() && (
                     <DetailRow
@@ -1218,8 +1347,8 @@ export default function ManageAppointmentsScreen() {
               <View style={styles.inputGrid}>
                 <TextInput
                   value={recordBloodPressure}
-                  onChangeText={setRecordBloodPressure}
-                  placeholder="Blood pressure"
+                  onChangeText={(text) => { const cleaned = text.replace(/[^0-9/]/g, ''); setRecordBloodPressure(cleaned); }}
+                  placeholder="Blood pressure (e.g. 120/80)"
                   placeholderTextColor="#94A3B8"
                   style={[styles.input, styles.inputHalf]}
                 />
@@ -1227,7 +1356,7 @@ export default function ManageAppointmentsScreen() {
                 <TextInput
                   value={recordHeartRate}
                   onChangeText={setRecordHeartRate}
-                  placeholder="Heart rate"
+                  placeholder="Heart rate (e.g. 80)"
                   placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   style={[styles.input, styles.inputHalf]}
@@ -1236,7 +1365,7 @@ export default function ManageAppointmentsScreen() {
                 <TextInput
                   value={recordTemperature}
                   onChangeText={setRecordTemperature}
-                  placeholder="Temperature"
+                  placeholder="Temperature in C (e.g. 37)"
                   placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   style={[styles.input, styles.inputHalf]}
@@ -1245,7 +1374,7 @@ export default function ManageAppointmentsScreen() {
                 <TextInput
                   value={recordWeightKg}
                   onChangeText={setRecordWeightKg}
-                  placeholder="Weight kg"
+                  placeholder="Weight in kg (e.g. 65)"
                   placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   style={[styles.input, styles.inputHalf]}
@@ -1254,7 +1383,7 @@ export default function ManageAppointmentsScreen() {
                 <TextInput
                   value={recordHeightCm}
                   onChangeText={setRecordHeightCm}
-                  placeholder="Height cm"
+                  placeholder="Height in cm (e.g. 150)"
                   placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   style={[styles.input, styles.inputHalf]}
@@ -1263,7 +1392,7 @@ export default function ManageAppointmentsScreen() {
                 <TextInput
                   value={recordFollowUpDate}
                   onChangeText={setRecordFollowUpDate}
-                  placeholder="Follow-up date YYYY-MM-DD"
+                  placeholder="Follow-up date (YYYY-MM-DD)"
                   placeholderTextColor="#94A3B8"
                   style={[styles.input, styles.inputHalf]}
                 />
@@ -1596,25 +1725,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  recordBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    borderRadius: 999,
-    backgroundColor: '#DCFCE7',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-  },
-
-  recordBadgeText: {
-    color: '#166534',
-    fontSize: 12,
-    fontWeight: '900',
-  },
-
   dateText: {
     fontSize: 13,
     color: '#64748B',
@@ -1706,15 +1816,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     width: '100%',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
   },
 
   primaryAction: {
     flex: 1,
-    minWidth: 130,
+    minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 11,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1728,10 +1838,10 @@ const styles = StyleSheet.create({
 
   dangerAction: {
     flex: 1,
-    minWidth: 120,
+    minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#FECDD3',
@@ -1748,10 +1858,10 @@ const styles = StyleSheet.create({
 
   recordAction: {
     flex: 1,
-    minWidth: 150,
+    minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#CBD5E1',
@@ -2241,6 +2351,107 @@ const styles = StyleSheet.create({
   detailsCreateText: {
     color: '#FFFFFF',
     fontWeight: '900',
+  },
+
+  onboardingReviewCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 16,
+    gap: 10,
+  },
+
+  onboardingReviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  onboardingReviewTitle: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+
+  onboardingReviewText: {
+    color: '#475569',
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+
+  onboardingReviewMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
+  onboardingReviewBadge: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'capitalize',
+  },
+
+  onboardingReviewPill: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+
+  onboardingReviewPillText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#475569',
+  },
+
+  onboardingRecommendationBox: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 12,
+    gap: 6,
+  },
+
+  onboardingRecommendationTitle: {
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  onboardingRecommendationText: {
+    color: '#475569',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+
+  onboardingReviewList: {
+    gap: 5,
+  },
+
+  onboardingReviewListTitle: {
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  onboardingReviewListItem: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
   },
 
 });

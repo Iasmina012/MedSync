@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from '../src/lib/supabase';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import { useClinicTheme } from '../src/lib/clinicTheme';
@@ -58,6 +59,15 @@ type InsuranceOption = {
 
   label: string;
   value: string;
+
+};
+
+type PendingFile = {
+
+  id: string;
+  name: string;
+  uri: string;
+  mimeType: string | null;
 
 };
 
@@ -150,6 +160,19 @@ function overlaps(startA: string, endA: string, startB: string, endB: string) {
   return (timeToMinutes(startA) < timeToMinutes(endB) && timeToMinutes(endA) > timeToMinutes(startB));
 }
 
+function getOnboardingValue(note: string | null | undefined, label: string) {
+
+  if (!note) 
+    return '';
+
+  const lines = String(note).split('\n');
+  const prefix = `${label}:`;
+  const found = lines.find((line) => line.toLowerCase().startsWith(prefix.toLowerCase()));
+
+  return found ? found.slice(prefix.length).trim() : '';
+
+}
+
 export default function BookAppointmentScreen() {
 
   const { clinicId, clinicName, appointmentId, doctorId, serviceId, returnTo } =
@@ -196,9 +219,16 @@ export default function BookAppointmentScreen() {
   const [customInsurance, setCustomInsurance] = useState('');
   const [patientNotes, setPatientNotes] = useState('');
 
+  const [onboardingSymptoms, setOnboardingSymptoms] = useState('');
+  const [onboardingMedications, setOnboardingMedications] = useState('');
+  const [onboardingChronicConditions, setOnboardingChronicConditions] = useState('');
+  const [onboardingMainConcern, setOnboardingMainConcern] = useState('');
+  const [pendingOnboardingFiles, setPendingOnboardingFiles] = useState<PendingFile[]>([]);
+
   const stepsScrollRef = useRef<ScrollView | null>(null);
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const [insuranceDropdownOpen, setInsuranceDropdownOpen] = useState(false);
+  const canEditOnboarding = userRole === 'patient';
 
   const steps = [
 
@@ -286,7 +316,8 @@ export default function BookAppointmentScreen() {
             patient_last_name,
             insurance_method,
             insurance_details,
-            notes
+            notes,
+            ai_triage_patient_note
           `)
           .eq('id', appointmentId)
           .maybeSingle();
@@ -312,6 +343,10 @@ export default function BookAppointmentScreen() {
         setInsuranceProvider(data.insurance_method ?? '');
         setPatientNotes(data.notes ?? '');
         setCustomInsurance(data.insurance_method === 'other' ? data.insurance_details ?? '' : '');
+        setOnboardingMainConcern(getOnboardingValue(data.ai_triage_patient_note, 'Main concern'));
+        setOnboardingSymptoms(getOnboardingValue(data.ai_triage_patient_note, 'Symptoms'));
+        setOnboardingMedications(getOnboardingValue(data.ai_triage_patient_note, 'Medications'));
+        setOnboardingChronicConditions(getOnboardingValue(data.ai_triage_patient_note, 'Chronic conditions'));
 
         setCurrentStep(0);
         setPrefillDone(true);
@@ -690,6 +725,71 @@ export default function BookAppointmentScreen() {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
+  const pickOnboardingFile = async () => {
+    if (!canEditOnboarding) 
+      return;
+
+    const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false, });
+    if (result.canceled || !result.assets?.[0]) 
+      return;
+
+    const file = result.assets[0];
+
+    setPendingOnboardingFiles((prev) => [...prev, { id: `${Date.now()}-${file.name}`, name: file.name, uri: file.uri, mimeType: file.mimeType ?? null, }, ]);
+  };
+
+  const removePendingOnboardingFile = (id: string) => { setPendingOnboardingFiles((prev) => prev.filter((file) => file.id !== id)); };
+
+  const uploadOnboardingFiles = async ({ appointmentIdToAttach,patientIdToAttach, }: { appointmentIdToAttach: string; patientIdToAttach: string; }) => {
+    if (!canEditOnboarding || pendingOnboardingFiles.length === 0 || !clinicId) 
+      return;
+
+    const { data: { user }, } = await supabase.auth.getUser();
+
+    for (const file of pendingOnboardingFiles) {
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `${clinicId}/${patientIdToAttach}/onboarding/${appointmentIdToAttach}/${Date.now()}-${safeName}`;
+      
+      const { error: uploadError } = await supabase.storage.from('patient-files').upload(filePath, blob, { contentType: file.mimeType || 'application/octet-stream', upsert: false, });
+      if (uploadError)
+        throw new Error(uploadError.message);
+
+      const { data: publicUrlData } = supabase.storage.from('patient-files').getPublicUrl(filePath);
+
+      const { error: fileError } = await supabase.from('patient_files').insert({
+        clinic_id: clinicId,
+        patient_id: patientIdToAttach,
+        doctor_id: selectedDoctorId || null,
+        appointment_id: appointmentIdToAttach,
+        medical_record_id: null,
+        title: file.name,
+        description: 'Uploaded during patient onboarding.',
+        file_url: publicUrlData.publicUrl,
+        file_type: file.mimeType || 'file',
+        category: 'onboarding_file',
+        uploaded_by: user?.id ?? null,
+      });
+      if (fileError)
+        throw new Error(fileError.message);
+    }
+
+    setPendingOnboardingFiles([]);
+  };
+
+
+  const generateOnboardingReview = async (appointmentIdToReview: string) => {
+    const response = await supabase.functions.invoke('ai-onboarding', { body: { appointmentId: appointmentIdToReview, }, });
+    console.log('AI ONBOARDING REVIEW RESPONSE:', JSON.stringify(response, null, 2));
+    if (response.error)
+      throw new Error(response.error.message || 'AI onboarding review failed.');
+    if (response.data?.error)
+      throw new Error(response.data.error);
+
+    return response.data?.review;
+  };
+
   const handleBook = async () => {
 
     const validationError = validateAll();
@@ -717,9 +817,18 @@ export default function BookAppointmentScreen() {
 
       const endTime = `${String(appointmentEndDate.getHours()).padStart(2, '0')}:${String(appointmentEndDate.getMinutes()).padStart(2, '0')}:00`;
 
+      const onboardingPayload = canEditOnboarding ? { ai_triage_patient_note:
+              [ onboardingMainConcern.trim() ? `Main concern: ${onboardingMainConcern.trim()}` : '',
+                onboardingSymptoms.trim() ? `Symptoms: ${onboardingSymptoms.trim()}` : '',
+                onboardingMedications.trim() ? `Medications: ${onboardingMedications.trim()}` : '',
+                onboardingChronicConditions.trim() ? `Chronic conditions: ${onboardingChronicConditions.trim()}` : '',
+              ].filter(Boolean).join('\n') || null, } : {};
+
+      const finalPatientId = appointmentId ? existingPatientId : profile.id;
+
       const payload = {
         clinic_id: clinicId,
-        patient_id: appointmentId ? existingPatientId : profile.id,
+        patient_id: finalPatientId,
         doctor_id: selectedDoctorId,
         location_id: selectedLocationId,
         service_id: selectedServiceId,
@@ -732,6 +841,7 @@ export default function BookAppointmentScreen() {
         insurance_details: insuranceProvider === 'other' ? customInsurance.trim() : null,
         notes: patientNotes.trim() || null,
         updated_by: user.id,
+        ...onboardingPayload,
       };
 
       if (appointmentId) {
@@ -749,6 +859,15 @@ export default function BookAppointmentScreen() {
         if (updateError) {
           setError(updateError.message);
           return;
+        }
+
+        await uploadOnboardingFiles({ appointmentIdToAttach: data.id, patientIdToAttach: finalPatientId });
+        try {
+          await generateOnboardingReview(data.id);
+        } catch (reviewError: any) {
+          console.log('AI review failed:', reviewError);
+          //setError(reviewError?.message || 'AI onboarding review failed.');
+          //return;
         }
 
         setSuccessAppointmentId(data.id);
@@ -769,6 +888,9 @@ export default function BookAppointmentScreen() {
         setError(insertError.message);
         return;
       }
+
+      await uploadOnboardingFiles({ appointmentIdToAttach: data.id, patientIdToAttach: finalPatientId });
+      await generateOnboardingReview(data.id);
 
       setSuccessAppointmentId(data.id);
     } finally {
@@ -954,7 +1076,7 @@ export default function BookAppointmentScreen() {
             />
           </View>
 
-          <View style={styles.field}>
+          <View style={[styles.field, insuranceDropdownOpen && styles.dropdownFieldOpen]}>
             <Text style={styles.label}>Insurance option</Text>
 
             <Pressable
@@ -973,7 +1095,7 @@ export default function BookAppointmentScreen() {
             </Pressable>
 
             {insuranceDropdownOpen && (
-              <View style={styles.dropdownMenu}>
+               <View style={[styles.dropdownMenu, { zIndex: 99999, elevation: 99999 }]}>
                 {INSURANCE_OPTIONS.map((item) => (
                   <Pressable
                     key={item.value}
@@ -1021,6 +1143,115 @@ export default function BookAppointmentScreen() {
             multiline
             style={[styles.input, styles.textArea]}
           />
+        </View>
+        <View style={styles.onboardingCard}>
+          <View style={styles.onboardingHeader}>
+            <Ionicons name="sparkles-outline" size={18} color={theme.primary}/>
+            <Text style={styles.onboardingTitle}>AI patient onboarding</Text>
+          </View>
+
+          <Text style={styles.onboardingText}>Complete these details so AI can validate the form and prepare a short summary for the doctor.</Text>
+
+          {!canEditOnboarding && (
+            <View style={styles.readOnlyBanner}>
+              <Ionicons name="lock-closed-outline" size={16} color="#92400E"/>
+              <Text style={styles.readOnlyBannerText}>Patient onboarding details are read-only for clinic staff.</Text>
+            </View>
+          )}
+
+          <View style={styles.formRow}>
+            <View style={styles.field}>
+              <Text style={styles.label}>Main concern</Text>
+              <TextInput
+                value={onboardingMainConcern}
+                onChangeText={setOnboardingMainConcern}
+                placeholder="Main reason for visit"
+                placeholderTextColor="#94A3B8"
+                editable={canEditOnboarding}
+                multiline
+                style={[styles.input, styles.textArea, !canEditOnboarding && styles.readOnlyInput]}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Current symptoms</Text>
+              <TextInput
+                value={onboardingSymptoms}
+                onChangeText={setOnboardingSymptoms}
+                placeholder="Symptoms, severity, duration..."
+                placeholderTextColor="#94A3B8"
+                editable={canEditOnboarding}
+                multiline
+                style={[styles.input, styles.textArea, !canEditOnboarding && styles.readOnlyInput]}
+              />
+            </View>
+          </View>
+
+          <View style={styles.formRow}>
+            <View style={styles.field}>
+              <Text style={styles.label}>Current medications</Text>
+              <TextInput
+                value={onboardingMedications}
+                onChangeText={setOnboardingMedications}
+                placeholder="Medication names and doses"
+                placeholderTextColor="#94A3B8"
+                editable={canEditOnboarding}
+                multiline
+                style={[styles.input, styles.textArea, !canEditOnboarding && styles.readOnlyInput]}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Chronic conditions / allergies</Text>
+              <TextInput
+                value={onboardingChronicConditions}
+                onChangeText={setOnboardingChronicConditions}
+                placeholder="Diseases, surgeries, relevant history"
+                placeholderTextColor="#94A3B8"
+                editable={canEditOnboarding}
+                multiline
+                style={[styles.input, styles.textArea, !canEditOnboarding && styles.readOnlyInput]}
+              />
+            </View>
+          </View>
+
+          <View style={styles.uploadCard}>
+            <View style={styles.uploadHeader}>
+              <Ionicons name="document-attach-outline" size={18} color={theme.primary}/>
+              <Text style={styles.uploadTitle}>Onboarding files</Text>
+            </View>
+
+            <Text style={styles.onboardingText}>Upload bloodwork, imaging reports, PDFs or documents for the doctor.</Text>
+
+            {pendingOnboardingFiles.length === 0 ? (
+              <Text style={styles.emptyInline}>No files selected yet.</Text>
+            ) : (
+              pendingOnboardingFiles.map((file) => (
+                <View key={file.id} style={styles.pendingFileRow}>
+                  <View style={styles.pendingFileTextWrap}>
+                    <Ionicons name="document-attach-outline" size={16} color="#64748B"/>
+                    <Text style={styles.pendingFileName}>{file.name}</Text>
+                  </View>
+
+                  {canEditOnboarding && (
+                    <Pressable style={styles.removeFileButton} onPress={() => removePendingOnboardingFile(file.id)}>
+                      <Ionicons name="close-outline" size={16} color="#BE123C"/>
+                      <Text style={styles.removeFileButtonText}>Remove</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))
+            )}
+
+            {canEditOnboarding ? (
+              <Pressable style={[styles.uploadButton, { borderColor: theme.primary }]} onPress={pickOnboardingFile}>
+                <Ionicons name="cloud-upload-outline" size={17} color={theme.primary}/>
+                <Text style={[styles.uploadButtonText, { color: theme.primary }]}>Upload file</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.readOnlySmallText}>Clinic staff can view onboarding files in patient history, but only patients can upload them here.</Text>
+            )}
+          </View>
         </View>
       </StepCard>
     );
@@ -1395,8 +1626,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     padding: 24,
     gap: 18,
-    overflow: 'visible',
   },
+
   centered: {
     flex: 1,
     backgroundColor: '#F8FAFC',
@@ -1520,7 +1751,6 @@ const styles = StyleSheet.create({
     padding: 22,
     gap: 16,
     overflow: 'visible',
-    zIndex: 10,
   },
 
   stepHeader: {
@@ -1596,19 +1826,23 @@ const styles = StyleSheet.create({
     gap: 14,
     flexWrap: 'wrap',
     overflow: 'visible',
-      zIndex: 20,
+    zIndex: 999,
   },
 
   field: {
     flex: 1,
     minWidth: 240,
-    zIndex: 30,
     position: 'relative',
-    overflow: 'visible',
+  },
+
+  dropdownFieldOpen: {
+    zIndex: 10000,
+    elevation: 10000,
   },
 
   fieldFull: {
     width: '100%',
+    zIndex: 1,
   },
 
   label: {
@@ -1935,6 +2169,149 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontSize: 14,
     fontWeight: '800',
+  },
+
+  readOnlyBanner: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  readOnlyBannerText: {
+    flex: 1,
+    color: '#92400E',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+
+  readOnlyInput: {
+    backgroundColor: '#F8FAFC',
+    color: '#64748B',
+  },
+
+  uploadCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 18,
+    padding: 14,
+    gap: 10,
+  },
+
+  uploadHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  uploadTitle: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+
+  pendingFileRow: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+
+  pendingFileTextWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  pendingFileName: {
+    flex: 1,
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  removeFileButton: {
+    borderRadius: 999,
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+
+  removeFileButtonText: {
+    color: '#BE123C',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+
+  uploadButton: {
+    minHeight: 46,
+    borderRadius: 999,
+    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  uploadButtonText: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  readOnlySmallText: {
+    color: '#64748B',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+
+  onboardingCard: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    padding: 16,
+    gap: 14,
+  },
+
+  onboardingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  onboardingTitle: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+
+  onboardingText: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
   },
 
 });

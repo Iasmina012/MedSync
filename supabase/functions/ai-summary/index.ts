@@ -27,9 +27,9 @@ function safeJsonParse(text: string) {
   const cleaned = text.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
   try {
     const parsed = JSON.parse(cleaned);
-    return { summary: String(parsed.summary || '').trim(), risk_flags: asArray(parsed.risk_flags), recommendations: asArray(parsed.recommendations), };
+    return { summary: String(parsed.summary || '').trim(), risk_flags: asArray(parsed.risk_flags), recommendations: asArray(parsed.recommendations), chart_insights: asArray(parsed.chart_insights), };
   } catch {
-    return { summary: cleaned, risk_flags: [], recommendations: [], };
+    return { summary: cleaned, risk_flags: [], recommendations: [], chart_insights: [], };
   }
 
 }
@@ -252,14 +252,14 @@ serve(async (req) => {
     return jsonResponse({ error: 'Missing Supabase environment variables.' }, 500);
 
   const authHeader = req.headers.get('Authorization') || '';
-  const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader, }, }, });
+  const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } }, });
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
   const { data: { user }, error: userError, } = await userClient.auth.getUser();
 
   if (userError || !user)
     return jsonResponse({ error: 'Not authenticated.' }, 401);
 
-  const { clinicId, patientId, mode } = await req.json().catch(() => ({ clinicId: null, patientId: null, mode: 'clinical_summary', }));
+  const { clinicId, patientId, mode, fileId } = await req.json().catch(() => ({ clinicId: null, patientId: null, mode: 'clinical_summary', fileId: null, }));
   if (!clinicId || !patientId)
     return jsonResponse({ error: 'clinicId and patientId are required.' }, 400);
 
@@ -363,15 +363,92 @@ serve(async (req) => {
         .maybeSingle(),
     ]);
 
+  if (mode === 'file_summary') {
+    if (!fileId)
+      return jsonResponse({ error: 'fileId is required for file_summary mode.' }, 400);
+
+    const targetFile = (files || []).find((file) => file.id === fileId);
+    if (!targetFile)
+      return jsonResponse({ error: 'File not found for this patient.' }, 404);
+
+    const processedFile = await processPatientFile({ adminClient, geminiApiKey, file: {...targetFile, ai_summary: null,}, });
+    return jsonResponse({ file: processedFile });
+  }
+
+  if (mode === 'chart_insights') {
+    const chartPrompt = `
+      You are a clinical trend analysis assistant.
+
+      Analyze ONLY the structured medical record measurements below.
+
+      Focus on:
+      - blood_pressure over time
+      - heart_rate over time
+      - temperature over time
+      - weight_kg over time
+      - height_cm only as context
+
+      Rules:
+      - Do NOT diagnose.
+      - Do NOT invent values.
+      - Mention insufficient data when fewer than 2 values exist for a metric.
+      - Keep insights concise and useful for a doctor.
+      - AI output must be reviewed by a clinician.
+
+      Return ONLY valid JSON:
+      {
+        "summary": "string",
+        "risk_flags": ["string"],
+        "recommendations": ["string"],
+        "chart_insights": ["string"]
+      }
+
+      Data:
+      ${JSON.stringify({ patient, medical_records: records, }, null, 2 )}
+    `;
+
+    let aiResult;
+
+    try {
+      const text = await callGeminiJson(geminiApiKey, [{ text: chartPrompt }]);
+      if (!text)
+        return jsonResponse({ error: 'Gemini returned an empty chart insight response.' }, 502);
+      aiResult = safeJsonParse(text);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown Gemini error.';
+      return jsonResponse({ error: message }, 502);
+    }
+
+    if (!aiResult.summary)
+      return jsonResponse({ error: 'Could not parse AI chart insights.' }, 502);
+
+    const { data: savedSummary, error: saveError } = await adminClient
+      .from('patient_ai_summaries')
+      .insert({
+        clinic_id: clinicId,
+        patient_id: patientId,
+        doctor_id: doctor.id,
+        summary: aiResult.summary,
+        risk_flags: aiResult.risk_flags,
+        recommendations: aiResult.recommendations,
+        chart_insights: aiResult.chart_insights,
+        source_count: records?.length || 0,
+        generated_by: user.id,
+      })
+      .select('*')
+      .single();
+
+    if (saveError)
+      return jsonResponse({ error: saveError.message }, 400);
+
+    return jsonResponse({ summary: savedSummary });
+  }
+
   const sourceCount = (appointments?.length || 0) + (records?.length || 0) + (files?.length || 0);
   if (sourceCount === 0)
     return jsonResponse({ error: 'No patient history sources found.' }, 404);
 
-  const processedFiles = [];
-  for (const file of files || []) {
-    const processedFile = await processPatientFile({ adminClient, geminiApiKey, file, });
-    processedFiles.push(processedFile);
-  }
+  const processedFiles = files || [];
 
   const prompt = `
     You are a clinical documentation assistant for a doctor.
@@ -389,13 +466,16 @@ serve(async (req) => {
     - weight_kg over time
     - blood_pressure over time
     Mention only trends supported by data. If there is not enough data, say that.
+    Include 1-2 short sentences inside the main summary about available measurement trends from medical records.
+    Do NOT put clinical-summary trends in chart_insights.
+    For clinical summary, chart_insights must always be an empty array [].
 
     Return ONLY valid JSON with this exact shape:
     {
       "summary": "string",
       "risk_flags": ["string"],
       "recommendations": ["string"],
-      "chart_insights": ["string"]
+      "chart_insights": []
     }
 
     Data:
@@ -445,7 +525,7 @@ serve(async (req) => {
       summary: aiResult.summary,
       risk_flags: aiResult.risk_flags,
       recommendations: aiResult.recommendations,
-      chart_insights: aiResult.chart_insights,
+      chart_insights: [],
       source_count: sourceCount,
       generated_by: user.id,
     })

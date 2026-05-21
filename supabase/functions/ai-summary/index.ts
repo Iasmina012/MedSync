@@ -27,9 +27,31 @@ function safeJsonParse(text: string) {
   const cleaned = text.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
   try {
     const parsed = JSON.parse(cleaned);
-    return { summary: String(parsed.summary || '').trim(), risk_flags: asArray(parsed.risk_flags), recommendations: asArray(parsed.recommendations), chart_insights: asArray(parsed.chart_insights), };
+    return {
+      summary: String(parsed.summary || '').trim(),
+      modality: String(parsed.modality || 'unclear').trim(),
+      body_region: String(parsed.body_region || 'unclear').trim(),
+      image_quality: String(parsed.image_quality || 'unclear').trim(),
+      confidence: String(parsed.confidence || 'low').trim(),
+      findings: asArray(parsed.findings),
+      risk_flags: asArray(parsed.risk_flags),
+      recommendations: asArray(parsed.recommendations),
+      limitations: asArray(parsed.limitations),
+      chart_insights: asArray(parsed.chart_insights),
+    };
   } catch {
-    return { summary: cleaned, risk_flags: [], recommendations: [], chart_insights: [], };
+    return {
+      summary: cleaned,
+      modality: 'unclear',
+      body_region: 'unclear',
+      image_quality: 'unclear',
+      confidence: 'low',
+      findings: [],
+      risk_flags: [],
+      recommendations: [],
+      limitations: [],
+      chart_insights: [],
+    };
   }
 
 }
@@ -207,6 +229,11 @@ ${JSON.stringify(
         ai_summary,
         processing_status,
         processed_at,
+        ai_image_summary,
+        ai_image_findings,
+        ai_image_flags,
+        image_processing_status,
+        image_processed_at,
         created_at
       `)
       .single();
@@ -228,6 +255,197 @@ ${JSON.stringify(
       ...file,
       processing_status: 'failed',
       ai_summary: file.ai_summary || null,
+    };
+  }
+}
+
+async function processPatientImage({
+  adminClient,
+  geminiApiKey,
+  file,
+}: {
+  adminClient: any;
+  geminiApiKey: string;
+  file: any;
+}) {
+  if (!file.file_url) {
+    await adminClient
+      .from('patient_files')
+      .update({
+        image_processing_status: 'failed',
+        notes: file.notes || 'AI image analysis failed: missing file URL.',
+      })
+      .eq('id', file.id);
+
+    return { ...file, image_processing_status: 'failed' };
+  }
+
+  const mimeType = getMimeType(file.file_type);
+
+  if (!mimeType.startsWith('image/')) {
+    throw new Error('AI image analysis is available only for image files: PNG, JPG, JPEG or WEBP.');
+  }
+
+  try {
+    await adminClient
+      .from('patient_files')
+      .update({ image_processing_status: 'processing' })
+      .eq('id', file.id);
+
+    const fileResponse = await fetch(file.file_url);
+
+    if (!fileResponse.ok) {
+      throw new Error(`Could not download image. Status ${fileResponse.status}`);
+    }
+
+    const buffer = await fileResponse.arrayBuffer();
+
+    if (buffer.byteLength > 8 * 1024 * 1024) {
+      throw new Error('Image is too large for inline AI analysis.');
+    }
+
+    const base64Data = arrayBufferToBase64(buffer);
+
+    const imagePrompt = `
+You are an AI medical image interpretation assistant for clinician support.
+
+Analyze this uploaded patient image.
+
+Safety rules:
+- Do NOT give a final diagnosis.
+- Do NOT claim certainty.
+- Describe visible findings only.
+- If the image quality is poor or the body region/modality is unclear, say that.
+- Mention that a qualified clinician/radiologist must review the image.
+- Keep output concise and clinically useful.
+
+Return ONLY valid JSON:
+{
+  "summary": "string",
+  "modality": "x-ray | ct | mri | ultrasound | dermatology_photo | clinical_photo | document_photo | unclear | other",
+  "body_region": "string or unclear",
+  "image_quality": "good | limited | poor | unclear",
+  "confidence": "high | medium | low",
+  "findings": ["string"],
+  "risk_flags": ["string"],
+  "recommendations": ["string"],
+  "limitations": ["string"]
+}
+
+File metadata:
+${JSON.stringify(
+  {
+    title: file.title,
+    description: file.description,
+    file_type: file.file_type,
+    category: file.category,
+    notes: file.notes,
+    created_at: file.created_at,
+  },
+  null,
+  2
+)}
+`;
+
+    const text = await callGeminiJson(geminiApiKey, [
+      { text: imagePrompt },
+      {
+        inlineData: {
+          mimeType,
+          data: base64Data,
+        },
+      },
+    ]);
+
+    const result = safeJsonParse(text);
+    const now = new Date().toISOString();
+
+    if (!result.summary) {
+      throw new Error('Gemini returned no image analysis summary.');
+    }
+
+    const { data: updatedFile, error: updateError } = await adminClient
+      .from('patient_files')
+      .update({
+        ai_image_summary: result.summary,
+        ai_image_modality: result.modality,
+        ai_image_body_region: result.body_region,
+        ai_image_quality: result.image_quality,
+        ai_image_confidence: result.confidence,
+        ai_image_findings: result.findings?.length ? result.findings : result.recommendations,
+        ai_image_flags: result.risk_flags,
+        ai_image_limitations: result.limitations,
+        ai_image_audit: {
+          model: 'gemini-flash-latest',
+          mode: 'image_analysis',
+          generated_by: file.generated_by || null,
+          generated_at: now,
+          file_id: file.id,
+          file_type: file.file_type,
+          disclaimer: 'AI-assisted image review only. Not a diagnosis. Must be reviewed by a qualified clinician or radiologist.',
+        },
+        image_processing_status: 'completed',
+        image_processed_at: now,
+      })
+      .eq('id', file.id)
+      .select(`
+        id,
+        clinic_id,
+        patient_id,
+        doctor_id,
+        appointment_id,
+        medical_record_id,
+        title,
+        description,
+        file_url,
+        file_type,
+        category,
+        notes,
+        ai_summary,
+        processing_status,
+        processed_at,
+        ai_image_summary,
+        ai_image_findings,
+        ai_image_flags,
+        image_processing_status,
+        image_processed_at,
+        created_at,
+        ai_image_modality,
+        ai_image_body_region,
+        ai_image_quality,
+        ai_image_confidence,
+        ai_image_limitations,
+        ai_image_audit
+      `)
+      .single();
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    return updatedFile || {
+      ...file,
+      ai_image_summary: result.summary,
+      ai_image_findings: result.recommendations,
+      ai_image_flags: result.risk_flags,
+      image_processing_status: 'completed',
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown image analysis error.';
+
+    await adminClient
+      .from('patient_files')
+      .update({
+        image_processing_status: 'failed',
+        image_processed_at: new Date().toISOString(),
+        notes: file.notes || `AI image analysis failed: ${message}`,
+      })
+      .eq('id', file.id);
+
+    return {
+      ...file,
+      image_processing_status: 'failed',
+      ai_image_summary: file.ai_image_summary || null,
     };
   }
 }
@@ -339,7 +557,18 @@ serve(async (req) => {
           ai_summary,
           processing_status,
           processed_at,
-          created_at
+          ai_image_summary,
+          ai_image_findings,
+          ai_image_flags,
+          image_processing_status,
+          image_processed_at,
+          created_at,
+          ai_image_modality,
+          ai_image_body_region,
+          ai_image_quality,
+          ai_image_confidence,
+          ai_image_limitations,
+          ai_image_audit
         `)
         .eq('clinic_id', clinicId)
         .eq('patient_id', patientId)
@@ -375,6 +604,28 @@ serve(async (req) => {
     return jsonResponse({ file: processedFile });
   }
 
+  if (mode === 'image_analysis') {
+    if (!fileId)
+      return jsonResponse({ error: 'fileId is required for image_analysis mode.' }, 400);
+
+    const targetFile = (files || []).find((file) => file.id === fileId);
+    if (!targetFile)
+      return jsonResponse({ error: 'File not found for this patient.' }, 404);
+
+    try {
+      const processedImage = await processPatientImage({
+        adminClient,
+        geminiApiKey,
+        file: { ...targetFile, generated_by: user.id },
+      });
+
+      return jsonResponse({ file: processedImage });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown image analysis error.';
+      return jsonResponse({ error: message }, 400);
+    }
+  }
+
   if (mode === 'chart_insights') {
     const chartPrompt = `
       You are a clinical trend analysis assistant.
@@ -404,44 +655,52 @@ serve(async (req) => {
       }
 
       Data:
-      ${JSON.stringify({ patient, medical_records: records, }, null, 2 )}
+      ${JSON.stringify(
+        {
+          patient,
+          medical_records: records,
+        },
+        null,
+        2
+      )}
     `;
 
-    let aiResult;
+      let aiResult;
 
-    try {
-      const text = await callGeminiJson(geminiApiKey, [{ text: chartPrompt }]);
-      if (!text)
-        return jsonResponse({ error: 'Gemini returned an empty chart insight response.' }, 502);
-      aiResult = safeJsonParse(text);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown Gemini error.';
-      return jsonResponse({ error: message }, 502);
-    }
+      try {
+        const text = await callGeminiJson(geminiApiKey, [{ text: chartPrompt }]);
 
-    if (!aiResult.summary)
-      return jsonResponse({ error: 'Could not parse AI chart insights.' }, 502);
+        if (!text)
+          return jsonResponse({ error: 'Gemini returned an empty chart insight response.' }, 502);
+        aiResult = safeJsonParse(text);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown Gemini error.';
+        return jsonResponse({ error: message }, 502);
+      }
 
-    const { data: savedSummary, error: saveError } = await adminClient
-      .from('patient_ai_summaries')
-      .insert({
-        clinic_id: clinicId,
-        patient_id: patientId,
-        doctor_id: doctor.id,
-        summary: aiResult.summary,
-        risk_flags: aiResult.risk_flags,
-        recommendations: aiResult.recommendations,
-        chart_insights: aiResult.chart_insights,
-        source_count: records?.length || 0,
-        generated_by: user.id,
-      })
-      .select('*')
-      .single();
+      if (!aiResult.summary)
+        return jsonResponse({ error: 'Could not parse AI chart insights.' }, 502);
 
-    if (saveError)
-      return jsonResponse({ error: saveError.message }, 400);
+      const { data: savedSummary, error: saveError } = await adminClient
+        .from('patient_ai_summaries')
+        .insert({
+          clinic_id: clinicId,
+          patient_id: patientId,
+          doctor_id: doctor.id,
+          summary: aiResult.summary,
+          risk_flags: aiResult.risk_flags,
+          recommendations: aiResult.recommendations,
+          chart_insights: aiResult.chart_insights,
+          source_count: records?.length || 0,
+          generated_by: user.id,
+        })
+        .select('*')
+        .single();
 
-    return jsonResponse({ summary: savedSummary });
+      if (saveError)
+        return jsonResponse({ error: saveError.message }, 400);
+
+      return jsonResponse({ summary: savedSummary });
   }
 
   const sourceCount = (appointments?.length || 0) + (records?.length || 0) + (files?.length || 0);
@@ -494,6 +753,11 @@ serve(async (req) => {
           ai_summary: file.ai_summary,
           processing_status: file.processing_status,
           processed_at: file.processed_at,
+          ai_image_summary: file.ai_image_summary,
+          ai_image_findings: file.ai_image_findings,
+          ai_image_flags: file.ai_image_flags,
+          image_processing_status: file.image_processing_status,
+          image_processed_at: file.image_processed_at,
           created_at: file.created_at,
         })),
       },

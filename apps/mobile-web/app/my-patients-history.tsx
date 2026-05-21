@@ -72,6 +72,17 @@ type PatientFile = {
   ai_summary?: string | null;
   processing_status?: string | null;
   processed_at?: string | null;
+  ai_image_summary?: string | null;
+  ai_image_findings?: string[] | null;
+  ai_image_flags?: string[] | null;
+  image_processing_status?: string | null;
+  image_processed_at?: string | null;
+  ai_image_modality?: string | null;
+  ai_image_body_region?: string | null;
+  ai_image_quality?: string | null;
+  ai_image_confidence?: string | null;
+  ai_image_limitations?: string[] | null;
+  ai_image_audit?: any;
   created_at: string | null;
 
 };
@@ -286,6 +297,18 @@ function parseFileAiSummary(value?: string | null): ParsedFileAiSummary | null {
 
 }
 
+
+function isImageFile(file: PatientFile) {
+  const type = `${file.file_type || ''} ${file.title || ''}`.toLowerCase();
+  return (
+    type.includes('image/') ||
+    type.includes('.png') ||
+    type.includes('.jpg') ||
+    type.includes('.jpeg') ||
+    type.includes('.webp')
+  );
+}
+
 export default function MyPatientsHistoryScreen() {
 
   const { clinicId, clinicName, patientId } = useLocalSearchParams<{
@@ -304,6 +327,7 @@ export default function MyPatientsHistoryScreen() {
   const [generatingPatientId, setGeneratingPatientId] = useState<string | null>(null);
   const [generatingChartInsightsPatientId, setGeneratingChartInsightsPatientId] = useState<string | null>(null);
   const [generatingFileId, setGeneratingFileId] = useState<string | null>(null);
+  const [generatingImageFileId, setGeneratingImageFileId] = useState<string | null>(null);
 
   useEffect(() => {
 
@@ -448,8 +472,25 @@ export default function MyPatientsHistoryScreen() {
       Linking.openURL(url);
   };
 
-  const getLatestClinicalSummary = (patientId: string) => aiSummaries.find((summary) => summary.patient_id === patientId && !summary.chart_insights?.length) || null;
-  const getLatestChartInsightsSummary = (patientId: string) => aiSummaries.find((summary) => summary.patient_id === patientId && !!summary.chart_insights?.length) || null;
+  const getLatestClinicalSummary = (patientId: string) => {
+    return (
+      aiSummaries.find(
+        (summary) =>
+          summary.patient_id === patientId &&
+          !summary.chart_insights?.length
+      ) || null
+    );
+  };
+
+  const getLatestChartInsightsSummary = (patientId: string) => {
+    return (
+      aiSummaries.find(
+        (summary) =>
+          summary.patient_id === patientId &&
+          !!summary.chart_insights?.length
+      ) || null
+    );
+  };
 
   const generateAiSummary = async (patient: PatientHistoryGroup) => {
     if (!clinicId) 
@@ -488,7 +529,16 @@ export default function MyPatientsHistoryScreen() {
 
       const newSummary = data.summary as PatientAiSummary;
 
-      setAiSummaries((prev) => [newSummary, ...prev.filter((item) => !(item.patient_id === patient.patientId && !item.chart_insights?.length))]);
+      setAiSummaries((prev) => [
+        newSummary,
+        ...prev.filter(
+          (item) =>
+            !(
+              item.patient_id === patient.patientId &&
+              !item.chart_insights?.length
+            )
+        ),
+      ]);
 
       Alert.alert('Success', 'AI clinical summary generated.');
     } catch (summaryError: any) {
@@ -533,7 +583,16 @@ export default function MyPatientsHistoryScreen() {
 
       const newSummary = data.summary as PatientAiSummary;
 
-      setAiSummaries((prev) => [newSummary, ...prev.filter((item) => !(item.patient_id === patient.patientId && !!item.chart_insights?.length))]);
+      setAiSummaries((prev) => [
+        newSummary,
+        ...prev.filter(
+          (item) =>
+            !(
+              item.patient_id === patient.patientId &&
+              !!item.chart_insights?.length
+            )
+        ),
+      ]);
 
       Alert.alert('Success', 'AI chart insights generated.');
     } catch (chartError: any) {
@@ -589,6 +648,61 @@ export default function MyPatientsHistoryScreen() {
       Alert.alert('File summary error', fileError?.message || 'Something went wrong.');
     } finally {
       setGeneratingFileId(null);
+    }
+  };
+
+
+  const generateImageAnalysis = async (file: PatientFile) => {
+    if (!clinicId || !selectedPatient)
+      return;
+
+    if (!isImageFile(file)) {
+      Alert.alert('Image analysis unavailable', 'AI image analysis is available only for PNG, JPG, JPEG or WEBP files.');
+      return;
+    }
+
+    try {
+      setGeneratingImageFileId(file.id);
+
+      const { data, error } = await supabase.functions.invoke('ai-summary', {
+        body: {
+          clinicId,
+          patientId: selectedPatient.patientId,
+          mode: 'image_analysis',
+          fileId: file.id,
+        },
+      });
+
+      if (error) {
+        const context = (error as any).context;
+        let details = error.message;
+
+        if (context) {
+          const text = await context.text().catch(() => '');
+          if (text)
+            details = text;
+        }
+
+        Alert.alert('Image analysis error', details);
+        return;
+      }
+
+      if (!data?.file) {
+        Alert.alert('Image analysis error', 'No image analysis was returned.');
+        return;
+      }
+
+      const updatedFile = data.file as PatientFile;
+
+      setFiles((prev) => prev.map((item) => (item.id === updatedFile.id ? updatedFile : item)));
+
+      setSelectedPatient((prev) => prev ? { ...prev, files: prev.files.map((item) => item.id === updatedFile.id ? updatedFile : item) } : prev);
+
+      Alert.alert('Success', 'AI image analysis generated.');
+    } catch (imageError: any) {
+      Alert.alert('Image analysis error', imageError?.message || 'Something went wrong.');
+    } finally {
+      setGeneratingImageFileId(null);
     }
   };
 
@@ -716,7 +830,7 @@ export default function MyPatientsHistoryScreen() {
                             <View style={styles.aiListBlock}>
                               <Text style={styles.aiListTitle}>Risk flags</Text>
                               {getLatestClinicalSummary(selectedPatient.patientId)?.risk_flags?.map((flag, index) => (
-                                <Text key={`risk-${index}`} style={styles.aiListItem}> • {flag}</Text>
+                                <Text key={`risk-${index}`} style={styles.aiListItem}>• {flag}</Text>
                               ))}
                             </View>
                           )}
@@ -724,7 +838,7 @@ export default function MyPatientsHistoryScreen() {
                           {!!getLatestClinicalSummary(selectedPatient.patientId)?.recommendations?.length && (
                             <View style={styles.aiListBlock}>
                               <Text style={styles.aiListTitle}>Recommendations</Text>
-                              {getLatestClinicalSummary(selectedPatient.patientId)?.recommendations?.map((recommendation, index) => (<Text key={`rec-${index}`} style={styles.aiListItem}> • {recommendation}</Text>))}
+                              {getLatestClinicalSummary(selectedPatient.patientId)?.recommendations?.map((recommendation, index) => (<Text key={`rec-${index}`} style={styles.aiListItem}>• {recommendation}</Text>))}
                             </View>
                           )}
                         </>
@@ -855,6 +969,12 @@ export default function MyPatientsHistoryScreen() {
                                     <Text style={styles.processingBadgeText}>{file.processing_status}</Text>
                                   </View>
                                 )}
+
+                                {!!file.image_processing_status && (
+                                  <View style={[styles.processingBadge, file.image_processing_status === "completed" ? styles.processingBadgeCompleted : file.image_processing_status === "failed" ? styles.processingBadgeFailed : styles.processingBadgeProcessing]}>
+                                    <Text style={styles.processingBadgeText}>image {file.image_processing_status}</Text>
+                                  </View>
+                                )}
                               </View>
 
                               <Text style={styles.fileMeta}>
@@ -875,32 +995,111 @@ export default function MyPatientsHistoryScreen() {
                                 return (
                                   <View style={styles.fileAiSummaryBox}>
                                     <View style={styles.fileTitleRow}>
-                                      <Ionicons name="sparkles-outline" size={15} color={theme.primary}/>
-                                      <Text style={styles.fileAiSummaryTitle}>AI document summary</Text>
+                                      <Ionicons
+                                        name="sparkles-outline"
+                                        size={15}
+                                        color={theme.primary}
+                                      />
+                                      <Text style={styles.fileAiSummaryTitle}>
+                                        AI document summary
+                                      </Text>
                                     </View>
 
-                                    {!!parsedSummary.summary && (<Text style={styles.fileAiSummaryText}>{parsedSummary.summary}</Text>)}
+                                    {!!parsedSummary.summary && (
+                                      <Text style={styles.fileAiSummaryText}>
+                                        {parsedSummary.summary}
+                                      </Text>
+                                    )}
 
                                     {parsedSummary.risk_flags.length > 0 && (
                                       <View style={styles.aiListBlock}>
                                         <Text style={styles.aiListTitle}>Risk flags</Text>
+
                                         {parsedSummary.risk_flags.map((flag, index) => (
-                                          <Text key={`file-risk-${index}`} style={styles.aiListItem}> • {flag}</Text>
+                                          <Text
+                                            key={`file-risk-${index}`}
+                                            style={styles.aiListItem}
+                                          >
+                                            • {flag}
+                                          </Text>
                                         ))}
                                       </View>
                                     )}
 
                                     {parsedSummary.recommendations.length > 0 && (
                                       <View style={styles.aiListBlock}>
-                                        <Text style={styles.aiListTitle}>Recommendations</Text>
-                                        {parsedSummary.recommendations.map((recommendation, index) => (
-                                          <Text key={`file-rec-${index}`} style={styles.aiListItem}> • {recommendation}</Text>
-                                        ))}
+                                        <Text style={styles.aiListTitle}>
+                                          Recommendations
+                                        </Text>
+
+                                        {parsedSummary.recommendations.map(
+                                          (recommendation, index) => (
+                                            <Text
+                                              key={`file-rec-${index}`}
+                                              style={styles.aiListItem}
+                                            >
+                                              • {recommendation}
+                                            </Text>
+                                          )
+                                        )}
                                       </View>
                                     )}
                                   </View>
                                 );
                               })()}
+
+                              {!!file.ai_image_summary && (
+                                <View style={styles.fileAiSummaryBox}>
+                                  <View style={styles.fileTitleRow}>
+                                    <Ionicons name="scan-outline" size={15} color={theme.primary} />
+                                    <Text style={styles.fileAiSummaryTitle}>AI image analysis</Text>
+                                  </View>
+
+                                  <View style={styles.aiImageDisclaimerBox}>
+                                    <Text style={styles.aiImageDisclaimerText}>
+                                      AI-assisted image review only. Not a diagnosis. Must be reviewed by a qualified clinician or radiologist before clinical decisions.
+                                    </Text>
+                                  </View>
+
+                                  <DetailRow icon="layers-outline" label="Modality" value={formatValue(file.ai_image_modality)} />
+                                  <DetailRow icon="body-outline" label="Body region" value={formatValue(file.ai_image_body_region)} />
+                                  <DetailRow icon="image-outline" label="Image quality" value={formatValue(file.ai_image_quality)} />
+                                  <DetailRow icon="analytics-outline" label="AI confidence" value={formatValue(file.ai_image_confidence)} />
+
+                                  <Text style={styles.fileAiSummaryText}>{file.ai_image_summary}</Text>
+
+                                  {!!file.ai_image_flags?.length && (
+                                    <View style={styles.aiListBlock}>
+                                      <Text style={styles.aiListTitle}>Red flags</Text>
+                                      {file.ai_image_flags.map((flag, index) => (
+                                        <Text key={`image-flag-${index}`} style={styles.aiListItem}>• {flag}</Text>
+                                      ))}
+                                    </View>
+                                  )}
+
+                                  {!!file.ai_image_findings?.length && (
+                                    <View style={styles.aiListBlock}>
+                                      <Text style={styles.aiListTitle}>Visible findings</Text>
+                                      {file.ai_image_findings.map((finding, index) => (
+                                        <Text key={`image-finding-${index}`} style={styles.aiListItem}>• {finding}</Text>
+                                      ))}
+                                    </View>
+                                  )}
+
+                                  {!!file.ai_image_limitations?.length && (
+                                    <View style={styles.aiListBlock}>
+                                      <Text style={styles.aiListTitle}>Limitations</Text>
+                                      {file.ai_image_limitations.map((item, index) => (
+                                        <Text key={`image-limitation-${index}`} style={styles.aiListItem}>• {item}</Text>
+                                      ))}
+                                    </View>
+                                  )}
+
+                                  <Text style={styles.fileMeta}>
+                                    Analyzed: {formatDateTimeShort(file.image_processed_at)}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
 
                             <View style={styles.fileActionsRow}>
@@ -908,6 +1107,13 @@ export default function MyPatientsHistoryScreen() {
                                 <Ionicons name="sparkles-outline" size={16} color="#FFFFFF"/>
                                 <Text style={styles.fileButtonText}>{generatingFileId === file.id ? "Generating..." : file.ai_summary ? "Regenerate Summary" : "Generate Summary"}</Text>
                               </Pressable>
+
+                              {isImageFile(file) && (
+                                <Pressable style={[styles.fileActionButton, { backgroundColor: "#475569", opacity: generatingImageFileId === file.id ? 0.7 : 1 }]} onPress={() => generateImageAnalysis(file)} disabled={generatingImageFileId === file.id}>
+                                  <Ionicons name="scan-outline" size={16} color="#FFFFFF"/>
+                                  <Text style={styles.fileButtonText}>{generatingImageFileId === file.id ? "Analyzing..." : file.ai_image_summary ? "Regenerate Image AI" : "Analyze Image"}</Text>
+                                </Pressable>
+                              )}
 
                               <Pressable style={[styles.fileActionButton, { backgroundColor: "#0F172A" }]} onPress={() => openFile(file.file_url)}>
                                 <Ionicons name="open-outline" size={16} color="#FFFFFF"/>
@@ -1519,6 +1725,21 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: '#FFFFFF',
     fontWeight: '900',
+  },
+
+  aiImageDisclaimerBox: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    padding: 10,
+  },
+
+  aiImageDisclaimerText: {
+    color: '#92400E',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
   },
 
 });

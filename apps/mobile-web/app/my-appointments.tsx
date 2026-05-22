@@ -67,6 +67,18 @@ type Appointment = {
 
 };
 
+type OnboardingReview = {
+  id: string;
+  appointment_id: string;
+  summary_for_doctor: string | null;
+  missing_information: string[] | null;
+  clarifying_questions: string[] | null;
+  urgency_flags: string[] | null;
+  urgency_level: string | null;
+  form_valid: boolean | null;
+  created_at: string | null;
+};
+
 const INSURANCE_LABELS: Record<string, string> = {
 
   self_pay: 'Self pay',
@@ -283,6 +295,7 @@ export default function MyAppointmentsScreen() {
   const [detailsTarget, setDetailsTarget] = useState<Appointment | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [sortBy, setSortBy] = useState<AppointmentSort>('default');
+  const [onboardingReviews, setOnboardingReviews] = useState<OnboardingReview[]>([]);
 
   const loadAppointments = async () => {
 
@@ -356,6 +369,23 @@ export default function MyAppointmentsScreen() {
       }));
 
       setAppointments(mappedAppointments);
+
+      const appointmentIds = mappedAppointments.map((appointment) => appointment.id);
+
+      if (appointmentIds.length > 0) {
+        const { data: reviewRows, error: reviewError } = await supabase
+          .from('patient_onboarding_reviews')
+          .select('*')
+          .in('appointment_id', appointmentIds)
+          .order('created_at', { ascending: false });
+
+        if (reviewError)
+          console.log('Onboarding review lookup error:', reviewError.message);
+
+        setOnboardingReviews((reviewRows ?? []) as OnboardingReview[]);
+      } else {
+        setOnboardingReviews([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -423,6 +453,8 @@ export default function MyAppointmentsScreen() {
     return items;
   
   }, [appointments, appointmentId, sortBy]);
+
+  const getOnboardingReview = (appointmentIdToFind: string) => { return onboardingReviews.find((review) => review.appointment_id === appointmentIdToFind) || null; };
 
   const handleCancel = async () => {
 
@@ -787,6 +819,26 @@ export default function MyAppointmentsScreen() {
                       label="AI triage note"
                       value={detailsTarget.ai_triage_patient_note}
                     />
+                  )}
+
+                  {getOnboardingReview(detailsTarget.id) && (
+                    <View style={styles.onboardingReviewCard}>
+                      <View style={styles.onboardingReviewHeader}>
+                        <Ionicons name="sparkles-outline" size={18} color={theme.primary}/>
+                        <Text style={styles.onboardingReviewTitle}>AI onboarding review</Text>
+                      </View>
+
+                      <Text style={styles.onboardingReviewText}>{getOnboardingReview(detailsTarget.id)?.summary_for_doctor || 'No AI onboarding summary available.'}</Text>
+
+                      {!!getOnboardingReview(detailsTarget.id)?.clarifying_questions?.length && (
+                        <View style={styles.onboardingReviewList}>
+                          <Text style={styles.onboardingReviewListTitle}>Questions to clarify</Text>
+                          {getOnboardingReview(detailsTarget.id)?.clarifying_questions?.map((item, index) => (
+                            <Text key={`question-${index}`} style={styles.onboardingReviewListItem}>• {item}</Text>
+                          ))}
+                        </View>
+                      )}
+                    </View>
                   )}
                 </View>
               </ScrollView>
@@ -1368,6 +1420,51 @@ const styles = StyleSheet.create({
 
   disabledButton: {
     opacity: 0.7,
+  },
+
+  onboardingReviewCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 16,
+    gap: 10,
+  },
+
+  onboardingReviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  onboardingReviewTitle: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+
+  onboardingReviewText: {
+    color: '#475569',
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+
+  onboardingReviewList: {
+    gap: 5,
+  },
+
+  onboardingReviewListTitle: {
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  onboardingReviewListItem: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
   },
 
 });

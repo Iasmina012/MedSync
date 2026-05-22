@@ -435,17 +435,15 @@ export default function HomeScreen() {
   const [reviewError, setReviewError] = useState('');
   const [reviewSuccess, setReviewSuccess] = useState('');
 
-  const [reviewStartIndex, setReviewStartIndex] = useState(0);
+  const [reviewTrackIndex, setReviewTrackIndex] = useState(0);
   const [isSliding, setIsSliding] = useState(false);
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
 
   const [reviewFirstName, setReviewFirstName] = useState('');
   const [reviewLastName, setReviewLastName] = useState('');
   const [reviewEmail, setReviewEmail] = useState('');
   const [reviewText, setReviewText] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
-
-  const reviewTranslateX = useRef(new Animated.Value(0)).current;
+  const reviewTranslateX = useRef(new Animated.Value(-1)).current;
   const autoplayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const reviewsPerPage = width < 850 ? 1 : 3;
@@ -453,22 +451,10 @@ export default function HomeScreen() {
 
   const reviewGap = 20;
   const reviewCardWidth = width < 850 ? Math.max(280, width - 170) : 340;
-  const translateDistance =
-    width < 850
-      ? reviewCardWidth + reviewGap
-      : reviewCardWidth + reviewGap;
-
-  const reviewCardInlineStyle = useMemo(() => {
-    if (width < 850) {
-      return { width: Math.max(280, width - 170) };
-    }
-
-    return {
-      flex: 1,
-      minWidth: 0,
-      maxWidth: 340,
-    };
-  }, [width]);
+  const translateDistance = reviewCardWidth + reviewGap;
+  const reviewVisibleCount = Math.min(reviewsPerPage, Math.max(reviews.length, 1));
+  const reviewVisibleWidth = reviewVisibleCount * reviewCardWidth + Math.max(0, reviewVisibleCount - 1) * reviewGap;
+  const reviewCardInlineStyle = useMemo(() => { return { width: reviewCardWidth }; }, [reviewCardWidth]);
 
   const loadReviews = async () => {
 
@@ -656,20 +642,27 @@ export default function HomeScreen() {
     [reviews, reviewsPerPage]
   );
 
-  const currentReviews = useMemo(() => {
-    return getReviewWindow(reviewStartIndex);
-  }, [getReviewWindow, reviewStartIndex]);
+  useEffect(() => {
+    if (reviews.length === 0) {
+      setReviewTrackIndex(0);
+      reviewTranslateX.setValue(0);
+      return;
+    }
+    const safeStartIndex = reviewsLoopDisabled ? 0 : reviews.length;
+    setReviewTrackIndex(safeStartIndex);
+    reviewTranslateX.setValue(reviewsLoopDisabled ? 0 : -safeStartIndex * translateDistance);
+  }, [reviews.length, reviewsLoopDisabled, reviewTranslateX, translateDistance]);
 
-  const nextReviews = useMemo(() => {
-    if (reviews.length === 0) return [];
+  const normalizedReviewIndex = reviews.length === 0 ? 0 : ((reviewTrackIndex % reviews.length) + reviews.length) % reviews.length;
 
-    const nextIndex =
-      slideDirection === 'right'
-        ? (reviewStartIndex + 1) % reviews.length
-        : (reviewStartIndex - 1 + reviews.length) % reviews.length;
-
-    return getReviewWindow(nextIndex);
-  }, [getReviewWindow, reviews.length, reviewStartIndex, slideDirection]);
+  const currentReviews = useMemo(() => { return getReviewWindow(normalizedReviewIndex); }, [getReviewWindow, normalizedReviewIndex]);
+  const animatedReviews = useMemo(() => {
+    if (reviews.length === 0) 
+      return [];
+    if (reviewsLoopDisabled) 
+      return currentReviews;
+    return [...reviews, ...reviews, ...reviews];
+  }, [currentReviews, reviews, reviewsLoopDisabled]);
 
   const clearAutoplay = useCallback(() => {
     if (autoplayRef.current) {
@@ -680,29 +673,51 @@ export default function HomeScreen() {
 
   const runSlide = useCallback(
     (direction: 'left' | 'right') => {
-      if (reviewsLoopDisabled || isSliding) return;
+      if (reviewsLoopDisabled || isSliding || reviews.length === 0) 
+        return;
 
       setIsSliding(true);
-      setSlideDirection(direction);
-      reviewTranslateX.setValue(0);
+
+      const currentIndex = reviewTrackIndex || reviews.length;
+      const nextIndex = direction === 'right' ? currentIndex + 1 : currentIndex - 1;
+
+      reviewTranslateX.stopAnimation();
 
       Animated.timing(reviewTranslateX, {
-        toValue: direction === 'right' ? -1 : 1,
-        duration: 80,
-        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        toValue: -nextIndex * translateDistance,
+        duration: 720,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
         useNativeDriver: true,
-      }).start(() => {
-        setReviewStartIndex((prev) =>
-          direction === 'right'
-            ? (prev + 1) % reviews.length
-            : (prev - 1 + reviews.length) % reviews.length
-        );
+      }).start(({ finished }) => {
+        if (!finished) {
+          setIsSliding(false);
+          return;
+        }
 
-        reviewTranslateX.setValue(0);
-        setIsSliding(false);
+        let safeIndex = nextIndex;
+
+        if (direction === 'right' && nextIndex >= reviews.length * 2)
+          safeIndex = reviews.length;
+
+        if (direction === 'left' && nextIndex <= reviews.length - 1)
+          safeIndex = reviews.length * 2 - 1;
+
+        setReviewTrackIndex(safeIndex);
+
+        requestAnimationFrame(() => {
+          reviewTranslateX.setValue(-safeIndex * translateDistance);
+          setIsSliding(false);
+        });
       });
     },
-    [reviewsLoopDisabled, isSliding, reviewTranslateX, reviews.length]
+    [
+      reviewsLoopDisabled,
+      isSliding,
+      reviews.length,
+      reviewTrackIndex,
+      reviewTranslateX,
+      translateDistance,
+    ]
   );
 
   const handlePrevReviews = useCallback(() => {
@@ -723,13 +738,13 @@ export default function HomeScreen() {
 
     autoplayRef.current = setTimeout(() => {
       runSlide('right');
-    }, 2000);
+    }, 4200);
 
     return () => {
       clearAutoplay();
     };
   }, [
-    reviewStartIndex,
+    reviewTrackIndex,
     reviews.length,
     reviewsPerPage,
     reviewsLoopDisabled,
@@ -792,7 +807,7 @@ export default function HomeScreen() {
       setReviewSuccess('Your review was added successfully.');
 
       await loadReviews();
-      setReviewStartIndex(0);
+      setReviewTrackIndex(reviews.length);
     } catch {
       setReviewError('Could not submit your review.');
     } finally {
@@ -1189,92 +1204,34 @@ export default function HomeScreen() {
                 </Text>
               </View>
             ) : (
-              <View style={styles.reviewsSliderOuter}>
-                <Animated.View
-                  style={[
-                    styles.reviewsAnimatedTrack,
-                    {
-                      transform: [
-                        {
-                          translateX: reviewTranslateX.interpolate({
-                            inputRange: [-1, 0, 1],
-                            outputRange: [-translateDistance, 0, translateDistance],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  <View style={styles.reviewsPage}>
-                    {currentReviews.map((review) => (
-                      <HoverLiftCard
-                        key={`current-${review.id}`}
-                        style={[styles.reviewCard, reviewCardInlineStyle]}
-                        disabled={isSliding}
-                      >
-                        <View>
-                          <View style={styles.reviewStars}>
-                            {Array.from({ length: 5 }).map((_, index) => {
-                              const starValue = index + 1;
-                              const active = starValue <= review.rating;
+              <View
+                style={[ styles.reviewsSliderOuter, { width: reviewVisibleWidth, maxWidth: '100%' },]}>
+                <Animated.View style={[
+                  styles.reviewsAnimatedTrack,
+                  { gap: reviewGap },
+                  { transform: [{ translateX: reviewsLoopDisabled ? 0 : reviewTranslateX }] },
+                ]}>
+                  {animatedReviews.map((review, index) => (
+                    <HoverLiftCard key={`${review.id}-${index}`} style={[styles.reviewCard, reviewCardInlineStyle]} disabled={isSliding}>
+                      <View>
+                        <View style={styles.reviewStars}>
+                          {Array.from({ length: 5 }).map((_, starIndex) => {
+                            const starValue = starIndex + 1;
+                            const active = starValue <= review.rating;
 
-                              return (
-                                <Ionicons
-                                  key={index}
-                                  name={active ? 'star' : 'star-outline'}
-                                  size={16}
-                                  color="#F59E0B"
-                                />
-                              );
-                            })}
-                          </View>
-
-                          <Text style={styles.reviewText}>“{review.text}”</Text>
+                            return (<Ionicons key={starIndex} name={active ? 'star' : 'star-outline'} size={16} color="#F59E0B"/>);
+                          })}
                         </View>
 
-                        <View>
-                          <Text style={styles.reviewName}>{review.name}</Text>
-                        </View>
-                      </HoverLiftCard>
-                    ))}
-                  </View>
+                        <Text style={styles.reviewText}>“{review.text}”</Text>
+                      </View>
 
-                  <View style={styles.reviewsPage}>
-                    {nextReviews.map((review) => (
-                      <HoverLiftCard
-                        key={`next-${review.id}`}
-                        style={[styles.reviewCard, reviewCardInlineStyle]}
-                        disabled={isSliding}
-                      >
-                        <View>
-                          <View style={styles.reviewStars}>
-                            {Array.from({ length: 5 }).map((_, index) => {
-                              const starValue = index + 1;
-                              const active = starValue <= review.rating;
+                      <View>
+                        <Text style={styles.reviewName}>{review.name}</Text>
 
-                              return (
-                                <Ionicons
-                                  key={index}
-                                  name={active ? 'star' : 'star-outline'}
-                                  size={16}
-                                  color="#F59E0B"
-                                />
-                              );
-                            })}
-                          </View>
-
-                          <Text style={styles.reviewText}>“{review.text}”</Text>
-                        </View>
-
-                        <View>
-                          <Text style={styles.reviewName}>{review.name}</Text>
-                          {!!review.email && (
-                            <Text style={styles.reviewEmail}>{review.email}</Text>
-                          )}
-                        </View>
-                      </HoverLiftCard>
-                    ))}
-                  </View>
+                      </View>
+                    </HoverLiftCard>
+                  ))}
                 </Animated.View>
               </View>
             )}
@@ -2009,24 +1966,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minHeight: 260,
     justifyContent: 'center',
+    alignItems: 'center',
   },
 
   reviewsSliderOuter: {
     overflow: 'hidden',
-    width: '100%',
   },
 
   reviewsAnimatedTrack: {
-    width: '200%',
     flexDirection: 'row',
-  },
-
-  reviewsPage: {
-    width: '50%',
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'stretch',
-    gap: 20,
   },
 
   reviewsLoadingWrap: {

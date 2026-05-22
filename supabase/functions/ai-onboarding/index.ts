@@ -34,6 +34,14 @@ function safeJsonParse(text: string) {
       missing_information: asArray(parsed.missing_information),
       clarifying_questions: asArray(parsed.clarifying_questions),
       urgency_flags: asArray(parsed.urgency_flags),
+      urgency_flags_structured: Array.isArray(parsed.urgency_flags_structured)
+        ? parsed.urgency_flags_structured
+        : [],
+      completion_score: Number.isFinite(Number(parsed.completion_score))
+        ? Math.max(0, Math.min(100, Number(parsed.completion_score)))
+        : null,
+      requires_manual_review: Boolean(parsed.requires_manual_review),
+      triage_recommendation: String(parsed.triage_recommendation || '').trim(),
     };
   } catch {
     return {
@@ -43,6 +51,10 @@ function safeJsonParse(text: string) {
       missing_information: [],
       clarifying_questions: [],
       urgency_flags: [],
+      urgency_flags_structured: [],
+      completion_score: null,
+      requires_manual_review: true,
+      triage_recommendation: '',
     };
   }
 
@@ -172,6 +184,12 @@ serve(async (req) => {
     Do NOT invent facts.
     If there are possible red flags, phrase them as review flags, not diagnoses.
 
+    Rules for extra fields:
+    - completion_score must be 0-100 based on how complete and clinically useful the intake is.
+    - requires_manual_review should be true if information is missing, unclear, urgent, inconsistent, or if urgency_level is needs_review/urgent.
+    - triage_recommendation should be a short operational recommendation, not a diagnosis.
+    - urgency_flags_structured should mirror urgency_flags but include severity and reason.
+
     Return ONLY valid JSON with this exact shape:
     {
       "form_valid": true,
@@ -179,7 +197,17 @@ serve(async (req) => {
       "summary_for_doctor": "string",
       "missing_information": ["string"],
       "clarifying_questions": ["string"],
-      "urgency_flags": ["string"]
+      "urgency_flags": ["string"],
+      "urgency_flags_structured": [
+        {
+          "flag": "string",
+          "severity": "routine | needs_review | urgent",
+          "reason": "string"
+        }
+      ],
+      "completion_score": 0,
+      "requires_manual_review": true,
+      "triage_recommendation": "string"
     }
 
     Appointment and intake data:
@@ -211,6 +239,10 @@ serve(async (req) => {
         missing_information: aiResult.missing_information,
         clarifying_questions: aiResult.clarifying_questions,
         urgency_flags: aiResult.urgency_flags,
+        urgency_flags_structured: aiResult.urgency_flags_structured,
+        completion_score: aiResult.completion_score,
+        requires_manual_review: aiResult.requires_manual_review,
+        triage_recommendation: aiResult.triage_recommendation || null,
         generated_by: user.id,
         updated_at: new Date().toISOString(),
       },

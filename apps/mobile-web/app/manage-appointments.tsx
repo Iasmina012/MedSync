@@ -90,6 +90,11 @@ type OnboardingReview = {
   clarifying_questions: string[] | null;
   urgency_flags: string[] | null;
   urgency_level: string | null;
+  urgency_flags_structured: {
+    flag: string;
+    severity: string;
+    reason: string;
+  }[] | null;
   form_valid: boolean | null;
   completion_score: number | null;
   requires_manual_review: boolean | null;
@@ -1158,6 +1163,15 @@ export default function ManageAppointmentsScreen() {
 
                         <Text style={styles.onboardingReviewText}>{review.summary_for_doctor || 'No onboarding summary available.'}</Text>
 
+                        {typeof review.completion_score === 'number' && (
+                          <View style={styles.onboardingRecommendationBox}>
+                            <Text style={styles.onboardingRecommendationTitle}>Intake completion score</Text>
+                            <Text style={styles.onboardingRecommendationText}>
+                              {review.completion_score}/100
+                            </Text>
+                          </View>
+                        )}
+
                         <View style={styles.onboardingReviewMetaRow}>
                           <View style={[styles.onboardingReviewPill, { backgroundColor: urgencyColor.background, borderColor: urgencyColor.border }]}>
                             <Text style={[styles.onboardingReviewPillText, { color: urgencyColor.text }]}>Urgency: {review.urgency_level || 'routine'}</Text>
@@ -1210,6 +1224,19 @@ export default function ManageAppointmentsScreen() {
                             ))}
                           </View>
                         )}
+
+                        {!!review.urgency_flags_structured?.length && (
+                          <View style={styles.onboardingReviewList}>
+                            <Text style={styles.onboardingReviewListTitle}>Structured urgency flags</Text>
+
+                            {review.urgency_flags_structured.map((item, index) => (
+                              <Text key={`structured-flag-${index}`} style={styles.onboardingReviewListItem}>
+                                • {item.flag} ({item.severity}) — {item.reason}
+                              </Text>
+                            ))}
+                          </View>
+                        )}
+
                       </View>
                     );
                   })()}                            

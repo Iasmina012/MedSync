@@ -482,6 +482,9 @@ export default function MyAppointmentsScreen() {
         return;
       }
 
+      const notificationResponse = await supabase.functions.invoke('notifications', { body: { appointmentId: cancelTarget.id, type: 'cancelled', }, });
+      console.log('PATIENT CANCEL NOTIFICATION RESPONSE:', JSON.stringify(notificationResponse, null, 2));
+
       setAppointments((prev) => prev.filter((item) => item.id !== cancelTarget.id));
       setCancelTarget(null);
       setDetailsTarget(null);

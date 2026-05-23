@@ -861,6 +861,7 @@ export default function BookAppointmentScreen() {
           return;
         }
 
+        await supabase.functions.invoke('notifications', { body: { appointmentId: data.id, type: 'rescheduled', }, });
         await uploadOnboardingFiles({ appointmentIdToAttach: data.id, patientIdToAttach: finalPatientId });
         try {
           await generateOnboardingReview(data.id);
@@ -889,6 +890,7 @@ export default function BookAppointmentScreen() {
         return;
       }
 
+      await supabase.functions.invoke('notifications', { body: { appointmentId: data.id, type: 'created', }, });
       await uploadOnboardingFiles({ appointmentIdToAttach: data.id, patientIdToAttach: finalPatientId });
       await generateOnboardingReview(data.id);
 

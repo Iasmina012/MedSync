@@ -146,7 +146,7 @@ useEffect(() => {
   { title: 'Manage Users', icon: 'people-outline' as const, description: 'Manage platform users and roles.', onPress: () => go('/manage-users') },
   { title: 'Manage Clinics', icon: 'business-outline' as const, description: 'Configure clinics platform-wide.', onPress: () => go('/manage-clinics') },
   { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'View all appointments.', onPress: () => go('/manage-appointments'), },
-  { title: 'Analytics', icon: 'bar-chart-outline' as const, description: 'Global usage and reporting.', onPress: () => go('/analytics') },
+  { title: 'View Analytics', icon: 'bar-chart-outline' as const, description: 'Global usage and reporting.', onPress: () => go('/analytics') },
 
   ];
 

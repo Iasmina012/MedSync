@@ -772,6 +772,24 @@ export default function ManageAppointmentsScreen() {
     }
   };
 
+  const createAppointmentNotification = async ( appointmentId: string, type: 'cancelled' | 'checked_in' | 'missed' ) => {
+    console.log('CREATING NOTIFICATION:', { appointmentId, type, });
+    const response = await supabase.functions.invoke('notifications', { body: { appointmentId, type, }, });
+    console.log('NOTIFICATION FUNCTION RESPONSE:', JSON.stringify(response, null, 2));
+
+    if (response.error) {
+      console.log('Appointment notification invoke error:', response.error);
+      return;
+    }
+
+    if (response.data?.error) {
+      console.log('Appointment notification data error:', response.data.error);
+      return;
+    }
+
+    console.log('NOTIFICATION CREATED SUCCESSFULLY');
+  };
+
   const updateAppointmentStatus = async (
     appointment: Appointment,
     status: AppointmentStatus,
@@ -799,6 +817,9 @@ export default function ManageAppointmentsScreen() {
         Alert.alert('Error', updateError.message);
         return;
       }
+
+      if (status === 'cancelled' || status === 'checked_in' || status === 'missed')
+        await createAppointmentNotification(appointment.id, status);
 
       setAppointments((prev) => prev.filter((item) => item.id !== appointment.id));
       setCancelTarget(null);

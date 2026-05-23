@@ -4,6 +4,7 @@ import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, Anima
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
+import NotificationsBell from './NotificationsBell';
 
 type Props = {
 
@@ -224,6 +225,7 @@ export default function ClinicNavbar({
         </View>
 
         <View style={styles.right}>
+          <NotificationsBell primaryColor={primaryColor}/>
           {showBackButton && (
             <Pressable
               style={[

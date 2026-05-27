@@ -3,20 +3,26 @@ import { Platform, SafeAreaView, StyleSheet, View } from 'react-native';
 import WebNavbar from './WebNavbar';
 import FloatingChatButton from '../../common/FloatingChatButton';
 
-export default function PublicPageLayout({children,}: {children: ReactNode;}) {
-  
+export default function PublicPageLayout({
+  children,
+  showWebNavbar = true,
+  showWebFloatingChat = true,
+}: {
+  children: ReactNode;
+  showWebNavbar?: boolean;
+  showWebFloatingChat?: boolean;
+}) {
+
   const isWeb = Platform.OS === 'web';
 
   return (
 
     <SafeAreaView style={styles.safeArea}>
-
       <View style={styles.page}>
-        {isWeb && <WebNavbar />}
+        {isWeb && showWebNavbar && <WebNavbar />}
         <View style={styles.main}>{children}</View>
-        {isWeb && <FloatingChatButton />}
+        {isWeb && showWebFloatingChat && <FloatingChatButton />}
       </View>
-
     </SafeAreaView>
 
   );

@@ -167,6 +167,7 @@ export default function ClinicSelectionScreen() {
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState('');
+  const [role, setRole] = useState('');
 
   useEffect(() => {
 
@@ -181,7 +182,7 @@ export default function ClinicSelectionScreen() {
           router.replace('/login');
           return;
         }
-
+        setRole(profile.role ?? '');
         if (profile.role === 'platform_admin') {
           router.replace('/main-platform-admin');
           return;
@@ -286,6 +287,11 @@ export default function ClinicSelectionScreen() {
   
   }, []);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.replace('/login');
+  };
+
   const openConfirm = (clinic: Clinic) => {
     setSelectedClinic(clinic);
     setConfirmOpen(true);
@@ -365,7 +371,7 @@ export default function ClinicSelectionScreen() {
 
   return (
 
-    <PublicPageLayout>
+    <PublicPageLayout showWebNavbar={role === 'patient'} showWebFloatingChat={role === 'patient'}>
 
       <ScrollView contentContainerStyle={styles.container}>
         
@@ -384,7 +390,14 @@ export default function ClinicSelectionScreen() {
               />
             </View>
 
-          { Platform.OS !== 'web' && <MobileClinicsLogout inline/> }
+          {Platform.OS !== 'web' ? (
+            <MobileClinicsLogout inline/>
+          ) : role !== 'patient' ? (
+            <Pressable style={styles.heroLogoutButton} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={18} color="#DC2626"/>
+              <Text style={styles.heroLogoutText}>Logout</Text>
+            </Pressable>
+          ) : null}
           </View>
 
           <Text style={styles.title}>Choose Your Clinic</Text>
@@ -529,6 +542,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     lineHeight: 22,
+  },
+
+  heroLogoutButton: {
+    minHeight: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  heroLogoutText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '800',
   },
 
   grid: {

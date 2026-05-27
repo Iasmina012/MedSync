@@ -313,8 +313,7 @@ export default function DoctorPatientsScreen() {
                     });
                   }}
                 >
-                  <Ionicons name="document-text-outline" size={17} color="#FFFFFF"/>
-                  <Text style={styles.historyButtonText}>View Patient History</Text>
+                <Text numberOfLines={2} style={styles.historyButtonText}>View Patient History</Text>  
                 </Pressable>
               )}
             </View>
@@ -580,15 +579,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
   },
 
   historyButtonText: {
     color: '#FFFFFF',
     fontWeight: '900',
+    textAlign: 'center',
+    lineHeight: 19,
   },
 
   closeButton: {

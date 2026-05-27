@@ -29,16 +29,14 @@ function showAlert(title: string, message: string) {
 }
 
 async function openExternalUrl(url: string, errorMessage: string) {
-
   try {
     if (Platform.OS === 'web') {
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_self';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (url.startsWith('mailto:') || url.startsWith('tel:')) {
+        window.location.href = url;
+        return;
+      }
+
+      window.open(url, '_blank', 'noopener,noreferrer');
       return;
     }
 
@@ -53,7 +51,6 @@ async function openExternalUrl(url: string, errorMessage: string) {
   } catch {
     showAlert('Unavailable', errorMessage);
   }
-
 }
 
 export default function ContactScreen() {
@@ -235,11 +232,15 @@ const handleSendMessage = async () => {
     ].join('\n')
   );
 
+  if (Platform.OS === 'web') {
+    const isYahoo = trimmedEmail.toLowerCase().includes('@yahoo.');
+    const webmailUrl = isYahoo ? `https://compose.mail.yahoo.com/?to=${encodeURIComponent(CONTACT.email)}&subject=${subject}&body=${body}` : `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(CONTACT.email)}&su=${subject}&body=${body}`;
+    window.open(webmailUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
   const mailtoUrl = `mailto:${CONTACT.email}?subject=${subject}&body=${body}`;
-
   await openExternalUrl(mailtoUrl, 'The email app is not available on this device.');
-
-};
+  };
 
   return (
 

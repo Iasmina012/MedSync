@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View, ScrollView, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -55,15 +55,21 @@ export default function FloatingChatButton({
   clinicId,
   clinicName,
   userRole,
+  forceOpen = false,
+  initialMode,
+  onForceOpenHandled,
 }: {
   clinicId?: string;
   clinicName?: string;
   userRole?: string;
+  forceOpen?: boolean;
+  initialMode?: 'triage' | 'default';
+  onForceOpenHandled?: () => void;
 }) {
 
   const scrollRef = useRef<ScrollView | null>(null);
   const chatAnimation = useRef(new Animated.Value(0)).current;
-
+  const forceOpenHandledRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [typing, setTyping] = useState(false);
@@ -113,7 +119,7 @@ export default function FloatingChatButton({
 
   }, [userRole]);
 
-  const openChat = () => {
+  const openChat = useCallback(() => {
     setOpen(true);
     chatAnimation.setValue(0);
 
@@ -123,7 +129,7 @@ export default function FloatingChatButton({
       friction: 8,
       tension: 70,
     }).start();
-  };
+  }, [chatAnimation]);
 
   const closeChat = () => {
     Animated.timing(chatAnimation, {
@@ -134,7 +140,7 @@ export default function FloatingChatButton({
     }).start(() => setOpen(false));
   };
 
-  const sendMessage = async (overrideMessage?: string) => {
+  const sendMessage = useCallback(async (overrideMessage?: string) => {
     const value = (overrideMessage ?? message).trim();
     if (!value || typing) return;
 
@@ -202,7 +208,28 @@ export default function FloatingChatButton({
       setTyping(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
-  };
+  }, [ message, typing, clinicId, clinicName, resolvedRole, messages, bookingDraft, triageDraft, ]);
+
+  useEffect(() => {
+    if (!forceOpen) {
+      forceOpenHandledRef.current = false;
+      return;
+    }
+
+    if (forceOpenHandledRef.current) return;
+
+    forceOpenHandledRef.current = true;
+
+    openChat();
+
+    if (initialMode === 'triage') {
+      setTimeout(() => {
+        sendMessage('I have symptoms and need triage help.');
+      }, 250);
+    }
+
+    onForceOpenHandled?.();
+  }, [forceOpen, initialMode, onForceOpenHandled, openChat, sendMessage]);
 
   const handleActionPress = (action: ChatAction) => {
     if (action.message) {
@@ -338,7 +365,7 @@ export default function FloatingChatButton({
                 style={styles.quickChip}
                 onPress={() => sendMessage('What can I do in MedSync?')}
               >
-                <Text style={styles.quickChipText}>About MedSync</Text>
+                <Text style={styles.quickChipText}>MedSync</Text>
               </Pressable>
 
               <Pressable
@@ -359,7 +386,7 @@ export default function FloatingChatButton({
                 style={styles.quickChip}
                 onPress={() => sendMessage('I want to book an appointment.')}
               >
-                <Text style={styles.quickChipText}>Book App</Text>
+                <Text style={styles.quickChipText}>Booking</Text>
               </Pressable>
             </View>
 

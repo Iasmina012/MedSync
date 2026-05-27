@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import ClinicNavbar from '../src/common/ClinicNavbar';
@@ -193,13 +193,20 @@ export default function ManageClinicContentScreen() {
 
   const initialTab = tab && ['doctors', 'services', 'technologies', 'tips'].includes(tab) ? tab : 'doctors';
 
+  const { width } = useWindowDimensions();
+  const isMobile = width < 720;
+
   const { theme } = useClinicTheme(clinicId);
   const [activeTab, setActiveTab] = useState<Tab>(initialTab as Tab);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<AnyItem[]>([]);
   const [editing, setEditing] = useState<AnyItem | null>(null);
+  const [originalEditing, setOriginalEditing] = useState<AnyItem | null>(null);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [doctors, setDoctors] = useState<AnyItem[]>([]);
+  const [selectedDoctorIds, setSelectedDoctorIds] = useState<string[]>([]);
 
   const config = configs[activeTab];
   const isImageTab = Boolean(config.imageField);
@@ -248,7 +255,50 @@ export default function ManageClinicContentScreen() {
 
     setEditing(null);
     loadItems();
+    loadDoctors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, clinicId, config.table]);
+
+  const loadDoctors = async () => {
+    if (!clinicId) return;
+
+    const { data, error } = await supabase
+      .from('doctors')
+      .select('id, first_name, last_name, specialty, is_active')
+      .eq('clinic_id', clinicId)
+      .eq('is_active', true)
+      .order('first_name', { ascending: true });
+
+    if (error) {
+      Alert.alert('Error', error.message);
+      return;
+    }
+
+    setDoctors(data ?? []);
+  };
+
+  const loadServiceDoctors = async (serviceId: string) => {
+    const { data, error } = await supabase
+      .from('doctor_services')
+      .select('doctor_id')
+      .eq('service_id', serviceId);
+
+    if (error) {
+      Alert.alert('Error', error.message);
+      setSelectedDoctorIds([]);
+      return;
+    }
+
+    setSelectedDoctorIds((data ?? []).map((item: any) => item.doctor_id));
+  };
+
+  const toggleDoctorId = (doctorId: string) => {
+    setSelectedDoctorIds((prev) =>
+      prev.includes(doctorId)
+        ? prev.filter((id) => id !== doctorId)
+        : [...prev, doctorId]
+    );
+  };
 
   const refreshItems = async () => {
     if (!clinicId) return;
@@ -266,7 +316,31 @@ export default function ManageClinicContentScreen() {
 
     setItems(data ?? []);
   };
-  
+
+  const hasUnsavedChanges = () => {
+    if (!editing || !originalEditing) return false;
+
+    const isNew = !editing.id;
+
+    return isNew || JSON.stringify(editing) !== JSON.stringify(originalEditing);
+  };
+
+  const closeEditing = () => {
+    if (!hasUnsavedChanges()) {
+      setEditing(null);
+      setOriginalEditing(null);
+      return;
+    }
+
+    setDiscardConfirmOpen(true);
+  };
+
+  const discardChanges = () => {
+    setDiscardConfirmOpen(false);
+    setEditing(null);
+    setOriginalEditing(null);
+  };
+
   const createEmptyItem = () => {
     const next: AnyItem = { id: '', clinic_id: clinicId, is_active: true };
 
@@ -281,6 +355,8 @@ export default function ManageClinicContentScreen() {
     }
 
     setEditing(next);
+setOriginalEditing(cloneItem(next));
+setSelectedDoctorIds([]);
   };
 
   const uploadImage = async () => {
@@ -376,16 +452,42 @@ export default function ManageClinicContentScreen() {
       payload.icon_name = payload.icon_name || 'leaf-outline';
     }
 
-    const result = editing.id ? await supabase.from(config.table).update(payload).eq('id', editing.id) : await supabase.from(config.table).insert(payload);
-
+    const result = editing.id ? await supabase.from(config.table).update(payload).eq('id', editing.id).select('id').single() : await supabase.from(config.table).insert(payload).select('id').single();
     setSaving(false);
 
     if (result.error) {
       Alert.alert('Error', result.error.message);
       return;
     }
+    if (activeTab === 'services') {
+      const serviceId = editing.id || result.data?.id;
+      if (serviceId) {
+        await supabase
+          .from('doctor_services')
+          .delete()
+          .eq('service_id', serviceId);
+
+        if (selectedDoctorIds.length > 0) {
+          const rows = selectedDoctorIds.map((doctorId) => ({
+            clinic_id: clinicId,
+            service_id: serviceId,
+            doctor_id: doctorId,
+          }));
+
+          const { error: linkError } = await supabase
+            .from('doctor_services')
+            .upsert(rows, { onConflict: 'doctor_id,service_id' });
+
+          if (linkError) {
+            Alert.alert('Error', linkError.message);
+            return;
+          }
+        }
+      }
+    }
 
     setEditing(null);
+    setOriginalEditing(null);
     refreshItems();
   };
 
@@ -450,7 +552,11 @@ export default function ManageClinicContentScreen() {
           <Text style={styles.subtitle}>Add, edit and deactivate the clinic content that patients see.</Text>
 
           <Pressable
-            style={[styles.heroAddButton, { backgroundColor: theme.primary }]}
+            style={[
+              styles.heroAddButton,
+              isMobile && styles.fullWidthMobileButton,
+              { backgroundColor: theme.primary },
+            ]}
             onPress={createEmptyItem}
           >
             <Ionicons name="add-outline" size={18} color="#FFFFFF"/>
@@ -459,33 +565,35 @@ export default function ManageClinicContentScreen() {
         </View>
 
         <View style={styles.tabs}>
-          {Object.entries(configs).map(([key, value]) => {
-            const isActive = activeTab === key;
+          <ScrollView
+            horizontal={isMobile}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.tabs, isMobile && styles.tabsMobile]}
+          >
+            {Object.entries(configs).map(([key, value]) => {
+              const isActive = activeTab === key;
 
-            return (
-              <Pressable
-                key={key}
-                style={[
-                  styles.tab,
-                  isActive && {
-                    backgroundColor: theme.soft,
-                    borderColor: theme.borderSoft,
-                  },
-                ]}
-                onPress={() => setActiveTab(key as Tab)}
-              >
-                <Ionicons
-                  name={value.icon}
-                  size={16}
-                  color={isActive ? theme.primary : '#64748B'}
-                />
-
-                <Text style={[styles.tabText, isActive && { color: theme.primary }]}>
-                  {value.title}
-                </Text>
-              </Pressable>
-            );
-          })}
+              return (
+                <Pressable
+                  key={key}
+                  style={[
+                    styles.tab,
+                    isMobile && styles.tabMobile,
+                    isActive && {
+                      backgroundColor: theme.soft,
+                      borderColor: theme.borderSoft,
+                    },
+                  ]}
+                  onPress={() => setActiveTab(key as Tab)}
+                >
+                  <Ionicons name={value.icon} size={16} color={isActive ? theme.primary : '#64748B'} />
+                  <Text style={[styles.tabText, isActive && { color: theme.primary }]}>
+                    {value.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {loading ? (
@@ -505,7 +613,17 @@ export default function ManageClinicContentScreen() {
               const wide = activeTab === 'services' || activeTab === 'technologies';
 
               return (
-                <HoverCard key={item.id} onPress={() => setEditing(cloneItem(item))}>
+                <HoverCard
+                  key={item.id}
+                  onPress={() => {
+                    const next = cloneItem(item);
+                    setEditing(next);
+                    setOriginalEditing(cloneItem(next));
+                    if (activeTab === 'services') {
+                  loadServiceDoctors(next.id);
+                }
+                  }}
+                >
                   {wide && (
                     <View style={[styles.cardWideImageWrap, { backgroundColor: `${theme.primary}12` }]}>
                       {imageUrl ? (
@@ -560,7 +678,12 @@ export default function ManageClinicContentScreen() {
                       ]}
                       onPress={(event) => {
                         event.stopPropagation?.();
-                        setEditing(cloneItem(item));
+                        const next = cloneItem(item);
+                        setEditing(next);
+                        setOriginalEditing(cloneItem(next));
+                        if (activeTab === 'services') {
+                          loadServiceDoctors(next.id);
+                        }
                       }}
                     >
                       <Text style={styles.secondaryButtonText}>Edit</Text>
@@ -650,9 +773,9 @@ export default function ManageClinicContentScreen() {
                     />
 
                     {field === imageField && (
-                      <View style={styles.imageActions}>
+                      <View style={[styles.imageActions, isMobile && styles.imageActionsMobile]}>
                         <Pressable
-                          style={styles.imageButton}
+                          style={[styles.imageButton, isMobile && styles.fullWidthMobileButton]}
                           onPress={uploadImage}
                           disabled={uploading}
                         >
@@ -667,7 +790,7 @@ export default function ManageClinicContentScreen() {
                         </Pressable>
 
                         {!!getImageUrl(editing) && (
-                          <Pressable style={styles.imageDangerButton} onPress={removeImage}>
+                          <Pressable style={[styles.imageDangerButton, isMobile && styles.fullWidthMobileButton]} onPress={removeImage}>
                             <Ionicons name="trash-outline" size={16} color="#BE123C"/>
                             <Text style={styles.imageDangerText}>Remove</Text>
                           </Pressable>
@@ -676,7 +799,51 @@ export default function ManageClinicContentScreen() {
                     )}
                   </React.Fragment>
                 ))}
+                {activeTab === 'services' && (
+                  <>
+                    <Text style={styles.inputLabel}>Assigned doctors</Text>
 
+                    <View style={styles.doctorPicker}>
+                      {doctors.map((doctor) => {
+                        const selected = selectedDoctorIds.includes(doctor.id);
+                        const name = `Dr. ${doctor.first_name || ''} ${doctor.last_name || ''}`.trim();
+
+                        return (
+                          <Pressable
+                            key={doctor.id}
+                            style={[
+                              styles.doctorChip,
+                              selected && {
+                                backgroundColor: `${theme.primary}12`,
+                                borderColor: theme.primary,
+                              },
+                            ]}
+                            onPress={() => toggleDoctorId(doctor.id)}
+                          >
+                            <Ionicons
+                              name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                              size={18}
+                              color={selected ? theme.primary : '#94A3B8'}
+                            />
+
+                            <Text
+                              style={[
+                                styles.doctorChipText,
+                                selected && { color: theme.primary },
+                              ]}
+                            >
+                              {name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
+                    <Text style={styles.helperText}>
+                      Select one or more doctors who can provide this service.
+                    </Text>
+                  </>
+                )}
                 <Pressable
                   style={[
                     styles.statusToggleTop,
@@ -718,7 +885,7 @@ export default function ManageClinicContentScreen() {
             <View style={styles.modalActions}>
               <Pressable
                 style={styles.modalCancelButton}
-                onPress={() => setEditing(null)}
+                onPress={closeEditing}
                 disabled={saving}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
@@ -735,6 +902,35 @@ export default function ManageClinicContentScreen() {
           </View>
         </View>
 
+      </Modal>
+
+      <Modal visible={discardConfirmOpen} transparent animationType="fade">
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="warning-outline" size={28} color="#B45309" />
+            </View>
+
+            <Text style={styles.confirmTitle}>Discard unsaved changes?</Text>
+
+            <Text style={styles.confirmText}>
+              You have unsaved changes. If you close now, they will be lost.
+            </Text>
+
+            <View style={styles.confirmActions}>
+              <Pressable
+                style={styles.confirmCancelButton}
+                onPress={() => setDiscardConfirmOpen(false)}
+              >
+                <Text style={styles.confirmCancelText}>Keep editing</Text>
+              </Pressable>
+
+              <Pressable style={styles.confirmDiscardButton} onPress={discardChanges}>
+                <Text style={styles.confirmDiscardText}>Discard</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </Modal>
 
     </>
@@ -967,16 +1163,20 @@ const styles = StyleSheet.create({
 
   actions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
     marginTop: 16,
+    width: '100%',
   },
 
   secondaryButton: {
+    flex: 1,
+    minHeight: 44,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   secondaryButtonText: {
@@ -1198,6 +1398,140 @@ const styles = StyleSheet.create({
   modalSaveText: {
     color: '#FFFFFF',
     fontWeight: '900',
+  },
+
+  fullWidthMobileButton: {
+    width: '100%',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+
+  tabsMobile: {
+    flexWrap: 'nowrap',
+    paddingRight: 24,
+  },
+
+  tabMobile: {
+    flexShrink: 0,
+  },
+
+  imageActionsMobile: {
+    flexDirection: 'column',
+  },
+
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  confirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  confirmIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+
+  confirmTitle: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  confirmText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+
+  confirmCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+
+  confirmCancelText: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+
+  confirmDiscardButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  confirmDiscardText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+
+  doctorPicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 18,
+  },
+
+  doctorChip: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+  },
+
+  doctorChipText: {
+    color: '#334155',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+
+  helperText: {
+    marginTop: -8,
+    marginBottom: 18,
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
   },
 
 });

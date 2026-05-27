@@ -66,6 +66,28 @@ function buildText(type: NotificationType, appointment: any) {
 
 }
 
+async function filterRecipientsBySettings(adminClient: any, recipientIds: string[]) {
+
+  if (recipientIds.length === 0) 
+    return [];
+
+  const { data } = await adminClient
+    .from('user_settings')
+    .select('profile_id, appointment_notifications')
+    .in('profile_id', recipientIds);
+
+  const settingsMap = new Map<string, any>();
+
+  for (const item of data || [])
+    settingsMap.set(item.profile_id, item);
+
+  return recipientIds.filter((recipientId) => {
+    const settings = settingsMap.get(recipientId);
+    return settings?.appointment_notifications ?? true;
+  });
+
+}
+
 serve(async (req) => {
 
   if (req.method === 'OPTIONS')
@@ -162,7 +184,8 @@ serve(async (req) => {
         ? unique([doctorProfileId, ...adminIds]) : [];
 
   //const recipients = recipientIds.filter((id) => id !== user.id);
-    const recipients = recipientIds;
+  //const recipients = recipientIds;
+  const recipients = await filterRecipientsBySettings(adminClient, recipientIds);
 
   if (recipients.length === 0) {
     return jsonResponse({

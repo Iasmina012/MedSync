@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View, } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ClinicNavbar from '../src/common/ClinicNavbar';
@@ -10,12 +10,12 @@ import { supabase } from '../src/lib/supabase';
 
 export default function PlatformAdminAnalyticsScreen() {
 
-  const { clinicId, clinicName } = useLocalSearchParams<{
-    clinicId?: string;
-    clinicName?: string;
-  }>();
-
+  const { clinicId, clinicName } = useLocalSearchParams<{ clinicId?: string; clinicName?: string; }>();
   const { theme } = useClinicTheme(clinicId);
+  const { width } = useWindowDimensions();
+
+  const isMobile = width < 720;
+
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [topClinicRows, setTopClinicRows] = useState<any[]>([]);
@@ -200,14 +200,14 @@ export default function PlatformAdminAnalyticsScreen() {
             <Text style={styles.sectionTitle}>Platform Health</Text>
 
             <View style={styles.healthGrid}>
-              <MetricTile icon="pulse-outline" label="Completion Rate" value={`${completionRate}%`} hint={`${stats.completedAppointments30Days} completed in 30 days`} color="#16A34A"/>
-              <MetricTile icon="close-circle-outline" label="Cancellation Rate" value={`${cancellationRate}%`} hint={`${stats.cancelledAppointments30Days} cancelled in 30 days`} color="#BE123C"/>
-              <MetricTile icon="repeat-outline" label="Rescheduled Rate" value={`${rescheduledRate}%`} hint={`${stats.rescheduledAppointments30Days} rescheduled in 30 days`} color="#EA580C"/>
-              <MetricTile icon="sparkles-outline" label="AI Usage" value={`${aiUsageRate}%`} hint={`${stats.triageSessions30Days} AI triage sessions`} color="#7C3AED"/>
-              <MetricTile icon="calendar-outline" label="Today" value={stats.appointmentsToday} hint="Appointments scheduled today" color={theme.primary}/>
-              <MetricTile icon="calendar-number-outline" label="Appointments 7d" value={stats.appointments7Days} hint="Created in last 7 days" color={theme.primary}/>
-              <MetricTile icon="checkmark-circle-outline" label="Active Clinics" value={stats.activeClinics} hint="Clinics currently active" color="#16A34A"/>
-              <MetricTile icon="pause-circle-outline" label="Inactive Clinics" value={stats.inactiveClinics} hint="Clinics currently inactive" color="#BE123C"/>
+              <MetricTile mobileTwoColumns={isMobile} icon="pulse-outline" label="Completion Rate" value={`${completionRate}%`} hint={`${stats.completedAppointments30Days} completed in 30 days`} color="#16A34A"/>
+              <MetricTile mobileTwoColumns={isMobile} icon="close-circle-outline" label="Cancellation Rate" value={`${cancellationRate}%`} hint={`${stats.cancelledAppointments30Days} cancelled in 30 days`} color="#BE123C"/>
+              <MetricTile mobileTwoColumns={isMobile} icon="repeat-outline" label="Rescheduled Rate" value={`${rescheduledRate}%`} hint={`${stats.rescheduledAppointments30Days} rescheduled in 30 days`} color="#EA580C"/>
+              <MetricTile mobileTwoColumns={isMobile} icon="sparkles-outline" label="AI Usage" value={`${aiUsageRate}%`} hint={`${stats.triageSessions30Days} AI triage sessions`} color="#7C3AED"/>
+              <MetricTile mobileTwoColumns={isMobile} icon="calendar-outline" label="Today" value={stats.appointmentsToday} hint="Appointments scheduled today" color={theme.primary}/>
+              <MetricTile mobileTwoColumns={isMobile} icon="calendar-number-outline" label="Appointments 7d" value={stats.appointments7Days} hint="Created in last 7 days" color={theme.primary}/>
+              <MetricTile mobileTwoColumns={isMobile} icon="checkmark-circle-outline" label="Active Clinics" value={stats.activeClinics} hint="Clinics currently active" color="#16A34A"/>
+              <MetricTile mobileTwoColumns={isMobile} icon="pause-circle-outline" label="Inactive Clinics" value={stats.inactiveClinics} hint="Clinics currently inactive" color="#BE123C"/>
             </View>
           </View>
 
@@ -279,23 +279,25 @@ function MetricTile({
   value,
   hint,
   color,
+  mobileTwoColumns = false,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string | number;
   hint: string;
   color: string;
+  mobileTwoColumns?: boolean;
 }) {
 
   return (
-    <View style={styles.metricTile}>
+    <View style={[styles.metricTile, mobileTwoColumns && styles.metricTileMobile]}>
       <View style={[styles.metricIcon, { backgroundColor: `${color}12` }]}>
-        <Ionicons name={icon} size={18} color={color} />
+        <Ionicons name={icon} size={18} color={color}/>
       </View>
 
       <Text style={[styles.metricValue, { color }]}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricHint}>{hint}</Text>
+      <Text style={[styles.metricLabel, mobileTwoColumns && styles.metricTextMobile]}>{label}</Text>
+      <Text style={[styles.metricHint, mobileTwoColumns && styles.metricTextMobile]}>{hint}</Text>
     </View>
   );
 
@@ -463,6 +465,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     fontWeight: '700',
+  },
+
+  metricTileCentered: {
+    alignItems: 'center',
+  },
+
+  metricTileMobile: {
+    flexBasis: '47%',
+    flexGrow: 0,
+    minWidth: 0,
+    alignItems: 'center',
+  },
+
+  metricTextMobile: {
+    textAlign: 'center',
   },
 
   insightRow: {

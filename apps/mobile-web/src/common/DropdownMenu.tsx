@@ -14,14 +14,20 @@ type Props = {
   value: string;
   onChange: (value: string) => void;
   items: Item[];
+  placeholder?: string;
 
 };
 
-export default function SortDropdown({ value, onChange, items }: Props) {
+export default function DropdownMenu({
+  value,
+  onChange,
+  items,
+  placeholder = 'select',
+}: Props) {
 
   const [open, setOpen] = useState(false);
 
-  const selectedLabel = items.find((item) => item.value === value)?.label ?? 'Select';
+  const selectedLabel = items.find((item) => item.value === value)?.label ?? placeholder;
 
   if (Platform.OS === 'web') {
 

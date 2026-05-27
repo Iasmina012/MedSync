@@ -7,7 +7,7 @@ import ClinicNavbar from '../src/common/ClinicNavbar';
 import InfoSearchBar from '../src/common/InfoSearchBar';
 import InfoImage from '../src/common/InfoImage';
 import InfoModal from '../src/common/InfoModal';
-import SortDropdown from '../src/common/SortDropdown';
+import DropdownMenu from '../src/common/DropdownMenu';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 
 type Service = {
@@ -179,7 +179,7 @@ export default function ClinicServicesScreen() {
         </View>
 
         <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
-          <SortDropdown
+          <DropdownMenu
             value={sortBy}
             onChange={(value) => setSortBy(value as ServiceSort)}
             items={[

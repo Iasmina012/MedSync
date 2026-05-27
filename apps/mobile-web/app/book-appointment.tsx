@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from '../src/lib/supabase';
 import ClinicNavbar from '../src/common/ClinicNavbar';
+import DropdownMenu from '../src/common/DropdownMenu';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 
 type Location = {
@@ -173,6 +174,23 @@ function getOnboardingValue(note: string | null | undefined, label: string) {
 
 }
 
+function applyOnboardingNote(
+  note: string | null | undefined,
+  setters: {
+    setMain: (value: string) => void;
+    setSymptoms: (value: string) => void;
+    setMedications: (value: string) => void;
+    setChronic: (value: string) => void;
+  }
+) {
+
+  setters.setMain(getOnboardingValue(note, 'Main concern'));
+  setters.setSymptoms(getOnboardingValue(note, 'Symptoms'));
+  setters.setMedications(getOnboardingValue(note, 'Medications'));
+  setters.setChronic(getOnboardingValue(note, 'Chronic conditions'));
+
+}
+
 export default function BookAppointmentScreen() {
 
   const { clinicId, clinicName, appointmentId, doctorId, serviceId, returnTo } =
@@ -187,16 +205,17 @@ export default function BookAppointmentScreen() {
 
   const { theme } = useClinicTheme(clinicId);
   const { width } = useWindowDimensions();
+
   const isMobile = width < 720;
   const isReschedule = Boolean(appointmentId);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [error, setError] = useState('');
   const [successAppointmentId, setSuccessAppointmentId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [prefillDone, setPrefillDone] = useState(false);
-
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [existingPatientId, setExistingPatientId] = useState<string>('');
   const [userRole, setUserRole] = useState<UserRole>('patient');
@@ -204,21 +223,17 @@ export default function BookAppointmentScreen() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [availability, setAvailability] = useState<Availability[]>([]);
-
   const [selectedLocationId, setSelectedLocationId] = useState('');
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-
   const [bookedSlots, setBookedSlots] = useState<{ start_time: string; end_time: string | null }[]>([]);
-
   const [patientFirstName, setPatientFirstName] = useState('');
   const [patientLastName, setPatientLastName] = useState('');
   const [insuranceProvider, setInsuranceProvider] = useState('');
   const [customInsurance, setCustomInsurance] = useState('');
   const [patientNotes, setPatientNotes] = useState('');
-
   const [onboardingSymptoms, setOnboardingSymptoms] = useState('');
   const [onboardingMedications, setOnboardingMedications] = useState('');
   const [onboardingChronicConditions, setOnboardingChronicConditions] = useState('');
@@ -227,19 +242,9 @@ export default function BookAppointmentScreen() {
 
   const stepsScrollRef = useRef<ScrollView | null>(null);
   const progressAnimation = useRef(new Animated.Value(0)).current;
-  const [insuranceDropdownOpen, setInsuranceDropdownOpen] = useState(false);
   const canEditOnboarding = userRole === 'patient';
 
-  const steps = [
-
-    'Location',
-    'Doctor',
-    'Service',
-    'Date',
-    'Time',
-    'Personal Information',
-
-  ];
+  const steps = [ 'Location', 'Doctor', 'Service', 'Date', 'Time', 'Personal Information', ];
 
   useEffect(() => {
 
@@ -343,11 +348,12 @@ export default function BookAppointmentScreen() {
         setInsuranceProvider(data.insurance_method ?? '');
         setPatientNotes(data.notes ?? '');
         setCustomInsurance(data.insurance_method === 'other' ? data.insurance_details ?? '' : '');
-        setOnboardingMainConcern(getOnboardingValue(data.ai_triage_patient_note, 'Main concern'));
-        setOnboardingSymptoms(getOnboardingValue(data.ai_triage_patient_note, 'Symptoms'));
-        setOnboardingMedications(getOnboardingValue(data.ai_triage_patient_note, 'Medications'));
-        setOnboardingChronicConditions(getOnboardingValue(data.ai_triage_patient_note, 'Chronic conditions'));
-
+        applyOnboardingNote(data.ai_triage_patient_note, {
+          setMain: setOnboardingMainConcern,
+          setSymptoms: setOnboardingSymptoms,
+          setMedications: setOnboardingMedications,
+          setChronic: setOnboardingChronicConditions,
+        });
         setCurrentStep(0);
         setPrefillDone(true);
       } finally {
@@ -1078,48 +1084,11 @@ export default function BookAppointmentScreen() {
             />
           </View>
 
-          <View style={[styles.field, insuranceDropdownOpen && styles.dropdownFieldOpen]}>
-            <Text style={styles.label}>Insurance option</Text>
+        </View>
 
-            <Pressable
-              style={styles.dropdownButton}
-              onPress={() => setInsuranceDropdownOpen((prev) => !prev)}
-            >
-              <Text style={styles.dropdownButtonText}>
-                {INSURANCE_OPTIONS.find((item) => item.value === insuranceProvider)?.label ||
-                  'Select insurance'}
-              </Text>
-              <Ionicons
-                name={insuranceDropdownOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
-                size={18}
-                color="#64748B"
-              />
-            </Pressable>
-
-            {insuranceDropdownOpen && (
-               <View style={[styles.dropdownMenu, { zIndex: 99999, elevation: 99999 }]}>
-                {INSURANCE_OPTIONS.map((item) => (
-                  <Pressable
-                    key={item.value}
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setInsuranceProvider(item.value);
-                      setInsuranceDropdownOpen(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownItemText,
-                        insuranceProvider === item.value && { color: theme.primary },
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Insurance option</Text>
+          <DropdownMenu value={insuranceProvider} onChange={setInsuranceProvider} items={INSURANCE_OPTIONS} placeholder="Select insurance"/>
         </View>
 
         {insuranceProvider === 'other' && (
@@ -1266,8 +1235,30 @@ export default function BookAppointmentScreen() {
     return 'Patient';
   };
 
-  const handleNavbarBack = () => {
+  const hasUnsavedChanges = () => {
+    if (successAppointmentId) 
+      return false;
 
+    return (
+      Boolean(selectedLocationId) ||
+      Boolean(selectedDoctorId) ||
+      Boolean(selectedServiceId) ||
+      Boolean(selectedDate) ||
+      Boolean(selectedTime) ||
+      Boolean(patientFirstName.trim()) ||
+      Boolean(patientLastName.trim()) ||
+      Boolean(insuranceProvider.trim()) ||
+      Boolean(customInsurance.trim()) ||
+      Boolean(patientNotes.trim()) ||
+      Boolean(onboardingMainConcern.trim()) ||
+      Boolean(onboardingSymptoms.trim()) ||
+      Boolean(onboardingMedications.trim()) ||
+      Boolean(onboardingChronicConditions.trim()) ||
+      pendingOnboardingFiles.length > 0
+    );
+  };
+
+  const leaveSchedule = () => {
     if (userRole === 'doctor') {
       router.replace({
         pathname: '/main-doctor' as any,
@@ -1296,7 +1287,15 @@ export default function BookAppointmentScreen() {
       pathname: '/main-patient' as any,
       params: { clinicId, clinicName },
     });
+  };
 
+  const handleNavbarBack = () => {
+    if (hasUnsavedChanges()) {
+      setDiscardConfirmOpen(true);
+      return;
+    }
+
+    leaveSchedule();
   };
 
   if (loading) {
@@ -1316,16 +1315,18 @@ export default function BookAppointmentScreen() {
 
       <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
 
-        <ClinicNavbar
-          clinicName={clinicName}
-          clinicId={clinicId}
-          primaryColor={theme.primary}
-          roleLabel={getRoleLabel()}
-          showRolePill={false}
-          showBackButton
-          onBackPress={handleNavbarBack}
-          onChangeClinic={() => router.replace('/clinic-selection')}
-        />
+        <View style={styles.navbarSticky}>
+          <ClinicNavbar
+            clinicName={clinicName}
+            clinicId={clinicId}
+            primaryColor={theme.primary}
+            roleLabel={getRoleLabel()}
+            showRolePill={false}
+            showBackButton
+            onBackPress={handleNavbarBack}
+            onChangeClinic={() => router.replace('/clinic-selection')}
+          />
+        </View>
         <View style={styles.successCard}>
 
           <View style={styles.successTopRow}>
@@ -1397,140 +1398,163 @@ export default function BookAppointmentScreen() {
   }
 
   return (
+      <>
+          <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
 
-    <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
+            <View style={styles.navbarSticky}>
+              <ClinicNavbar
+                clinicName={clinicName}
+                clinicId={clinicId}
+                primaryColor={theme.primary}
+                roleLabel={getRoleLabel()}
+                showRolePill={false}
+                showBackButton
+                onBackPress={handleNavbarBack}
+                onChangeClinic={() => router.replace('/clinic-selection')}
+              />
+            </View>
+            <View
+              style={[styles.hero, isMobile && styles.heroMobile, { backgroundColor: theme.soft, borderColor: theme.borderSoft },]}>
+              <Text style={[styles.heroEyebrow, { color: theme.primary }]}>{appointmentId ? 'Reschedule Appointment' : 'Book Appointment'}</Text>
+              <Text style={[styles.heroTitle, { color: theme.secondary }]}>Choose the details for your visit</Text>
+              <Text style={styles.heroSubtitle}>Complete each step to schedule your appointment.</Text>
+            </View>
 
-      <ClinicNavbar
-        clinicName={clinicName}
-        clinicId={clinicId}
-        primaryColor={theme.primary}
-        roleLabel={getRoleLabel()}
-        showRolePill={false}
-        showBackButton
-        onBackPress={handleNavbarBack}
-        onChangeClinic={() => router.replace('/clinic-selection')}
-      />
-      <View
-        style={[styles.hero, isMobile && styles.heroMobile, { backgroundColor: theme.soft, borderColor: theme.borderSoft },]}>
-        <Text style={[styles.heroEyebrow, { color: theme.primary }]}>
-          {appointmentId ? 'Reschedule Appointment' : 'Book Appointment'}
-        </Text>
+            {!!error && (
+              <View style={styles.errorCard}>
+                <Ionicons name="alert-circle-outline" size={20} color="#DC2626"/>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
 
-        <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-          Choose the details for your visit
-        </Text>
+            <View style={styles.progressCard}>
+              <Text style={styles.progressText}>Step {currentStep + 1} of {steps.length}</Text>
 
-        <Text style={styles.heroSubtitle}>
-          Complete each step to schedule your appointment.
-        </Text>
-      </View>
+              <View style={styles.progressTrack}>
+                <Animated.View style={[ styles.progressFill, { width: animatedProgressWidth, backgroundColor: theme.primary }, ]}/>
+              </View>
 
-      {!!error && (
-        <View style={styles.errorCard}>
-          <Ionicons name="alert-circle-outline" size={20} color="#DC2626"/>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
+              <ScrollView
+                ref={stepsScrollRef}
+                horizontal={isMobile}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[styles.stepsRow, isMobile && styles.stepsRowMobile, ]}>
+                {steps.map((step, index) => {
+                  const active = index === currentStep;
+                  const done = completedSteps[index];
+                  const enabled = canOpenStep(index);
 
-      <View style={styles.progressCard}>
-        <Text style={styles.progressText}>
-          Step {currentStep + 1} of {steps.length}
-        </Text>
+                  return (
 
-        <View style={styles.progressTrack}>
-          <Animated.View
-            style={[
-              styles.progressFill,
-              { width: animatedProgressWidth, backgroundColor: theme.primary },
-            ]}
-          />
-        </View>
+                    <Pressable
+                      key={step}
+                      disabled={!enabled}
+                      onPress={() => handleStepPress(index)}
+                      style={[
+                        styles.stepPill,
+                        active && {
+                          backgroundColor: `${theme.primary}14`,
+                          borderColor: theme.primary,
+                        },
+                        done &&
+                          !active && {
+                            backgroundColor: `${theme.primary}10`,
+                            borderColor: `${theme.primary}55`,
+                          },
+                        !enabled && styles.stepPillDisabled,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.stepPillText,
+                          (active || done) && { color: theme.primary },
+                        ]}
+                      >
+                        {step}
+                      </Text>
+                    </Pressable>
 
-        <ScrollView
-          ref={stepsScrollRef}
-          horizontal={isMobile}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.stepsRow, isMobile && styles.stepsRowMobile, ]}>
-          {steps.map((step, index) => {
-            const active = index === currentStep;
-            const done = completedSteps[index];
-            const enabled = canOpenStep(index);
+                  );
+                })}
 
-            return (
+              </ScrollView>
+            </View>
 
-              <Pressable
-                key={step}
-                disabled={!enabled}
-                onPress={() => handleStepPress(index)}
-                style={[
-                  styles.stepPill,
-                  active && {
-                    backgroundColor: `${theme.primary}14`,
-                    borderColor: theme.primary,
-                  },
-                  done &&
-                    !active && {
-                      backgroundColor: `${theme.primary}10`,
-                      borderColor: `${theme.primary}55`,
-                    },
-                  !enabled && styles.stepPillDisabled,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.stepPillText,
-                    (active || done) && { color: theme.primary },
-                  ]}
+            <View style={isMobile ? styles.mobileStepContent : undefined}>
+              {renderCurrentStep()}
+            </View>
+
+            <View style={styles.navigationRow}>
+              {currentStep > 0 && (
+                <Pressable style={styles.secondaryButton} onPress={handleBack}>
+                  <Text style={styles.secondaryButtonText}>Back</Text>
+                </Pressable>
+              )}
+
+              {currentStep < steps.length - 1 ? (
+                <Pressable
+                  style={[styles.submitButton, { backgroundColor: theme.primary }]}
+                  onPress={handleNext}
                 >
-                  {step}
-                </Text>
-              </Pressable>
+                  <Text style={styles.submitButtonText}>Next</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={[
+                    styles.submitButton,
+                    { backgroundColor: theme.primary },
+                    saving && styles.disabledButton,
+                  ]}
+                  onPress={handleBook}
+                  disabled={saving}
+                >
+                  <Text style={styles.submitButtonText}>
+                    {saving
+                      ? 'Saving...'
+                      : appointmentId
+                        ? 'Confirm Reschedule'
+                        : 'Confirm Appointment'}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
 
-            );
-          })}
+          </ScrollView>
+            <Modal visible={discardConfirmOpen} transparent animationType="fade">
+          <View style={styles.confirmOverlay}>
+            <View style={styles.confirmCard}>
+              <View style={styles.confirmIcon}>
+                <Ionicons name="warning-outline" size={28} color="#B45309" />
+              </View>
 
-        </ScrollView>
-      </View>
+              <Text style={styles.confirmTitle}>Discard unsaved changes?</Text>
 
-      {renderCurrentStep()}
+              <Text style={styles.confirmText}>
+                You have unsaved appointment changes. If you leave now, they will be lost.
+              </Text>
 
-      <View style={styles.navigationRow}>
-        {currentStep > 0 && (
-          <Pressable style={styles.secondaryButton} onPress={handleBack}>
-            <Text style={styles.secondaryButtonText}>Back</Text>
-          </Pressable>
-        )}
+              <View style={styles.confirmActions}>
+                <Pressable
+                  style={styles.confirmCancelButton}
+                  onPress={() => setDiscardConfirmOpen(false)}
+                >
+                  <Text style={styles.confirmCancelText}>Keep editing</Text>
+                </Pressable>
 
-        {currentStep < steps.length - 1 ? (
-          <Pressable
-            style={[styles.submitButton, { backgroundColor: theme.primary }]}
-            onPress={handleNext}
-          >
-            <Text style={styles.submitButtonText}>Next</Text>
-          </Pressable>
-        ) : (
-          <Pressable
-            style={[
-              styles.submitButton,
-              { backgroundColor: theme.primary },
-              saving && styles.disabledButton,
-            ]}
-            onPress={handleBook}
-            disabled={saving}
-          >
-            <Text style={styles.submitButtonText}>
-              {saving
-                ? 'Saving...'
-                : appointmentId
-                  ? 'Confirm Reschedule'
-                  : 'Confirm Appointment'}
-            </Text>
-          </Pressable>
-        )}
-      </View>
-
-    </ScrollView>
-
+                <Pressable
+                  style={styles.confirmDiscardButton}
+                  onPress={() => {
+                    setDiscardConfirmOpen(false);
+                    leaveSchedule();
+                  }}
+                >
+                  <Text style={styles.confirmDiscardText}>Discard</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </>
   );
 
 }
@@ -1753,6 +1777,7 @@ const styles = StyleSheet.create({
     padding: 22,
     gap: 16,
     overflow: 'visible',
+    marginTop: 4,
   },
 
   stepHeader: {
@@ -1827,19 +1852,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
     flexWrap: 'wrap',
-    overflow: 'visible',
-    zIndex: 999,
   },
 
   field: {
     flex: 1,
     minWidth: 240,
     position: 'relative',
-  },
-
-  dropdownFieldOpen: {
-    zIndex: 10000,
-    elevation: 10000,
   },
 
   fieldFull: {
@@ -1909,6 +1927,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '900',
+    textAlign: 'center',
   },
 
   secondaryButton: {
@@ -1920,6 +1939,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    textAlign: 'center',
     paddingHorizontal: 20,
   },
 
@@ -2123,56 +2143,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
-  dropdownButton: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-
-  dropdownButtonText: {
-    flex: 1,
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
-  dropdownMenu: {
-    position: 'absolute',
-    top: 76,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    zIndex: 9999,
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-  },
-
-  dropdownItem: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-
-  dropdownItemText: {
-    color: '#334155',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
   readOnlyBanner: {
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
@@ -2314,6 +2284,97 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '700',
+  },
+
+  mobileStepContent: {
+    marginTop: 18,
+  },
+
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  confirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  confirmIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+
+  confirmTitle: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  confirmText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+
+  confirmCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+
+  confirmCancelText: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+
+  confirmDiscardButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  confirmDiscardText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+
+  navbarSticky: {
+    zIndex: 100000,
+    elevation: 100000,
+    backgroundColor: '#F8FAFC',
   },
 
 });

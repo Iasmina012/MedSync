@@ -4,7 +4,7 @@ import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollV
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
 import ClinicNavbar from '../src/common/ClinicNavbar';
-import SortDropdown from '../src/common/SortDropdown';
+import DropdownMenu from '../src/common/DropdownMenu';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 
 type AppointmentStatus =
@@ -296,6 +296,7 @@ export default function MyAppointmentsScreen() {
   const [cancelling, setCancelling] = useState(false);
   const [sortBy, setSortBy] = useState<AppointmentSort>('default');
   const [onboardingReviews, setOnboardingReviews] = useState<OnboardingReview[]>([]);
+  const [resolvedClinicName, setResolvedClinicName] = useState('');
 
   const loadAppointments = async () => {
 
@@ -397,6 +398,22 @@ export default function MyAppointmentsScreen() {
     //just to get rid of the warning
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId]);
+
+  useEffect(() => {
+    const loadClinicName = async () => {
+      if (!clinicId || clinicName) return;
+
+      const { data } = await supabase
+        .from('clinics')
+        .select('name')
+        .eq('id', clinicId)
+        .maybeSingle();
+
+      setResolvedClinicName(data?.name || '');
+    };
+
+    loadClinicName();
+  }, [clinicId, clinicName]);
 
   const sortedAppointments = useMemo(() => {
 
@@ -503,7 +520,7 @@ export default function MyAppointmentsScreen() {
       <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
 
         <ClinicNavbar
-          clinicName={clinicName}
+          clinicName={clinicName || resolvedClinicName}
           clinicId={clinicId}
           primaryColor={theme.primary}
           roleLabel="Patient"
@@ -512,7 +529,7 @@ export default function MyAppointmentsScreen() {
           onBackPress={() =>
             router.replace({
               pathname: '/main-patient',
-              params: { clinicId, clinicName },
+              params: { clinicId, clinicName: clinicName || resolvedClinicName },
             })
           }
           onChangeClinic={() => router.replace('/clinic-selection')}
@@ -548,7 +565,7 @@ export default function MyAppointmentsScreen() {
             </Pressable>
 
             <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
-              <SortDropdown
+              <DropdownMenu
                 value={sortBy}
                 onChange={(value) => setSortBy(value as AppointmentSort)}
                 items={[

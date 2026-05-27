@@ -25,6 +25,22 @@ function buildDeepLink(appointment: any) {
   return `/manage-appointments?clinicId=${appointment.clinic_id}&appointmentId=${appointment.id}`;
 }
 
+async function getSettingsMap(adminClient: any, recipientIds: string[]) {
+
+  const { data } = await adminClient
+    .from("user_settings")
+    .select("profile_id, appointment_reminders, appointment_notifications")
+    .in("profile_id", recipientIds);
+
+  const map = new Map<string, any>();
+
+  for (const item of data || [])
+    map.set(item.profile_id, item);
+
+  return map;
+
+}
+
 serve(async (req) => {
 
   if (req.method === "OPTIONS") 
@@ -83,8 +99,16 @@ serve(async (req) => {
     const recipients = unique([appointment.patient_id, doctorProfileId]);
 
     const time = String(appointment.start_time || "").slice(0, 5);
+    const settingsMap = await getSettingsMap(adminClient, recipients);
 
     for (const recipientId of recipients) {
+      const userSettings = settingsMap.get(recipientId);
+      const remindersEnabled = userSettings?.appointment_reminders ?? true;
+      const notificationsEnabled = userSettings?.appointment_notifications ?? true;
+
+      if (!remindersEnabled || !notificationsEnabled)
+        continue;
+
       rows.push({
         appointment_id: appointment.id,
         recipient_id: recipientId,
@@ -95,6 +119,7 @@ serve(async (req) => {
         reminder_key: appointment.appointment_date,
       });
     }
+
   }
 
   if (rows.length === 0)

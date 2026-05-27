@@ -115,27 +115,6 @@ useEffect(() => {
     clinicAdmins: 0,
   });
 
-  useEffect(() => {
-    const load = async () => {
-      const roleCheck = await requireRole(['platform_admin']);
-      if (!roleCheck.user) return router.replace('/login');
-      if (roleCheck.error === 'role') return router.replace('/main-patient');
-
-      const [clinics, doctors, patients, clinicAdmins] = await Promise.all([
-        countRows('clinics'),
-        countRows('doctors', (q) => q.eq('is_active', true)),
-        countRows('profiles', (q) => q.eq('role', 'patient')),
-        countRows('profiles', (q) => q.eq('role', 'clinic_admin')),
-      ]);
-
-      setStats({ clinics, doctors, patients, clinicAdmins });
-    };
-
-    load();
-  }, []);
-
-  
-
   const featureAccentA = rgbaFromHex(theme.primary, 0.11);
   const featureAccentB = rgbaFromHex(theme.primary, 0.18);
   const featureBorderA = rgbaFromHex(theme.primary, 0.22);
@@ -182,10 +161,16 @@ useEffect(() => {
       </View>
 
       <View style={styles.statsGrid}>
-        <AnimatedStatsCard label="Clinics" value={stats.clinics} icon="business-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Doctors" value={stats.doctors} icon="medkit-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Patients" value={stats.patients} icon="people-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Clinic Admins" value={stats.clinicAdmins} icon="shield-checkmark-outline" color={theme.primary}/>
+        {[
+          { label: 'Clinics', value: stats.clinics, icon: 'business-outline' as const },
+          { label: 'Doctors', value: stats.doctors, icon: 'medkit-outline' as const },
+          { label: 'Patients', value: stats.patients, icon: 'people-outline' as const },
+          { label: 'Clinic Admins', value: stats.clinicAdmins, icon: 'shield-checkmark-outline' as const },
+        ].map((item) => (
+          <View key={item.label} style={isMobile ? styles.statMobileItem : styles.statWebItem}>
+            <AnimatedStatsCard {...item} color={theme.primary} centered={isMobile}/>
+          </View>
+        ))}
       </View>
 
       <View style={styles.section}>
@@ -219,24 +204,24 @@ useEffect(() => {
         <Text style={styles.sectionTitle}>Platform Overview</Text>
 
         <View style={styles.miniStatsGrid}>
-          <View style={styles.miniStatCard}>
-            <Text style={styles.miniStatValue}>{platformActivity.activeClinics}</Text>
-            <Text style={styles.miniStatLabel}>Active clinics</Text>
+          <View style={[styles.miniStatCard, isMobile && styles.miniStatCardMobile]}>
+            <Text style={[styles.miniStatValue, isMobile && styles.miniStatValueMobile]}>{platformActivity.activeClinics}</Text>
+            <Text style={[styles.miniStatLabel, isMobile && styles.miniStatLabelMobile]}>Active clinics</Text>
           </View>
 
-          <View style={styles.miniStatCard}>
-            <Text style={styles.miniStatValue}>{platformActivity.inactiveClinics}</Text>
-            <Text style={styles.miniStatLabel}>Inactive clinics</Text>
+          <View style={[styles.miniStatCard, isMobile && styles.miniStatCardMobile]}>
+            <Text style={[styles.miniStatValue, isMobile && styles.miniStatValueMobile]}>{platformActivity.inactiveClinics}</Text>
+            <Text style={[styles.miniStatLabel, isMobile && styles.miniStatLabelMobile]}>Inactive clinics</Text>
           </View>
 
-          <View style={styles.miniStatCard}>
-            <Text style={styles.miniStatValue}>{platformActivity.appointmentsToday}</Text>
-            <Text style={styles.miniStatLabel}>Appointments today</Text>
+          <View style={[styles.miniStatCard, isMobile && styles.miniStatCardMobile]}>
+            <Text style={[styles.miniStatValue, isMobile && styles.miniStatValueMobile]}>{platformActivity.appointmentsToday}</Text>
+            <Text style={[styles.miniStatLabel, isMobile && styles.miniStatLabelMobile]}>Appointments today</Text>
           </View>
 
-          <View style={styles.miniStatCard}>
-            <Text style={styles.miniStatValue}>{platformActivity.triageSessions}</Text>
-            <Text style={styles.miniStatLabel}>AI triage sessions</Text>
+          <View style={[styles.miniStatCard, isMobile && styles.miniStatCardMobile]}>
+            <Text style={[styles.miniStatValue, isMobile && styles.miniStatValueMobile]}>{platformActivity.triageSessions}</Text>
+            <Text style={[styles.miniStatLabel, isMobile && styles.miniStatLabelMobile]}>AI triage sessions</Text>
           </View>
         </View>
 
@@ -415,6 +400,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 
+  miniStatCardMobile: {
+    flexBasis: '47%',
+    flexGrow: 0,
+    alignItems: 'center',
+  },
+
   miniStatValue: {
     fontSize: 26,
     fontWeight: '900',
@@ -426,6 +417,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#64748B',
+  },
+
+  miniStatValueMobile: {
+    textAlign: 'center',
+  },
+
+  miniStatLabelMobile: {
+    textAlign: 'center',
   },
 
   subSectionTitle: {
@@ -445,6 +444,14 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '900',
+  },
+
+  statWebItem: {
+    flex: 1,
+  },
+
+  statMobileItem: {
+    width: '47%',
   },
 
 });

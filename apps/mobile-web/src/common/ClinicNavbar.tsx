@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { router } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +34,7 @@ export default function ClinicNavbar({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuMounted, setMenuMounted] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const menuOpacity = useRef(new Animated.Value(0)).current;
   const menuTranslateY = useRef(new Animated.Value(-8)).current;
@@ -45,10 +46,84 @@ export default function ClinicNavbar({
   const isMobile = width < 720;
   const isWeb = Platform.OS === 'web';
 
+  const loadUnreadNotifications = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { count } = await supabase
+      .from('appointment_notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipient_id', user.id)
+      .eq('is_read', false)
+      .is('archived_at', null);
+
+    setUnreadNotifications(count ?? 0);
+  };
+
+  useEffect(() => {
+    let channel: any = null;
+    let mounted = true;
+
+    const init = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || !mounted) return;
+
+      await loadUnreadNotifications();
+
+      supabase
+        .getChannels()
+        .filter((item: any) =>
+          String(item.topic || '').includes(`navbar-notifications-${user.id}`)
+        )
+        .forEach((item) => {
+          supabase.removeChannel(item);
+        });
+
+      const nextChannel = supabase.channel(
+        `navbar-notifications-${user.id}-${Date.now()}-${Math.random()}`
+      );
+
+      nextChannel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointment_notifications',
+          filter: `recipient_id=eq.${user.id}`,
+        },
+        (_payload: any) => {
+          loadUnreadNotifications();
+        }
+      );
+
+      channel = nextChannel;
+
+      nextChannel.subscribe((status: string) => {
+        console.log('Navbar notifications realtime:', status);
+      });
+    };
+
+    init();
+
+    return () => {
+      mounted = false;
+
+      if (channel)
+        supabase.removeChannel(channel);
+    };
+  }, []);
+
   const hasClinicContext = Boolean(clinicId || clinicName);
   const mobileTopPadding = isWeb ? 0 : Math.max(insets.top, 12);
 
   const openMenu = () => {
+    loadUnreadNotifications();
     setMenuMounted(true);
     setMenuOpen(true);
 
@@ -127,10 +202,16 @@ export default function ClinicNavbar({
   };
 
   const handleLogout = async () => {
-    closeMenu(async () => {
-      await supabase.auth.signOut();
-      router.replace('/login');
-    });
+    setMenuOpen(false);
+    setMenuMounted(false);
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.log('Logout error:', error.message);
+    }
+
+    router.replace('/login');
   };
 
   const handleChangeClinic = () => {
@@ -153,6 +234,22 @@ export default function ClinicNavbar({
         <Ionicons name="person-outline" size={18} color="#0F172A"/>
         <Text style={styles.menuItemText}>My Profile</Text>
       </Pressable>
+
+      {isMobile && (
+        <Pressable style={styles.menuItem} onPress={() => goTo('/notifications')}>
+          <Ionicons name="notifications-outline" size={18} color="#0F172A"/>
+
+          <Text style={styles.menuItemText}>Notifications</Text>
+
+          {unreadNotifications > 0 && (
+            <View style={[styles.menuItemBadge, { backgroundColor: primaryColor }]}>
+              <Text style={styles.menuItemBadgeText}>
+                {unreadNotifications > 9 ? '9+' : unreadNotifications}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+      )}
 
       <Pressable style={styles.menuItem} onPress={() => goTo('/settings')}>
         <Ionicons name="settings-outline" size={18} color="#0F172A"/>
@@ -225,7 +322,7 @@ export default function ClinicNavbar({
         </View>
 
         <View style={styles.right}>
-          <NotificationsBell primaryColor={primaryColor}/>
+          {!isMobile && <NotificationsBell primaryColor={primaryColor}/>}
           {showBackButton && (
             <Pressable
               style={[
@@ -255,7 +352,17 @@ export default function ClinicNavbar({
               onPress={toggleMenu}
             >
               {isMobile ? (
-                <Ionicons name="ellipsis-horizontal" size={20} color="#0F172A"/>
+                <>
+                  <Ionicons name="ellipsis-horizontal" size={20} color="#0F172A"/>
+
+                  {!menuOpen && unreadNotifications > 0 && (
+                    <View style={[styles.menuBadge, { backgroundColor: primaryColor }]}>
+                      <Text style={styles.menuBadgeText}>
+                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                      </Text>
+                    </View>
+                  )}
+                </>
               ) : (
                 <>
                   <Ionicons name="person-circle-outline" size={18} color="#0F172A"/>
@@ -480,6 +587,42 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '700',
     fontSize: 14,
+  },
+
+  menuBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 19,
+    height: 19,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+
+  menuBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  menuItemBadge: {
+    marginLeft: 'auto',
+    minWidth: 21,
+    height: 21,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+
+  menuItemBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
   },
 
 });

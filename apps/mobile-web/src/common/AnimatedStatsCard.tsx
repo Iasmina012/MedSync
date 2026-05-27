@@ -8,6 +8,7 @@ type Props = {
   value: number;
   icon: keyof typeof Ionicons.glyphMap;
   color?: string;
+  centered?: boolean;
 
 };
 
@@ -16,6 +17,7 @@ export default function AnimatedStatsCard({
   value,
   icon,
   color = '#1D4ED8',
+  centered = false,
 }: Props) {
 
   const animated = useRef(new Animated.Value(0)).current;
@@ -41,11 +43,11 @@ export default function AnimatedStatsCard({
 
     <View style={styles.card}>
 
-      <View style={[styles.iconWrap, { backgroundColor: `${color}15` }]}>
-        <Ionicons name={icon} size={20} color={color}/>
-      </View>
-      <Text style={styles.value}>{display}</Text>
-      <Text style={styles.label}>{label}</Text>
+    <View style={[styles.iconWrap, centered && styles.iconCentered, { backgroundColor: `${color}15` }]}>
+      <Ionicons name={icon} size={20} color={color}/>
+    </View>
+    <Text style={[styles.value, centered && styles.textCentered]}>{display}</Text>
+    <Text style={[styles.label, centered && styles.textCentered]}>{label}</Text>
 
     </View>
 
@@ -57,12 +59,19 @@ const styles = StyleSheet.create({
 
   card: {
     flex: 1,
-    minWidth: 150,
     backgroundColor: '#FFF',
     borderRadius: 24,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     padding: 18,
+  },
+
+  iconCentered: {
+    alignSelf: 'center',
+  },
+
+  textCentered: {
+    textAlign: 'center',
   },
 
   iconWrap: {

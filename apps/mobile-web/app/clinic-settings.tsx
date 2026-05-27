@@ -52,7 +52,7 @@ type EditingSection = {
 
 type ImageField = 'logo_url' | 'hero_image_url' | 'cover_image_url';
 
-const STORAGE_BUCKET = 'clinic-assets';
+const STORAGE_BUCKET = 'clinic-content';
 
 const EMPTY_DETAILS: DetailsRow = {
 
@@ -167,9 +167,11 @@ export default function ClinicSettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [uploadingField, setUploadingField] = useState<ImageField | null>(null);
   const [editingSection, setEditingSection] = useState<EditingSection | null>(null);
-
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [clinic, setClinic] = useState<ClinicRow | null>(null);
   const [details, setDetails] = useState<DetailsRow>(EMPTY_DETAILS);
+  const [originalClinic, setOriginalClinic] = useState<ClinicRow | null>(null);
+  const [originalDetails, setOriginalDetails] = useState<DetailsRow>(EMPTY_DETAILS);
 
   useEffect(() => {
 
@@ -210,9 +212,9 @@ export default function ClinicSettingsScreen() {
         .eq('clinic_id', clinicId)
         .maybeSingle();
 
-      setClinic(clinicData);
+      const nextClinic = clinicData as ClinicRow;
 
-      setDetails({
+      const nextDetails = {
         about: detailsData?.about || '',
         address: detailsData?.address || '',
         phone: detailsData?.phone || '',
@@ -226,13 +228,35 @@ export default function ClinicSettingsScreen() {
         logo_url: detailsData?.logo_url || '',
         hero_image_url: detailsData?.hero_image_url || '',
         cover_image_url: detailsData?.cover_image_url || '',
-      });
+      };
 
+      setClinic(nextClinic);
+      setOriginalClinic({ ...nextClinic });
+      setDetails(nextDetails);
+      setOriginalDetails({ ...nextDetails });
       setLoading(false);
     };
     loadData();
 
   }, [clinicId]);
+
+  const hasUnsavedChanges = () => { return (JSON.stringify(clinic) !== JSON.stringify(originalClinic) || JSON.stringify(details) !== JSON.stringify(originalDetails)); };
+
+  const closeSection = () => {
+    if (!hasUnsavedChanges()) {
+      setEditingSection(null);
+      return;
+    }
+    setDiscardConfirmOpen(true);
+  };
+
+  const discardChanges = () => {
+    setDiscardConfirmOpen(false);
+    if (originalClinic) 
+      setClinic({ ...originalClinic });
+    setDetails({ ...originalDetails });
+    setEditingSection(null);
+  };
 
   const save = async () => {
     if (!clinic || !clinicId) 
@@ -290,6 +314,8 @@ export default function ClinicSettingsScreen() {
       return;
     }
 
+   setOriginalClinic(clinic ? { ...clinic } : null);
+    setOriginalDetails({ ...details });
     setEditingSection(null);
     Alert.alert('Saved', 'Clinic settings were updated.');
   };
@@ -297,6 +323,61 @@ export default function ClinicSettingsScreen() {
   const uploadImage = async (field: ImageField) => {
     if (!clinicId) 
       return;
+
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/png,image/jpeg,image/webp';
+      input.style.display = 'none';
+
+      document.body.appendChild(input);
+
+      input.onchange = async () => {
+        const file = input.files?.[0];
+
+        document.body.removeChild(input);
+
+        if (!file) 
+          return;
+
+        try {
+          setUploadingField(field);
+
+          const extension = file.name.split('.').pop() || 'jpg';
+          const filePath = `${clinicId}/${field}-${Date.now()}.${extension}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(STORAGE_BUCKET)
+            .upload(filePath, file, {
+              upsert: true,
+              contentType: file.type || `image/${extension}`,
+            });
+
+          if (uploadError) {
+            Alert.alert('Upload error', uploadError.message);
+            return;
+          }
+
+          const { data } = supabase.storage
+            .from(STORAGE_BUCKET)
+            .getPublicUrl(filePath);
+
+          const nextUrl = `${data.publicUrl}?t=${Date.now()}`;
+
+          setDetails((prev) => ({
+            ...prev,
+            [field]: nextUrl,
+          }));
+        } catch (error: any) {
+          Alert.alert('Upload error', error?.message || 'Could not upload image.');
+        } finally {
+          setUploadingField(null);
+        }
+      };
+
+      input.click();
+      return;
+    }
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -306,7 +387,7 @@ export default function ClinicSettingsScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'] as any,
       allowsEditing: true,
       quality: 0.85,
     });
@@ -622,6 +703,7 @@ export default function ClinicSettingsScreen() {
                     label="Logo"
                     value={details.logo_url || ''}
                     field="logo_url"
+                    centered
                     uploading={uploadingField === 'logo_url'}
                     onChangeText={(logo_url) => setDetails({ ...details, logo_url })}
                     onUpload={() => uploadImage('logo_url')}
@@ -656,7 +738,7 @@ export default function ClinicSettingsScreen() {
             <View style={styles.modalActions}>
               <Pressable
                 style={styles.modalCancelButton}
-                onPress={() => setEditingSection(null)}
+                onPress={closeSection}
                 disabled={saving}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
@@ -672,7 +754,31 @@ export default function ClinicSettingsScreen() {
             </View>
           </View>
         </View>
-      
+    
+      </Modal>
+
+      <Modal visible={discardConfirmOpen} transparent animationType="fade">
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="warning-outline" size={28} color="#B45309"/>
+            </View>
+
+            <Text style={styles.confirmTitle}>Discard unsaved changes?</Text>
+            <Text style={styles.confirmText}>You have unsaved changes. If you close now, they will be lost.</Text>
+
+            <View style={styles.confirmActions}>
+              <Pressable style={styles.confirmCancelButton} onPress={() => setDiscardConfirmOpen(false)}>
+                <Text style={styles.confirmCancelText}>Keep editing</Text>
+              </Pressable>
+
+              <Pressable style={styles.confirmDiscardButton} onPress={discardChanges}>
+                <Text style={styles.confirmDiscardText}>Discard</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
       </Modal>
 
     </>
@@ -766,6 +872,7 @@ function ImageInput({
   onChangeText,
   onUpload,
   onRemove,
+  centered,
 }: {
   label: string;
   value: string;
@@ -775,6 +882,7 @@ function ImageInput({
   onChangeText: (value: string) => void;
   onUpload: () => void;
   onRemove: () => void;
+  centered?: boolean;
 }) {
 
   const hasImage = Boolean(value?.trim());
@@ -783,9 +891,8 @@ function ImageInput({
     <View style={styles.inputWrap}>
       <Text style={styles.inputLabel}>{label}</Text>
 
-      <View style={[styles.imagePreviewBox, wide && styles.imagePreviewBoxWide]}>
-        {hasImage ? (
-          <Image source={{ uri: value }} style={styles.imagePreview}/>
+      <View style={[styles.imagePreviewBox, wide && styles.imagePreviewBoxWide, centered && styles.imagePreviewBoxCentered]}>
+        {hasImage ? ( <Image source={{ uri: value }} style={styles.imagePreview}/>
         ) : (
           <View style={styles.imagePlaceholder}>
             <Ionicons name="image-outline" size={28} color="#64748B"/>
@@ -1142,6 +1249,10 @@ const styles = StyleSheet.create({
     height: 180,
   },
 
+  imagePreviewBoxCentered: {
+    alignSelf: 'center',
+  },
+
   imagePreview: {
     width: '100%',
     height: '100%',
@@ -1164,21 +1275,20 @@ const styles = StyleSheet.create({
 
   imageActions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
-    marginTop: -4,
+    flexWrap: 'wrap',
   },
 
   imageButton: {
+    alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: '#CBD5E1',
     borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    backgroundColor: '#FFFFFF',
+    gap: 8,
   },
 
   imageButtonText: {
@@ -1188,15 +1298,16 @@ const styles = StyleSheet.create({
   },
 
   imageDangerButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF1F2',
     borderWidth: 1,
     borderColor: '#FECDD3',
     borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    backgroundColor: '#FFF1F2',
+    gap: 8,
   },
 
   imageDangerText: {
@@ -1263,6 +1374,87 @@ const styles = StyleSheet.create({
   },
 
   modalSaveText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  confirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  confirmIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+
+  confirmTitle: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  confirmText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+
+  confirmCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+
+  confirmCancelText: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+
+  confirmDiscardButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  confirmDiscardText: {
     color: '#FFFFFF',
     fontWeight: '900',
   },

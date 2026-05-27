@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert} from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import { getCurrentUserProfile } from '../src/lib/auth';
@@ -250,10 +250,10 @@ function ExpandableSection({ title, children, defaultOpen = false, }: { title: s
 
 }
 
-function SummaryPill({ icon, label, value, }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; }) {
+function SummaryPill({ icon, label, value, mobile = false, }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; mobile?: boolean; }) {
 
   return (
-    <View style={styles.summaryPill}>
+    <View style={[styles.summaryPill, mobile && styles.summaryPillMobile]}>
       <Ionicons name={icon} size={15} color="#64748B"/>
       <Text style={styles.summaryPillText}>{label}</Text>
       <Text style={styles.summaryPillValue}>{value}</Text>
@@ -318,6 +318,8 @@ export default function MyPatientsHistoryScreen() {
   }>();
 
   const { theme } = useClinicTheme(clinicId);
+  const { width } = useWindowDimensions();
+  const isMobile = width < 720;
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [records, setRecords] = useState<MedicalRecord[]>([]);
@@ -772,11 +774,11 @@ export default function MyPatientsHistoryScreen() {
                     <Ionicons name="chevron-forward-outline" size={24} color="#94A3B8"/>
                   </View>
 
-                  <View style={styles.patientSummaryGrid}>
-                    <SummaryPill icon="calendar-outline" label="Appointments" value={`${patient.appointments.length}`}/>
-                    <SummaryPill icon="document-text-outline" label="Medical Records" value={`${patient.records.length}`}/>
-                    <SummaryPill icon="folder-open-outline" label="Medical Files" value={`${patient.files.length}`}/>
-                    <SummaryPill icon="sparkles-outline" label="AI Triage Sessions" value={`${aiTriageCount}`}/>
+                  <View style={[styles.patientSummaryGrid, isMobile && styles.patientSummaryGridMobile]}>
+                    <SummaryPill icon="calendar-outline" label="Appointments" value={`${patient.appointments.length}`} mobile={isMobile}/>
+                    <SummaryPill icon="document-text-outline" label="Medical Records" value={`${patient.records.length}`} mobile={isMobile}/>
+                    <SummaryPill icon="folder-open-outline" label="Medical Files" value={`${patient.files.length}`} mobile={isMobile}/>
+                    <SummaryPill icon="sparkles-outline" label="AI Triage Sessions" value={`${aiTriageCount}`} mobile={isMobile}/>
                   </View>
                 </HoverCard>
               );
@@ -937,10 +939,9 @@ export default function MyPatientsHistoryScreen() {
                                       </Text>
                                     </View>
 
-                                    <Pressable style={[styles.fileButton, { backgroundColor: theme.primary }]} onPress={() => openFile(file.file_url)}>
-                                      <Ionicons name="open-outline" size={15} color="#FFFFFF"/>
-                                      <Text style={styles.fileButtonText}>Open</Text>
-                                    </Pressable>
+                                  <Pressable style={styles.fileOpenIconButton} onPress={() => openFile(file.file_url)}>
+                                    <Ionicons name="open-outline" size={17} color="#64748B"/>
+                                  </Pressable>
                                   </View>
                                 ))
                               )}
@@ -959,32 +960,47 @@ export default function MyPatientsHistoryScreen() {
                         <View key={file.id} style={styles.infoCard}>
                           <View style={styles.fileRowWide}>
                             <View style={styles.fileRowText}>
-                              <View style={styles.fileTitleRow}>
-                                <Ionicons name="document-attach-outline" size={17} color="#64748B"/>
+                            <View style={styles.fileHeaderRow}>
+                              <Ionicons name="document-attach-outline" size={17} color="#64748B"/>
 
-                                <Text style={styles.fileTitle}>{file.title}</Text>
+                              <Text style={styles.fileTitle}>{file.title}</Text>
 
-                                {!!file.processing_status && (
-                                  <View style={[styles.processingBadge, file.processing_status === "completed" ? styles.processingBadgeCompleted : file.processing_status === "failed" ? styles.processingBadgeFailed : styles.processingBadgeProcessing]}>
-                                    <Text style={styles.processingBadgeText}>{file.processing_status}</Text>
-                                  </View>
-                                )}
+                              <Pressable style={styles.fileOpenIconButton} onPress={() => openFile(file.file_url)}>
+                                <Ionicons name="open-outline" size={17} color="#64748B"/>
+                              </Pressable>
+                            </View>
 
-                                {!!file.image_processing_status && (
-                                  <View style={[styles.processingBadge, file.image_processing_status === "completed" ? styles.processingBadgeCompleted : file.image_processing_status === "failed" ? styles.processingBadgeFailed : styles.processingBadgeProcessing]}>
-                                    <Text style={styles.processingBadgeText}>image {file.image_processing_status}</Text>
-                                  </View>
-                                )}
+                            <Text style={styles.fileTypeText}>
+                              {file.category || 'file'} · {file.file_type || 'unknown type'}
+                            </Text>
+
+                            <Text style={styles.fileUploadedText}>
+                              {file.description || 'Uploaded file.'} · {formatDateTimeShort(file.created_at)}
+                            </Text>
+
+                            <View style={styles.fileStatusRow}>
+                              <View style={[styles.processingBadge, styles.processingBadgeProcessing]}>
+                                <Text style={styles.processingBadgeText}>
+                                summary {file.processing_status || ' pending'}
+                                </Text>
                               </View>
 
-                              <Text style={styles.fileMeta}>
-                                {file.category || "file"} ·{" "}
-                                {file.file_type || "unknown type"} ·{" "}
-                                {formatDateTimeShort(file.created_at)}
-                              </Text>
+                              <View
+                                style={[
+                                  styles.processingBadge,
+                                  file.image_processing_status === 'completed'
+                                    ? styles.processingBadgeCompleted
+                                    : file.image_processing_status === 'failed'
+                                      ? styles.processingBadgeFailed
+                                      : styles.processingBadgeProcessing,
+                                ]}
+                              >
+                                <Text style={styles.processingBadgeText}>
+                                  analyzer {file.image_processing_status || 'pending'}
+                                </Text>
+                              </View>
+                            </View>
 
-                              {!!file.description && <Text style={styles.fileDescription}>{file.description}</Text>} 
-                              
                               {!!file.notes && <Text style={styles.fileDescription}>{file.notes}</Text>}
                               
                               {!!file.ai_summary && (() => {
@@ -1102,23 +1118,35 @@ export default function MyPatientsHistoryScreen() {
                               )}
                             </View>
 
-                            <View style={styles.fileActionsRow}>
-                              <Pressable style={[styles.fileActionButton, { backgroundColor: theme.primary, opacity: generatingFileId === file.id ? 0.7 : 1 }]} onPress={() => generateFileSummary(file)} disabled={generatingFileId === file.id}>
+                            <View style={[styles.fileActionsRow, isMobile && styles.fileActionsRowMobile]}>
+                              <Pressable
+                                style={[
+                                  styles.fileActionButton,
+                                  isMobile && styles.fileActionButtonMobile,
+                                  { backgroundColor: theme.primary, opacity: generatingFileId === file.id ? 0.7 : 1 },
+                                ]}
+                                onPress={() => generateFileSummary(file)}
+                                disabled={generatingFileId === file.id}
+                              >
                                 <Ionicons name="sparkles-outline" size={16} color="#FFFFFF"/>
-                                <Text style={styles.fileButtonText}>{generatingFileId === file.id ? "Generating..." : file.ai_summary ? "Regenerate Summary" : "Generate Summary"}</Text>
+                                <Text numberOfLines={isMobile ? 2 : 1} style={styles.fileButtonText}>{generatingFileId === file.id ? "Generating..." : file.ai_summary ? "Regenerate Summary" : "Generate Summary"}</Text>
                               </Pressable>
 
                               {isImageFile(file) && (
-                                <Pressable style={[styles.fileActionButton, { backgroundColor: "#475569", opacity: generatingImageFileId === file.id ? 0.7 : 1 }]} onPress={() => generateImageAnalysis(file)} disabled={generatingImageFileId === file.id}>
+                                  <Pressable
+                                    style={[
+                                      styles.fileActionButton,
+                                      isMobile && styles.fileActionButtonMobile,
+                                      { backgroundColor: '#475569', opacity: generatingImageFileId === file.id ? 0.7 : 1 },
+                                    ]}
+                                    onPress={() => generateImageAnalysis(file)}
+                                    disabled={generatingImageFileId === file.id}
+                                  >
                                   <Ionicons name="scan-outline" size={16} color="#FFFFFF"/>
-                                  <Text style={styles.fileButtonText}>{generatingImageFileId === file.id ? "Analyzing..." : file.ai_image_summary ? "Regenerate Image AI" : "Analyze Image"}</Text>
-                                </Pressable>
+                                    <Text numberOfLines={isMobile ? 2 : 1} style={styles.fileButtonText}>{generatingImageFileId === file.id ? "Analyzing..." : file.ai_image_summary ? "Reanalyze Image" : "Analyze Image"}</Text>
+                                  </Pressable>
                               )}
 
-                              <Pressable style={[styles.fileActionButton, { backgroundColor: "#0F172A" }]} onPress={() => openFile(file.file_url)}>
-                                <Ionicons name="open-outline" size={16} color="#FFFFFF"/>
-                                <Text style={styles.fileButtonText}>Open File</Text>
-                              </Pressable>
                             </View>
                           </View>
                         </View>
@@ -1527,17 +1555,20 @@ const styles = StyleSheet.create({
     gap: 10,
   },
 
-  fileTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
+fileTitleRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 7,
+  flexWrap: 'wrap',
+},
 
-  fileTitle: {
-    color: '#0F172A',
-    fontWeight: '900',
-    fontSize: 13,
-  },
+fileTitle: {
+  flex: 1,
+  minWidth: 0,
+  color: '#0F172A',
+  fontWeight: '900',
+  fontSize: 13,
+},
 
   fileMeta: {
     color: '#64748B',
@@ -1594,6 +1625,10 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
 
+  fileActionsRowMobile: {
+    flexWrap: 'wrap',
+  },
+
   fileActionButton: {
     flex: 1,
     minHeight: 42,
@@ -1602,6 +1637,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  fileActionButtonMobile: {
+    minHeight: 54,
+    minWidth: 135,
   },
 
   fileButton: {
@@ -1619,6 +1661,60 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '900',
     fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 15,
+    flexShrink: 1,
+  },
+
+  fileOpenIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+
+  fileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  fileTypeText: {
+    color: '#64748B',
+    fontWeight: '800',
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  fileUploadedText: {
+    color: '#64748B',
+    fontWeight: '700',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+
+  fileStatusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+
+  patientSummaryGridMobile: {
+    flexDirection: 'column',
+  },
+
+  summaryPillMobile: {
+    width: '100%',
+    flexBasis: 'auto',
   },
 
   aiSummaryCard: {

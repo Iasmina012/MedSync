@@ -6,7 +6,7 @@ import { supabase } from '../src/lib/supabase';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import InfoSearchBar from '../src/common/InfoSearchBar';
 import InfoModal from '../src/common/InfoModal';
-import SortDropdown from '../src/common/SortDropdown';
+import DropdownMenu from '../src/common/DropdownMenu';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 
 type Doctor = {
@@ -334,7 +334,7 @@ export default function ClinicDoctorsScreen() {
         </View>
 
         <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
-          <SortDropdown
+          <DropdownMenu
             value={sortBy}
             onChange={(value) => setSortBy(value as DoctorSort)}
             items={[

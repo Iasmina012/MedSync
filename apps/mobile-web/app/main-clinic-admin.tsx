@@ -203,7 +203,7 @@ export default function ClinicAdminDashboard() {
 
     { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Modify, cancel or sort appointments, view details and check-in patients.', onPress: () => go('/manage-appointments') },
     { title: 'Manage Users', icon: 'people-outline' as const, description: 'Manage clinic doctors, patients and clinic admins.', onPress: () => go('/manage-users') },
-    { title: 'Clinic Content', icon: 'albums-outline' as const, description: 'Edit doctors, services, technologies and health tips.', onPress: () => go('/manage-clinic-content') },
+    { title: 'Manage Clinic Content', icon: 'albums-outline' as const, description: 'Edit doctors, services, technologies and health tips.', onPress: () => go('/manage-clinic-content') },
     { title: 'Clinic Settings', icon: 'settings-outline' as const, description: 'Customize branding, contact details and homepage content.', onPress: () => go('/clinic-settings') },
 
   ];
@@ -246,10 +246,16 @@ export default function ClinicAdminDashboard() {
         </View>
 
         <View style={styles.statsGrid}>
-          <AnimatedStatsCard label="Upcoming Appointments" value={upcomingAppointments} icon="calendar-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Patients" value={patientsCount} icon="people-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Doctors" value={doctorsCount} icon="medkit-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Services" value={servicesCount} icon="list-outline" color={theme.primary}/>
+          {[
+            { label: 'Upcoming Appointments', value: upcomingAppointments, icon: 'calendar-outline' as const },
+            { label: 'Patients', value: patientsCount, icon: 'people-outline' as const },
+            { label: 'Doctors', value: doctorsCount, icon: 'medkit-outline' as const },
+            { label: 'Services', value: servicesCount, icon: 'list-outline' as const },
+          ].map((item) => (
+            <View key={item.label} style={isMobile ? styles.statMobileItem : styles.statWebItem}>
+              <AnimatedStatsCard {...item} color={theme.primary} centered={isMobile}/>
+            </View>
+          ))}
         </View>
 
         <View style={styles.section}>
@@ -283,7 +289,11 @@ export default function ClinicAdminDashboard() {
             <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
 
             {upcomingList.length === 0 ? (
-              <Text style={styles.emptyUpcomingText}>No upcoming appointments.</Text>
+              <View style={styles.emptyUpcomingBox}>
+                <Ionicons name="calendar-clear-outline" size={24} color="#94A3B8"/>
+                <Text style={styles.emptyUpcomingTitle}>No upcoming appointments</Text>
+                <Text style={styles.emptyUpcomingText}>Upcoming visits will appear here after patients book appointments.</Text>
+              </View>
             ) : (
               upcomingList.map((appointment) => {
                 const doctor = Array.isArray(appointment.doctors)
@@ -484,13 +494,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
-  emptyUpcomingText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#64748B',
-    fontWeight: '700',
-  },
-
   upcomingCard: {
     flexDirection: 'row',
     gap: 12,
@@ -532,6 +535,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     fontWeight: '700',
+  },
+
+  emptyUpcomingBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    padding: 18,
+    alignItems: 'center',
+  },
+
+  emptyUpcomingTitle: {
+    marginTop: 10,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+
+  emptyUpcomingText: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#64748B',
+    textAlign: 'center',
   },
 
   glanceList: {
@@ -580,6 +607,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     fontWeight: '700',
+  },
+
+  statWebItem: {
+    flex: 1,
+  },
+
+  statMobileItem: {
+    width: '47%',
   },
 
 });

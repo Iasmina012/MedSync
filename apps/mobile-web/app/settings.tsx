@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View, } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { getBackPathWithClinicFallback } from '../src/lib/navigation';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 import ClinicNavbar from '../src/common/ClinicNavbar';
+import { getUserClinicCount } from '../src/lib/adminData';
 
 type UserSettings = {
 
   email_notifications: boolean;
   sms_notifications: boolean;
   marketing_emails: boolean;
+  appointment_notifications: boolean;
   appointment_reminders: boolean;
   dark_mode: boolean;
 
@@ -22,6 +25,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   email_notifications: true,
   sms_notifications: false,
   marketing_emails: false,
+  appointment_notifications: true,
   appointment_reminders: true,
   dark_mode: false,
 
@@ -35,7 +39,9 @@ export default function SettingsScreen() {
   }>();
 
   const { theme } = useClinicTheme(clinicId);
-
+  const { width } = useWindowDimensions();
+  const isMobile = width < 720;
+  const [canChangeClinic, setCanChangeClinic] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [role, setRole] = useState('patient');
@@ -53,6 +59,12 @@ export default function SettingsScreen() {
         }
 
         setRole(profile.role ?? 'patient');
+        if (profile.role === 'clinic_admin' || profile.role === 'doctor') {
+          const clinicCount = await getUserClinicCount(user.id);
+          setCanChangeClinic(clinicCount > 1);
+        } else {
+          setCanChangeClinic(false);
+        }
 
         const { data, error } = await supabase
           .from('user_settings')
@@ -60,6 +72,7 @@ export default function SettingsScreen() {
             email_notifications,
             sms_notifications,
             marketing_emails,
+            appointment_notifications,
             appointment_reminders,
             dark_mode
           `)
@@ -77,6 +90,7 @@ export default function SettingsScreen() {
             email_notifications: data.email_notifications ?? true,
             sms_notifications: data.sms_notifications ?? false,
             marketing_emails: data.marketing_emails ?? false,
+            appointment_notifications: data.appointment_notifications ?? true,
             appointment_reminders: data.appointment_reminders ?? true,
             dark_mode: data.dark_mode ?? false,
           });
@@ -109,14 +123,15 @@ export default function SettingsScreen() {
         return;
       }
 
-      const payload = {
-        profile_id: user.id,
-        email_notifications: settings.email_notifications,
-        sms_notifications: settings.sms_notifications,
-        marketing_emails: settings.marketing_emails,
-        appointment_reminders: settings.appointment_reminders,
-        dark_mode: settings.dark_mode,
-      };
+  const payload = {
+    profile_id: user.id,
+    email_notifications: settings.email_notifications,
+    sms_notifications: settings.sms_notifications,
+    marketing_emails: settings.marketing_emails,
+    appointment_notifications: settings.appointment_notifications,
+    appointment_reminders: settings.appointment_reminders,
+    dark_mode: settings.dark_mode,
+  };
 
       const { error } = await supabase
         .from('user_settings')
@@ -155,6 +170,7 @@ export default function SettingsScreen() {
         roleLabel="Settings"
         showRolePill={false}
         onChangeClinic={() => router.replace('/clinic-selection')}
+        canChangeClinic={canChangeClinic}
         showBackButton
         onBackPress={() => router.replace(backRoute as any)}
       />
@@ -178,6 +194,8 @@ export default function SettingsScreen() {
 
       <View style={styles.card}>
         <SettingRow
+          icon="mail-outline"
+          color={theme.primary}
           label="Email Notifications"
           description="Receive account and activity updates by email."
           value={settings.email_notifications}
@@ -185,20 +203,17 @@ export default function SettingsScreen() {
         />
 
         <SettingRow
-          label="SMS Notifications"
-          description="Receive important updates by SMS."
-          value={settings.sms_notifications}
-          onChange={(value) => updateField('sms_notifications', value)}
+          icon="notifications-outline"
+          color={theme.primary}
+          label="Appointment Notifications"
+          description="Receive updates when appointments are created, changed, cancelled or checked in."
+          value={settings.appointment_notifications}
+          onChange={(value) => updateField('appointment_notifications', value)}
         />
 
         <SettingRow
-          label="Marketing Emails"
-          description="Receive clinic offers and product updates."
-          value={settings.marketing_emails}
-          onChange={(value) => updateField('marketing_emails', value)}
-        />
-
-        <SettingRow
+          icon="alarm-outline"
+          color={theme.primary}
           label="Appointment Reminders"
           description="Get reminders before scheduled appointments."
           value={settings.appointment_reminders}
@@ -206,16 +221,36 @@ export default function SettingsScreen() {
         />
 
         <SettingRow
+          icon="chatbubble-ellipses-outline"
+          color={theme.primary}
+          label="SMS Notifications"
+          description="Receive important updates by SMS."
+          value={settings.sms_notifications}
+          onChange={(value) => updateField('sms_notifications', value)}
+        />
+
+        <SettingRow
+          icon="megaphone-outline"
+          color={theme.primary}
+          label="Marketing Emails"
+          description="Receive clinic offers and product updates."
+          value={settings.marketing_emails}
+          onChange={(value) => updateField('marketing_emails', value)}
+        />
+
+        <SettingRow
+          icon="moon-outline"
+          color={theme.primary}
           label="Dark Mode"
           description="Saved preference for future UI appearance support."
           value={settings.dark_mode}
           onChange={(value) => updateField('dark_mode', value)}
-          isLast
         />
 
         <Pressable
           style={[
             styles.button,
+            isMobile && styles.mobileFullButton,
             { backgroundColor: theme.primary },
             saving && styles.buttonDisabled,
           ]}
@@ -235,27 +270,38 @@ export default function SettingsScreen() {
 }
 
 function SettingRow({
+  icon,
+  color,
   label,
   description,
   value,
   onChange,
-  isLast = false,
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
   label: string;
   description: string;
   value: boolean;
   onChange: (value: boolean) => void;
-  isLast?: boolean;
 }) {
 
   return (
-    <View style={[styles.settingRow, isLast && styles.settingRowLast]}>
+    <View style={styles.settingRow}>
+      <View style={[styles.settingIcon, { backgroundColor: `${color}12` }]}>
+        <Ionicons name={icon} size={20} color={color}/>
+      </View>
+
       <View style={styles.settingTextWrap}>
         <Text style={styles.settingLabel}>{label}</Text>
         <Text style={styles.settingDescription}>{description}</Text>
       </View>
 
-      <Switch value={value} onValueChange={onChange} />
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: '#CBD5E1', true: `${color}55` }}
+        thumbColor={value ? color : '#F8FAFC'}
+      />
     </View>
   );
 
@@ -312,27 +358,32 @@ const styles = StyleSheet.create({
 
   settingRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 16,
     alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    gap: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    padding: 16,
   },
 
-  settingRowLast: {
-    borderBottomWidth: 0,
+  settingIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   settingTextWrap: {
     flex: 1,
-    paddingRight: 8,
+    minWidth: 0,
   },
 
   settingLabel: {
     fontSize: 15,
     color: '#0F172A',
-    fontWeight: '700',
+    fontWeight: '900',
     marginBottom: 4,
   },
 
@@ -340,6 +391,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     color: '#64748B',
+    fontWeight: '600',
   },
 
   button: {
@@ -358,6 +410,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 14,
+  },
+
+  mobileFullButton: {
+    width: '100%',
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
 });

@@ -113,9 +113,7 @@ export default function LoginScreen() {
         return;
       }
 
-      const { error } = await supabase.auth.resetPasswordForEmail(emailToUse, {
-        redirectTo: 'medsync://reset-password',
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(emailToUse, {redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'medsync://reset-password',});
 
       if (error) {
         setResetError(error.message);

@@ -110,6 +110,7 @@ export default function InfoModal({
                       color={action.primary ? '#FFFFFF' : '#0F172A'}
                     />
                     <Text
+                      numberOfLines={1}
                       style={[
                         styles.actionButtonText,
                         action.primary && styles.primaryActionButtonText,
@@ -251,7 +252,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
     marginTop: 20,
-    justifyContent: 'center',
     alignItems: 'center',
   },
 
@@ -265,20 +265,22 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderWidth: 1,
     minHeight: 52,
-    minWidth: 180,
   },
 
   primaryActionButton: {
-    minWidth: 320,
+    flex: 1,
+    minWidth: 260,
   },
 
   actionButtonMobile: {
+    flex: 1,
     minWidth: 0,
-    alignSelf: 'center',
+    paddingHorizontal: 10,
   },
 
   primaryActionButtonMobile: {
-    width: 300,
+    width: '100%',
+    flexBasis: '100%',
   },
 
   secondaryActionButton: {
@@ -287,9 +289,11 @@ const styles = StyleSheet.create({
   },
 
   actionButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
+    textAlign: 'center',
+    flexShrink: 0,
   },
 
   primaryActionButtonText: {

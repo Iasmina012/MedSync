@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import { useClinicTheme } from '../src/lib/clinicTheme';
-import SortDropdown from '../src/common/SortDropdown';
+import DropdownMenu from '../src/common/DropdownMenu';
 import { getUserClinicCount } from '../src/lib/adminData';
 
 type Role = 'patient' | 'doctor' | 'clinic_admin' | 'platform_admin';
@@ -302,6 +302,7 @@ export default function ManageAppointmentsScreen() {
   const [attendanceAction, setAttendanceAction] = React.useState<'present' | 'missed' | null>(null);
   const [sortBy, setSortBy] = React.useState<AppointmentSort>('default');
   const [canChangeClinic, setCanChangeClinic] = React.useState(false);
+  const [resolvedClinicName, setResolvedClinicName] = React.useState('');
 
   const [recordTitle, setRecordTitle] = React.useState('');
   const [recordCategory, setRecordCategory] = React.useState('Consultation');
@@ -573,6 +574,23 @@ export default function ManageAppointmentsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId]);
 
+  useEffect(() => {
+    const loadClinicName = async () => {
+      if (!clinicId || clinicName) 
+        return;
+
+      const { data } = await supabase
+        .from('clinics')
+        .select('name')
+        .eq('id', clinicId)
+        .maybeSingle();
+
+      setResolvedClinicName(data?.name || '');
+    };
+
+    loadClinicName();
+  }, [clinicId, clinicName]);
+
   const sortedAppointments = useMemo(() => {
 
     const items = [...appointments];
@@ -840,7 +858,7 @@ export default function ManageAppointmentsScreen() {
 
       <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
         <ClinicNavbar
-          clinicName={profile?.role === 'platform_admin' ? 'MedSync Platform' : clinicName}
+          clinicName={profile?.role === 'platform_admin' ? 'MedSync Platform' : clinicName || resolvedClinicName}
           clinicId={profile?.role === 'platform_admin' ? undefined : clinicId}
           primaryColor={theme.primary}
           roleLabel={
@@ -878,7 +896,7 @@ export default function ManageAppointmentsScreen() {
 
           <View style={[styles.heroControls, isMobile && styles.heroControlsMobile]}>
             <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
-              <SortDropdown
+              <DropdownMenu
                 value={sortBy}
                 onChange={(value) => setSortBy(value as AppointmentSort)}
                 items={[
@@ -1032,14 +1050,7 @@ export default function ManageAppointmentsScreen() {
                         onPress={() => openCreateRecordModal(appointment)}
                         disabled={hasRecord}
                       >
-                        <Ionicons
-                          name="document-text-outline"
-                          size={16}
-                          color={hasRecord ? '#94A3B8' : '#0F172A'}
-                        />
-                        <Text numberOfLines={1} style={[styles.recordActionText, hasRecord && styles.disabledActionText]}>
-                          {hasRecord ? 'Record Created' : 'Create Record'}
-                        </Text>
+                        <Text numberOfLines={1} style={[styles.recordActionText, hasRecord && styles.disabledActionText]}>{hasRecord ? 'Created' : 'Record'}</Text>
                       </Pressable>
                     )}
 
@@ -1055,8 +1066,7 @@ export default function ManageAppointmentsScreen() {
                         style={styles.checkAction}
                         onPress={() => setCheckTarget(appointment)}
                       >
-                        <Ionicons name="person-circle-outline" size={16} color="#0F172A"/>
-                        <Text style={styles.checkActionText}>Check In</Text>
+                        <Text numberOfLines={1} style={styles.checkActionText}>Check In</Text>
                       </Pressable>
                     )}
                   </View>
@@ -1193,18 +1203,21 @@ export default function ManageAppointmentsScreen() {
                           </View>
                         )}
 
-                        <View style={styles.onboardingReviewMetaRow}>
-                          <View style={[styles.onboardingReviewPill, { backgroundColor: urgencyColor.background, borderColor: urgencyColor.border }]}>
-                            <Text style={[styles.onboardingReviewPillText, { color: urgencyColor.text }]}>Urgency: {review.urgency_level || 'routine'}</Text>
+                        <View style={styles.onboardingStatusGrid}>
+                          <View style={[styles.onboardingStatusItem, { borderColor: urgencyColor.border, backgroundColor: urgencyColor.background }]}>
+                            <Text style={[styles.onboardingStatusLabel, { color: urgencyColor.text }]}>Urgency</Text>
+                            <Text style={[styles.onboardingStatusValue, { color: urgencyColor.text }]}>{(review.urgency_level || 'Routine').replaceAll('_', ' ')}</Text>
                           </View>
 
-                          <View style={styles.onboardingReviewPill}>
-                            <Text style={styles.onboardingReviewPillText}>{review.form_valid ? 'Intake complete' : 'Clinician review needed'}</Text>
+                          <View style={styles.onboardingStatusItem}>
+                            <Text style={styles.onboardingStatusLabel}>Intake</Text>
+                            <Text style={styles.onboardingStatusValue}>{review.form_valid ? 'Complete' : 'Needs Review'}</Text>
                           </View>
 
                           {review.requires_manual_review && (
-                            <View style={[styles.onboardingReviewPill, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }]}>
-                              <Text style={[styles.onboardingReviewPillText, { color: '#C2410C' }]}>Manual review required</Text>
+                            <View style={[styles.onboardingStatusItem, styles.onboardingStatusWarning]}>
+                              <Text style={[styles.onboardingStatusLabel, styles.onboardingStatusWarningText]}>Review</Text>
+                              <Text style={[styles.onboardingStatusValue, styles.onboardingStatusWarningText]}>Required Manual</Text>
                             </View>
                           )}
                         </View>
@@ -1275,12 +1288,21 @@ export default function ManageAppointmentsScreen() {
             )}
 
             <View style={styles.detailsModalActions}>
-              <Pressable
-                style={styles.detailsCloseButton}
-                onPress={() => setDetailsTarget(null)}
-              >
-                <Text style={styles.detailsCloseText}>Close</Text>
-              </Pressable>
+
+            <Pressable
+              style={[
+                styles.detailsCloseButton,
+                {
+                  backgroundColor:
+                    profile?.role === 'platform_admin' ? '#2563EB' : theme.primary,
+                  borderColor:
+                    profile?.role === 'platform_admin' ? '#2563EB' : theme.primary,
+                },
+              ]}
+              onPress={() => setDetailsTarget(null)}
+            >
+              <Text style={styles.detailsCloseText}>Close</Text>
+            </Pressable>
 
               {detailsTarget && isDoctor && (
                 <Pressable
@@ -1299,11 +1321,7 @@ export default function ManageAppointmentsScreen() {
                     openCreateRecordModal(appointment);
                   }}
                 >
-                  <Text style={styles.detailsCreateText}>
-                    {existingRecordAppointmentIds.has(detailsTarget.id)
-                      ? 'Record Created'
-                      : 'Create Medical Record'}
-                  </Text>
+                  <Text style={styles.detailsCreateText}>{existingRecordAppointmentIds.has(detailsTarget.id) ? 'Record Created' : 'Create Record'}</Text>
                 </Pressable>
               )}
             </View>
@@ -1862,9 +1880,9 @@ const styles = StyleSheet.create({
 
   cardActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     width: '100%',
-    flexWrap: 'nowrap',
+    flexWrap: 'wrap',
   },
 
   primaryAction: {
@@ -1872,7 +1890,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 11,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1881,7 +1899,7 @@ const styles = StyleSheet.create({
   primaryActionText: {
     color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 14,
+    fontSize: 12,
   },
 
   dangerAction: {
@@ -1889,7 +1907,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#FECDD3',
@@ -1901,7 +1919,7 @@ const styles = StyleSheet.create({
   dangerActionText: {
     color: '#BE123C',
     fontWeight: '900',
-    fontSize: 14,
+    fontSize: 13,
   },
 
   recordAction: {
@@ -1909,21 +1927,19 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#CBD5E1',
     backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
   },
 
   recordActionText: {
     color: '#0F172A',
     fontWeight: '900',
-    fontSize: 14,
+    fontSize: 13,
   },
 
   disabledAction: {
@@ -1937,24 +1953,22 @@ const styles = StyleSheet.create({
 
   checkAction: {
     flex: 1,
-    minWidth: 120,
+    minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#CBD5E1',
     backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
   },
 
   checkActionText: {
     color: '#0F172A',
     fontWeight: '900',
-    fontSize: 14,
+    fontSize: 13,
   },
 
   modalOverlay: {
@@ -2221,7 +2235,7 @@ const styles = StyleSheet.create({
 
   inputHalf: {
     flex: 1,
-    minWidth: 190,
+    minWidth: 215,
   },
 
   formButton: {
@@ -2376,15 +2390,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 50,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   detailsCloseText: {
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '900',
   },
 
@@ -2429,12 +2440,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  onboardingReviewMetaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-
   onboardingReviewBadge: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -2448,19 +2453,46 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
 
-  onboardingReviewPill: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  onboardingStatusGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    width: '100%',
   },
 
-  onboardingReviewPillText: {
-    fontSize: 12,
+  onboardingStatusItem: {
+    flex: 1,
+    minWidth: 145,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+
+  onboardingStatusLabel: {
+    color: '#64748B',
+    fontSize: 11,
     fontWeight: '900',
-    color: '#475569',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+
+  onboardingStatusValue: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'capitalize',
+  },
+
+  onboardingStatusWarning: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
+  },
+
+  onboardingStatusWarningText: {
+    color: '#C2410C',
   },
 
   onboardingRecommendationBox: {

@@ -118,6 +118,8 @@ export default function ManageClinicsScreen() {
   const [loading, setLoading] = useState(true);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [editing, setEditing] = useState<Clinic | null>(null);
+  const [originalEditing, setOriginalEditing] = useState<Clinic | null>(null);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const loadClinics = async () => {
@@ -144,6 +146,30 @@ export default function ManageClinicsScreen() {
   useEffect(() => {
     loadClinics();
   }, []);
+
+  const hasUnsavedChanges = () => {
+    if (!editing || !originalEditing) return false;
+
+    const isNew = !editing.id;
+
+    return isNew || JSON.stringify(editing) !== JSON.stringify(originalEditing);
+  };
+
+  const closeEditing = () => {
+    if (!hasUnsavedChanges()) {
+      setEditing(null);
+      setOriginalEditing(null);
+      return;
+    }
+
+    setDiscardConfirmOpen(true);
+  };
+
+  const discardChanges = () => {
+    setDiscardConfirmOpen(false);
+    setEditing(null);
+    setOriginalEditing(null);
+  };
 
   const saveClinic = async () => {
     if (!editing?.name.trim()) {
@@ -173,6 +199,7 @@ export default function ManageClinicsScreen() {
     }
 
     setEditing(null);
+    setOriginalEditing(null);
     loadClinics();
   };
 
@@ -219,7 +246,11 @@ export default function ManageClinicsScreen() {
           <Text style={styles.title}>Manage Clinics</Text>
           <Text style={styles.subtitle}>Create clinics, edit branding colors, descriptions and activate or deactivate clinics.</Text>
 
-          <Pressable style={styles.primaryButton} onPress={() => setEditing(cloneClinic(emptyClinic))}>
+          <Pressable style={styles.primaryButton} onPress={() => {
+              const next = cloneClinic(emptyClinic);
+              setEditing(next);
+              setOriginalEditing(cloneClinic(next));
+            }}>
             <Ionicons name="add-outline" size={18} color="#FFFFFF"/>
             <Text style={styles.primaryButtonText}>New Clinic</Text>
           </Pressable>
@@ -227,27 +258,38 @@ export default function ManageClinicsScreen() {
 
         <View style={styles.grid}>
           {clinics.map((clinic) => (
-            <HoverCard key={clinic.id} onPress={() => setEditing(cloneClinic(clinic))}>
+            <HoverCard
+              key={clinic.id}
+              onPress={() => {
+                const next = cloneClinic(clinic);
+                setEditing(next);
+                setOriginalEditing(cloneClinic(next));
+              }}
+            >
               <View style={styles.cardTop}>
                 <View style={styles.cardTitleWrap}>
                   <Text style={styles.cardTitle}>{clinic.name}</Text>
                   <Text style={styles.cardMeta}>{clinic.slug || 'No slug'}</Text>
                 </View>
 
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: clinic.is_active ? '#DCFCE7' : '#FEE2E2' },
-                  ]}
-                >
-                  <Text
+                <View style={styles.cardRight}>
+                  <View
                     style={[
-                      styles.statusText,
-                      { color: clinic.is_active ? '#166534' : '#991B1B' },
+                      styles.statusBadge,
+                      { backgroundColor: clinic.is_active ? '#DCFCE7' : '#FEE2E2' },
                     ]}
                   >
-                    {clinic.is_active ? 'Active' : 'Inactive'}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: clinic.is_active ? '#166534' : '#991B1B' },
+                      ]}
+                    >
+                      {clinic.is_active ? 'Active' : 'Inactive'}
+                    </Text>
+                  </View>
+
+                  <Ionicons name="chevron-forward-outline" size={20} color="#94A3B8" />
                 </View>
               </View>
 
@@ -270,7 +312,9 @@ export default function ManageClinicsScreen() {
                   ]}
                   onPress={(event) => {
                     event.stopPropagation?.();
-                    setEditing(cloneClinic(clinic));
+                    const next = cloneClinic(clinic);
+                    setEditing(next);
+                    setOriginalEditing(cloneClinic(next));
                   }}
                 >
                   <Text style={styles.secondaryButtonText}>Edit</Text>
@@ -427,12 +471,41 @@ export default function ManageClinicsScreen() {
             )}
 
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelButton} onPress={() => setEditing(null)} disabled={saving}>
+              <Pressable style={styles.modalCancelButton} onPress={closeEditing} disabled={saving}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
 
               <Pressable style={styles.modalSaveButton} onPress={saveClinic} disabled={saving}>
                 <Text style={styles.modalSaveText}>{saving ? 'Saving...' : 'Save Clinic'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={discardConfirmOpen} transparent animationType="fade">
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="warning-outline" size={28} color="#B45309" />
+            </View>
+
+            <Text style={styles.confirmTitle}>Discard unsaved changes?</Text>
+
+            <Text style={styles.confirmText}>
+              You have unsaved changes. If you close now, they will be lost.
+            </Text>
+
+            <View style={styles.confirmActions}>
+              <Pressable
+                style={styles.confirmCancelButton}
+                onPress={() => setDiscardConfirmOpen(false)}
+              >
+                <Text style={styles.confirmCancelText}>Keep editing</Text>
+              </Pressable>
+
+              <Pressable style={styles.confirmDiscardButton} onPress={discardChanges}>
+                <Text style={styles.confirmDiscardText}>Discard</Text>
               </Pressable>
             </View>
           </View>
@@ -621,15 +694,26 @@ const styles = StyleSheet.create({
   },
 
   statusBadge: {
+    minHeight: 34,
     borderRadius: 999,
-    paddingHorizontal: 10,
+    paddingHorizontal: 18,
     paddingVertical: 6,
-    alignSelf: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
   },
 
   statusText: {
     fontWeight: '900',
     fontSize: 12,
+    lineHeight: 14,
+  },
+
+  cardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
 
   colorRow: {
@@ -943,6 +1027,87 @@ const styles = StyleSheet.create({
   },
 
   modalSaveText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+    
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  confirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  confirmIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+
+  confirmTitle: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  confirmText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+
+  confirmCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+
+  confirmCancelText: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+
+  confirmDiscardButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  confirmDiscardText: {
     color: '#FFFFFF',
     fontWeight: '900',
   },

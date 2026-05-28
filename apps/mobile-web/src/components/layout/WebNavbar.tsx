@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { router, usePathname } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, View, Animated, Easing } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, Animated, Easing, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 
@@ -199,7 +199,7 @@ export default function WebNavbar() {
         <Pressable style={styles.brandWrap} onPress={() => router.push('/')}>
           <View style={styles.logoCircle}>
             <View style={styles.logoInner}>
-              <Ionicons name="pulse-outline" size={20} color="#FFFFFF"/>
+              <Image source={require('../../../assets/images/logo.png')} style={styles.logoIcon}/>
             </View>
           </View>
 
@@ -406,8 +406,8 @@ const styles = StyleSheet.create({
   },
 
   logoCircle: {
-    width: 50,
-    height: 50,
+    width: 65,
+    height: 65,
     borderRadius: 999,
     backgroundColor: 'rgba(219,234,254,0.75)',
     alignItems: 'center',
@@ -415,12 +415,18 @@ const styles = StyleSheet.create({
   },
 
   logoInner: {
-    width: 40,
-    height: 40,
+    width: 45,
+    height: 45,
     borderRadius: 999,
-    backgroundColor: BRAND.primary,
+    backgroundColor: 'rgba(186, 216, 255, 0.75)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  logoIcon: {
+    width: 70,
+    height: 70,
+    resizeMode: 'contain',
   },
 
   brandTitle: {

@@ -1,12 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { supabase } from '../src/lib/supabase';
 import { requireRole } from '../src/lib/adminData';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import HoverCard from '../src/common/HoverCard'; 
 
 type Tab = 'doctors' | 'services' | 'technologies' | 'tips';
 
@@ -120,66 +121,6 @@ async function uriToBlob(uri: string) {
 
   const response = await fetch(uri);
   return await response.blob();
-
-}
-
-function HoverCard({ children, onPress, }: { children: React.ReactNode; onPress: () => void; }) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const shadow = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1.015, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: -5, useNativeDriver: false, friction: 8 }),
-      Animated.timing(shadow, { toValue: 1, duration: 180, useNativeDriver: false }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: false, friction: 8 }),
-      Animated.timing(shadow, { toValue: 0, duration: 180, useNativeDriver: false }),
-    ]).start();
-  };
-
-  return (
-
-    <Pressable
-      style={styles.cardWrap}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View
-        style={[
-          styles.card,
-          {
-            transform: [{ scale }, { translateY }],
-            shadowOpacity: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.04, 0.12],
-            }) as any,
-            shadowRadius: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [8, 18],
-            }) as any,
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-
-  );
 
 }
 
@@ -615,6 +556,9 @@ setSelectedDoctorIds([]);
               return (
                 <HoverCard
                   key={item.id}
+                  pressableStyle={styles.cardWrap}
+                  cardStyle={styles.card}
+                  withShadow
                   onPress={() => {
                     const next = cloneItem(item);
                     setEditing(next);

@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View, Alert, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { supabase } from '../src/lib/supabase';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import ClinicNavbar from '../src/common/ClinicNavbar';
 import PatientHealthCharts from '../src/common/PatientHealthCharts';
+import HoverCard from '../src/common/HoverCard';
 
 type HistoryItem = {
 
@@ -191,46 +192,6 @@ function getStatusLabel(status?: string | null) {
   if (status === 'rescheduled') return 'Rescheduled';
   if (status === 'scheduled') return 'Scheduled';
   return 'Unknown';
-
-}
-
-function HoverCard({ children, onPress, }: { children: React.ReactNode; onPress: () => void; }) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1.015, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: -5, useNativeDriver: false, friction: 8 }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: false, friction: 8 }),
-    ]).start();
-  };
-
-  return (
-    <Pressable
-      style={styles.cardWrap}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View style={[styles.card, { transform: [{ scale }, { translateY }] }]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
 
 }
 
@@ -757,7 +718,12 @@ export default function MyPatientsHistoryScreen() {
               const aiTriageCount = patient.appointments.filter((appointment) => appointment.triage_session_id).length;
 
               return (
-                <HoverCard key={patient.patientId} onPress={() => setSelectedPatient(patient)}>
+                <HoverCard
+                  key={patient.patientId}
+                  pressableStyle={styles.cardWrap}
+                  cardStyle={styles.card}
+                  onPress={() => setSelectedPatient(patient)}
+                >
                   <View style={styles.cardTop}>
                     <View style={[styles.avatarBox, { backgroundColor: `${theme.primary}12` }]}>
                       {patient.avatarUrl ? (
@@ -899,7 +865,11 @@ export default function MyPatientsHistoryScreen() {
 
                   <ExpandableSection title="Medical Records">
                     {selectedPatient.records.length === 0 ? (
-                      <Text style={styles.emptyInlineText}>No medical records.</Text>
+                      <View style={styles.emptyDataCard}>
+                        <Ionicons name="document-text-outline" size={24} color="#94A3B8"/>
+                        <Text style={styles.emptyDataTitle}>No medical records yet</Text>
+                        <Text style={styles.emptyDataText}>Medical Records will appear after they are created.</Text>
+                      </View>
                     ) : (
                       selectedPatient.records.map((record) => {
                         const attachedFiles = selectedPatient.files.filter((file) => file.medical_record_id === record.id || (!!record.appointment_id && file.appointment_id === record.appointment_id));
@@ -954,7 +924,11 @@ export default function MyPatientsHistoryScreen() {
 
                   <ExpandableSection title="All Patient Files">
                     {selectedPatient.files.length === 0 ? (
-                      <Text style={styles.emptyInlineText}>No uploaded files.</Text>
+                      <View style={styles.emptyDataCard}>
+                        <Ionicons name="document-text-outline" size={24} color="#94A3B8"/>
+                        <Text style={styles.emptyDataTitle}>No patient files yet</Text>
+                        <Text style={styles.emptyDataText}>Patient Files will appear after they are uploaded.</Text>
+                      </View>
                     ) : (
                       selectedPatient.files.map((file) => (
                         <View key={file.id} style={styles.infoCard}>
@@ -1352,6 +1326,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  emptyDataCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 18,
+    alignItems: 'center',
+  },
+
+  emptyDataTitle: {
+    marginTop: 8,
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+
+  emptyDataText: {
+    marginTop: 5,
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15,23,42,0.45)',
@@ -1555,20 +1554,20 @@ const styles = StyleSheet.create({
     gap: 10,
   },
 
-fileTitleRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 7,
-  flexWrap: 'wrap',
-},
+  fileTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    flexWrap: 'wrap',
+  },
 
-fileTitle: {
-  flex: 1,
-  minWidth: 0,
-  color: '#0F172A',
-  fontWeight: '900',
-  fontSize: 13,
-},
+  fileTitle: {
+    flex: 1,
+    minWidth: 0,
+    color: '#0F172A',
+    fontWeight: '900',
+    fontSize: 13,
+  },
 
   fileMeta: {
     color: '#64748B',

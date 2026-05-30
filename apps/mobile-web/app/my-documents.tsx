@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { ActivityIndicator, Animated, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import ClinicNavbar from "../src/common/ClinicNavbar";
-import AnimatedStatsCard from "../src/common/AnimatedStatsCard";
-import DropdownMenu from "../src/common/DropdownMenu";
 import { supabase } from "../src/lib/supabase";
 import { getCurrentUserProfile } from "../src/lib/auth";
 import { useClinicTheme } from "../src/lib/clinicTheme";
+import ClinicNavbar from "../src/common/ClinicNavbar";
+import AnimatedStatsCard from "../src/common/AnimatedStatsCard";
+import DropdownMenu from "../src/common/DropdownMenu";
+import HoverCard from '../src/common/HoverCard';
 
 type Tab = "all" | "images" | "pdfs" | "docs" | "other" | "records";
 
@@ -235,88 +236,6 @@ function getFileSortTitle(file: PatientFile) {
 
 function getRecordSortTitle(record: MedicalRecord) {
   return (record.title || record.category || "Medical record").toLowerCase();
-}
-
-function HoverCard({ children, onPress, }: { children: React.ReactNode; onPress: () => void; }) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const shadow = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== "web") 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1.015,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: -5,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.timing(shadow, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== "web") 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.timing(shadow, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  };
-
-  return (
-    <Pressable
-      style={styles.cardWrap}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View
-        style={[
-          styles.card,
-          {
-            transform: [{ scale }, { translateY }],
-            shadowOpacity: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.04, 0.12],
-            }) as any,
-            shadowRadius: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [8, 18],
-            }) as any,
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-
 }
 
 export default function MyDocumentsScreen() {
@@ -678,7 +597,13 @@ export default function MyDocumentsScreen() {
         ) : (
           <View style={styles.grid}>
             {filteredFiles.map((file) => (
-              <HoverCard key={`file-${file.id}`} onPress={() => setSelectedFile(file)}>
+              <HoverCard
+                key={`file-${file.id}`}
+                pressableStyle={styles.cardWrap}
+                cardStyle={styles.card}
+                withShadow
+                onPress={() => setSelectedFile(file)}
+              > 
                 <View style={[styles.cardIcon, { backgroundColor: `${theme.primary}12` }]}>
                   <Ionicons name={getFileIcon(file)} size={24} color={theme.primary}/>
                 </View>
@@ -695,7 +620,13 @@ export default function MyDocumentsScreen() {
             ))}
 
             {filteredRecords.map((record) => (
-              <HoverCard key={`record-${record.id}`} onPress={() => setSelectedRecord(record)}>
+              <HoverCard
+                key={`record-${record.id}`}
+                pressableStyle={styles.cardWrap}
+                cardStyle={styles.card}
+                withShadow
+                onPress={() => setSelectedRecord(record)}
+              >
                 <View style={[styles.cardIcon, { backgroundColor: `${theme.primary}12` }]}>
                   <Ionicons name="medkit-outline" size={24} color={theme.primary}/>
                 </View>

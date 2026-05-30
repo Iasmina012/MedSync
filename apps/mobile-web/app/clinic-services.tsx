@@ -3,12 +3,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
+import { useClinicTheme } from '../src/lib/clinicTheme';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import InfoSearchBar from '../src/common/InfoSearchBar';
-import InfoImage from '../src/common/InfoImage';
+import InfoPreviewCard from '../src/common/InfoPreviewCard';
 import InfoModal from '../src/common/InfoModal';
 import DropdownMenu from '../src/common/DropdownMenu';
-import { useClinicTheme } from '../src/lib/clinicTheme';
 
 type Service = {
 
@@ -248,7 +248,7 @@ export default function ClinicServicesScreen() {
         ) : (
         <View style={styles.grid}>
           {filtered.map((service) => (
-            <InfoImage
+            <InfoPreviewCard
               key={service.id}
               title={service.title}
               subtitle={`${service.category || 'Service'}${

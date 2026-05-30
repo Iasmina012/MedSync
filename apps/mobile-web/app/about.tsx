@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View, Platform, Pressable, Animated, Easi
 import { Ionicons } from '@expo/vector-icons';
 import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import WebFooter from '../src/components/layout/WebFooter';
+import HoverCard from '../src/common/HoverCard';
 
 const STORE_LINKS = {
 
@@ -10,63 +11,6 @@ const STORE_LINKS = {
   googlePlay: 'https://play.google.com/store',
 
 };
-
-function HoverCard({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: any;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') return;
-
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1.02,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: -6,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-    ]).start();
-  };
-
-  return (
-    <Pressable
-      style={styles.cardHoverWrap}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View style={[style, { transform: [{ scale }, { translateY }] }]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-}
 
 export default function AboutScreen() {
 
@@ -264,7 +208,7 @@ export default function AboutScreen() {
 
         <View style={styles.grid}>
 
-          <HoverCard style={styles.card}>
+          <HoverCard pressableStyle={styles.cardHoverWrap} style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="business-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -274,7 +218,7 @@ export default function AboutScreen() {
             </Text>
           </HoverCard>
 
-          <HoverCard style={styles.card}>
+          <HoverCard pressableStyle={styles.cardHoverWrap} style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="phone-portrait-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -284,7 +228,7 @@ export default function AboutScreen() {
             </Text>
           </HoverCard>
 
-          <HoverCard style={styles.card}>
+          <HoverCard pressableStyle={styles.cardHoverWrap} style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="sparkles-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -294,7 +238,7 @@ export default function AboutScreen() {
             </Text>
           </HoverCard>
 
-          <HoverCard style={styles.card}>
+          <HoverCard pressableStyle={styles.cardHoverWrap} style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="shield-checkmark-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -304,7 +248,7 @@ export default function AboutScreen() {
             </Text>
           </HoverCard>
 
-          <HoverCard style={styles.card}>
+          <HoverCard pressableStyle={styles.cardHoverWrap} style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="calendar-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -314,7 +258,7 @@ export default function AboutScreen() {
             </Text>
           </HoverCard>
 
-          <HoverCard style={styles.card}>
+          <HoverCard pressableStyle={styles.cardHoverWrap} style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -324,7 +268,7 @@ export default function AboutScreen() {
             </Text>
           </HoverCard>
 
-          <HoverCard style={styles.card}>
+          <HoverCard pressableStyle={styles.cardHoverWrap} style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="chatbubble-ellipses-outline" size={22} color="#1D4ED8"/>
             </View>
@@ -334,7 +278,7 @@ export default function AboutScreen() {
             </Text>
           </HoverCard>
 
-          <HoverCard style={styles.card}>
+          <HoverCard pressableStyle={styles.cardHoverWrap} style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="alarm-outline" size={22} color="#1D4ED8"/>
             </View>

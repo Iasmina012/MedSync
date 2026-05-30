@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { supabase } from '../src/lib/supabase';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import HoverCard from '../src/common/HoverCard';
 
 type Patient = {
 
@@ -37,46 +38,6 @@ function formatValue(value: string | number | null | undefined) {
 
 function getPatientName(patient?: Patient | null) {
   return `${patient?.first_name || ''} ${patient?.last_name || ''}`.trim() || 'Patient';
-}
-
-function HoverCard({ children, onPress, }: { children: React.ReactNode; onPress: () => void; }) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1.015, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: -5, useNativeDriver: false, friction: 8 }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: false, friction: 8 }),
-    ]).start();
-  };
-
-  return (
-    <Pressable
-      style={styles.cardWrap}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View style={[styles.card, { transform: [{ scale }, { translateY }] }]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-
 }
 
 export default function DoctorPatientsScreen() {
@@ -227,7 +188,12 @@ export default function DoctorPatientsScreen() {
         ) : (
           <View style={styles.grid}>
             {patients.map((patient) => (
-              <HoverCard key={patient.id} onPress={() => setSelected(patient)}>
+              <HoverCard
+                key={patient.id}
+                pressableStyle={styles.cardWrap}
+                cardStyle={styles.card}
+                onPress={() => setSelected(patient)}
+              >
                 <View style={styles.cardTop}>
                   <View style={[styles.avatar, { backgroundColor: `${theme.primary}12` }]}>
                     {patient.avatar_url ? (

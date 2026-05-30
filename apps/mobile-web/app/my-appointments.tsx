@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
+import { useClinicTheme } from '../src/lib/clinicTheme';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import DropdownMenu from '../src/common/DropdownMenu';
-import { useClinicTheme } from '../src/lib/clinicTheme';
+import HoverCard from '../src/common/HoverCard';
 
 type AppointmentStatus =
   | 'scheduled'
@@ -167,112 +168,6 @@ function getStatusIcon(label: string): keyof typeof Ionicons.glyphMap {
   if (label === 'Checked in') return 'person-circle-outline';
   if (label === 'Archived') return 'archive-outline';
   return 'time-outline';
-
-}
-
-function AppointmentHoverCard({
-  children,
-  color,
-  onPress,
-}: {
-  children: React.ReactNode;
-  color: string;
-  onPress: () => void;
-}) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const shadow = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-  
-    if (Platform.OS !== 'web') 
-      return;
-
-    Animated.parallel([
-
-      Animated.spring(scale, {
-        toValue: 1.015,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: -5,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.timing(shadow, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: false,
-      }),
-
-    ]).start();
-
-  };
-
-  const animateOut = () => {
-
-    if (Platform.OS !== 'web') 
-      return;
-
-    Animated.parallel([
-
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.timing(shadow, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: false,
-      }),
-
-    ]).start();
-
-  };
-
-  const animatedShadowOpacity = shadow.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.04, 0.12],
-  });
-
-  const animatedShadowRadius = shadow.interpolate({
-    inputRange: [0, 1],
-    outputRange: [8, 18],
-  });
-
-  return (
-
-    <Pressable
-      style={styles.appointmentItem}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View
-        style={[
-          styles.appointmentCard,
-          { borderColor: color },
-          { transform: [{ scale }, { translateY }],
-            shadowOpacity: animatedShadowOpacity as any,
-            shadowRadius: animatedShadowRadius as any,
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-
-  );
 
 }
 
@@ -628,9 +523,14 @@ export default function MyAppointmentsScreen() {
               const hasNotes = Boolean(appointment.notes?.trim());
 
               return (
-                <AppointmentHoverCard
+                <HoverCard
                   key={appointment.id}
-                  color={theme.primary}
+                  pressableStyle={styles.appointmentItem}
+                  cardStyle={[
+                    styles.appointmentCard,
+                    { borderColor: theme.primary },
+                  ]}
+                  withShadow
                   onPress={() => setDetailsTarget(appointment)}
                 >
 
@@ -742,7 +642,7 @@ export default function MyAppointmentsScreen() {
                       <Text style={styles.dangerActionText}>Cancel</Text>
                     </Pressable>
                   </View>
-                </AppointmentHoverCard>
+                </HoverCard>
               );
             })}
           </View>

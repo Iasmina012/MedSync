@@ -2,9 +2,10 @@ import React, { useMemo, useEffect, useRef, useState, useCallback } from 'react'
 import { Redirect, router } from 'expo-router';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, ActivityIndicator, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../src/lib/supabase';
 import PublicPageLayout from '../src/components/layout/PublicPageLayout';
 import WebFooter from '../src/components/layout/WebFooter';
-import { supabase } from '../src/lib/supabase';
+import HoverCard from '../src/common/HoverCard';
 
 const BRAND = {
 
@@ -263,138 +264,6 @@ function SectionTitle({
       <Text style={styles.sectionTitle}>{title}</Text>
       <Text style={styles.sectionSubtitle}>{subtitle}</Text>
     </View>
-  );
-
-}
-
-function HoverCard({
-  children,
-  style,
-  disabled = false,
-}: {
-  children: React.ReactNode;
-  style?: any;
-  disabled?: boolean;
-}) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-
-    if (disabled) return;
-
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1.02,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: -6,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-    ]).start();
-
-  };
-
-  const animateOut = () => {
-
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-    ]).start();
-
-  };
-
-  return (
-
-    <Pressable
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View style={[style, { transform: [{ scale }, { translateY }] }]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-
-  );
-
-}
-
-function HoverLiftCard({
-  children,
-  style,
-  disabled = false,
-}: {
-  children: React.ReactNode;
-  style?: any;
-  disabled?: boolean;
-}) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-
-    if (disabled) return;
-
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1.02,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: -5,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-    ]).start();
-
-  };
-
-  const animateOut = () => {
-
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-    ]).start();
-
-  };
-
-  return (
-
-    <Pressable
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View style={[style, { transform: [{ scale }, { translateY }] }]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-
   );
 
 }
@@ -1212,7 +1081,7 @@ export default function HomeScreen() {
                   { transform: [{ translateX: reviewsLoopDisabled ? 0 : reviewTranslateX }] },
                 ]}>
                   {animatedReviews.map((review, index) => (
-                    <HoverLiftCard key={`${review.id}-${index}`} style={[styles.reviewCard, reviewCardInlineStyle]} disabled={isSliding}>
+                    <HoverCard key={`${review.id}-${index}`} style={[styles.reviewCard, reviewCardInlineStyle]} disabled={isSliding} translateYTo={-5}>
                       <View>
                         <View style={styles.reviewStars}>
                           {Array.from({ length: 5 }).map((_, starIndex) => {
@@ -1230,7 +1099,7 @@ export default function HomeScreen() {
                         <Text style={styles.reviewName}>{review.name}</Text>
 
                       </View>
-                    </HoverLiftCard>
+                    </HoverCard>
                   ))}
                 </Animated.View>
               </View>

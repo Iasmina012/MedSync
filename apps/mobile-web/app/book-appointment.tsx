@@ -4,9 +4,9 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, T
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from '../src/lib/supabase';
+import { useClinicTheme } from '../src/lib/clinicTheme';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import DropdownMenu from '../src/common/DropdownMenu';
-import { useClinicTheme } from '../src/lib/clinicTheme';
 
 type Location = {
 
@@ -239,6 +239,7 @@ export default function BookAppointmentScreen() {
   const [onboardingChronicConditions, setOnboardingChronicConditions] = useState('');
   const [onboardingMainConcern, setOnboardingMainConcern] = useState('');
   const [pendingOnboardingFiles, setPendingOnboardingFiles] = useState<PendingFile[]>([]);
+  const [savedOnboardingFiles, setSavedOnboardingFiles] = useState<PendingFile[]>([]);
 
   const stepsScrollRef = useRef<ScrollView | null>(null);
   const progressAnimation = useRef(new Animated.Value(0)).current;
@@ -781,6 +782,7 @@ export default function BookAppointmentScreen() {
         throw new Error(fileError.message);
     }
 
+    setSavedOnboardingFiles(pendingOnboardingFiles);
     setPendingOnboardingFiles([]);
   };
 
@@ -1194,10 +1196,10 @@ export default function BookAppointmentScreen() {
 
             <Text style={styles.onboardingText}>Upload bloodwork, imaging reports, PDFs or documents for the doctor.</Text>
 
-            {pendingOnboardingFiles.length === 0 ? (
+            {[...pendingOnboardingFiles, ...savedOnboardingFiles].length === 0 ? (
               <Text style={styles.emptyInline}>No files selected yet.</Text>
             ) : (
-              pendingOnboardingFiles.map((file) => (
+              [...pendingOnboardingFiles, ...savedOnboardingFiles].map((file) => (
                 <View key={file.id} style={styles.pendingFileRow}>
                   <View style={styles.pendingFileTextWrap}>
                     <Ionicons name="document-attach-outline" size={16} color="#64748B"/>

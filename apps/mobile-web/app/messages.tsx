@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View, Modal, } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, Modal, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { supabase } from '../src/lib/supabase';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import HoverCard from '../src/common/HoverCard';
 
 type Conversation = {
 
@@ -56,70 +57,6 @@ function getDoctorName(item: Conversation) {
 
 function getPatientName(item: Conversation) {
   return `${item.profiles?.first_name || ''} ${item.profiles?.last_name || ''}`.trim() || 'Patient';
-}
-
-function HoverConversationCard({
-  children,
-  unread,
-  onPress,
-}: {
-  children: React.ReactNode;
-  unread: boolean;
-  onPress: () => void;
-}) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') return;
-
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1.01,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: -3,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== 'web') return;
-
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-    ]).start();
-  };
-
-  return (
-    <Pressable onPress={onPress} onHoverIn={animateIn} onHoverOut={animateOut}>
-      <Animated.View
-        style={[
-          styles.conversationCard,
-          unread && styles.conversationCardUnread,
-          {
-            transform: [{ scale }, { translateY }],
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
 }
 
 export default function MessagesScreen() {
@@ -419,9 +356,12 @@ export default function MessagesScreen() {
             const otherIsTyping = Boolean(typingMap[item.id]);
 
             return (
-              <HoverConversationCard
+              <HoverCard
                 key={item.id}
-                unread={unreadCount > 0}
+                cardStyle={[
+                  styles.conversationCard,
+                  unreadCount > 0 && styles.conversationCardUnread,
+                ]}
                 onPress={() =>
                   router.push({
                     pathname: '/chat' as any,
@@ -498,7 +438,7 @@ export default function MessagesScreen() {
 
                   <Ionicons name="chevron-forward-outline" size={20} color="#94A3B8"/>
                 </View>
-              </HoverConversationCard>
+              </HoverCard>
             );
           })}
         </View>

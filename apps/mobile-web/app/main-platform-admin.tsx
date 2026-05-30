@@ -2,41 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useClinicTheme } from '../src/lib/clinicTheme';
+import { supabase } from '../src/lib/supabase';
+import { requireRole, countRows } from '../src/lib/adminData';
+import { rgbaFromHex } from '../src/theme/colors';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
-import { useClinicTheme } from '../src/lib/clinicTheme';
-import { supabase } from '../src/lib/supabase';
 import FloatingChatButton from '../src/common/FloatingChatButton';
-import { requireRole, countRows } from '../src/lib/adminData';
-
-function hexToRgb(hex: string) {
-
-  const clean = hex.replace('#', '');
-  const normalized =
-    clean.length === 3
-      ? clean
-          .split('')
-          .map((char) => char + char)
-          .join('')
-      : clean;
-
-  const bigint = parseInt(normalized, 16);
-
-  return {
-    r: (bigint >> 16) & 255,
-    g: (bigint >> 8) & 255,
-    b: bigint & 255,
-  };
-
-}
-
-function rgbaFromHex(hex: string, alpha: number) {
-
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-
-}
 
 export default function PlatformAdminDashboard() {
 

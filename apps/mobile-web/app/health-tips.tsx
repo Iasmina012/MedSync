@@ -4,13 +4,13 @@ import { ActivityIndicator, Pressable, ScrollView,  StyleSheet, Text, View, useW
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import { ClinicHealthTip, MoodType, getHealthTipMatchLabel, scoreHealthTip, scoreHealthTipForMood, } from '../src/lib/healthTips';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import InfoSearchBar from '../src/common/InfoSearchBar';
-import InfoImage from '../src/common/InfoImage';
+import InfoPreviewCard from '../src/common/InfoPreviewCard';
 import InfoModal from '../src/common/InfoModal';
 import DropdownMenu from '../src/common/DropdownMenu';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
-import { ClinicHealthTip, MoodType, getHealthTipMatchLabel, scoreHealthTip, scoreHealthTipForMood, } from '../src/lib/healthTips';
 
 type FeedbackReaction = 'helpful' | 'saved' | 'done';
 
@@ -861,7 +861,7 @@ export default function HealthTipsScreen() {
           ) : (
         <View style={styles.grid}>
           {filteredTips.map((tip) => (
-            <InfoImage
+            <InfoPreviewCard
               key={tip.id}
               title={tip.title}
               subtitle={`${tip.category} · ${tip.matchLabel}`}

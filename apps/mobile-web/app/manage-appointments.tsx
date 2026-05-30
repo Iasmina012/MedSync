@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { useClinicTheme } from '../src/lib/clinicTheme';
-import DropdownMenu from '../src/common/DropdownMenu';
 import { getUserClinicCount } from '../src/lib/adminData';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import HoverCard from '../src/common/HoverCard';
+import DropdownMenu from '../src/common/DropdownMenu';
 
 type Role = 'patient' | 'doctor' | 'clinic_admin' | 'platform_admin';
 
@@ -175,101 +176,6 @@ function getRelativeLabel(appointmentStart: string, status: AppointmentStatus) {
   if (diffDays === 1) return 'Tomorrow';
 
   return `In ${diffDays} days`;
-
-}
-
-function AppointmentHoverCard({ children, color, onPress, }: { children: React.ReactNode; color: string; onPress: () => void; }) {
-
-  const scale = React.useRef(new Animated.Value(1)).current;
-  const translateY = React.useRef(new Animated.Value(0)).current;
-  const shadow = React.useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-
-    if (Platform.OS !== 'web') 
-      return;
-
-    Animated.parallel([
-
-      Animated.spring(scale, {
-        toValue: 1.015,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: -5,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.timing(shadow, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: false,
-      }),
-    
-    ]).start();
-
-  };
-
-  const animateOut = () => {
-
-    if (Platform.OS !== 'web') 
-      return;
-
-    Animated.parallel([
-
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.timing(shadow, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: false,
-      }),
-
-    ]).start();
-
-  };
-
-  return (
-
-    <Pressable
-      style={styles.appointmentItem}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-
-      <Animated.View
-        style={[
-          styles.appointmentCard,
-          { borderColor: color },
-          { transform: [{ scale }, { translateY }], shadowOpacity: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.04, 0.12],
-            }) as any,
-            shadowRadius: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [8, 18],
-            }) as any,
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-
-    </Pressable>
-
-  );
 
 }
 
@@ -953,9 +859,14 @@ export default function ManageAppointmentsScreen() {
 
               return (
 
-                <AppointmentHoverCard
+                <HoverCard
                   key={appointment.id}
-                  color={theme.primary}
+                  pressableStyle={styles.appointmentItem}
+                  cardStyle={[
+                    styles.appointmentCard,
+                    { borderColor: theme.primary },
+                  ]}
+                  withShadow
                   onPress={() => setDetailsTarget(appointment)}
                 >
                   
@@ -1071,7 +982,7 @@ export default function ManageAppointmentsScreen() {
                     )}
                   </View>
 
-                </AppointmentHoverCard>
+                </HoverCard>
 
               );
             })}

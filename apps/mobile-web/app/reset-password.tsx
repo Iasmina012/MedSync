@@ -269,10 +269,10 @@ export default function ResetPasswordScreen() {
             </View>
 
             <Text style={styles.modalTitle}>Password updated</Text>
-            <Text style={styles.modalText}>Your password was changed successfully. You can now log in with your new password.</Text>
+            <Text style={styles.modalText}>Your password has been changed successfully. You can now log in with your new password.</Text>
 
             <Pressable style={styles.modalButton} onPress={handleGoToLogin}>
-              <Text style={styles.modalButtonText}>Go to login</Text>
+              <Text style={styles.modalButtonText}>Go to Log In</Text>
             </Pressable>
           </View>
         </View>

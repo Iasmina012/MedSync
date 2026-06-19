@@ -76,7 +76,7 @@ const EMPTY_DETAILS: DetailsRow = {
 
 const sections: EditingSection[] = [
 
-  { key: 'branding', title: 'Branding', icon: 'color-palette-outline' },
+  { key: 'branding', title: 'Branding Preview', icon: 'color-palette-outline' },
   { key: 'details', title: 'Clinic Details', icon: 'business-outline' },
   { key: 'homepage', title: 'Homepage Content', icon: 'images-outline' },
 
@@ -363,11 +363,11 @@ export default function ClinicSettingsScreen() {
 
   const getSectionSubtitle = (key: SectionKey) => {
     if (key === 'branding')
-      return clinic?.name || 'Clinic name, slug, description and brand colors.';
+      return clinic?.name || 'Edit clinic name, slug, description and brand colors.';
     if (key === 'details')
-      return details.address || details.phone || details.email || 'Public contact information and opening hours.';
+      return details.address || details.phone || details.email || 'Edit clinic public contact information and opening hours.';
 
-    return details.hero_title || details.logo_url || 'Landing page text and image URLs.';
+    return details.hero_title || details.logo_url || 'Edit clinic homepage content.';
   };
 
   if (loading || !clinic) {
@@ -402,9 +402,9 @@ export default function ClinicSettingsScreen() {
         />
 
         <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>Clinic Admin</Text>
-          <Text style={[styles.title, { color: theme.secondary }]}>Clinic Settings</Text>
-          <Text style={styles.subtitle}>Update public clinic information, branding colors, contact details and landing page content.</Text>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>Clinic Settings</Text>
+          <Text style={[styles.title, { color: theme.secondary }]}>Configure Clinic</Text>
+          <Text style={styles.subtitle}>Update clinic public information, branding colors, contact details and landing page content.</Text>
         </View>
 
         <View style={styles.grid}>
@@ -444,7 +444,7 @@ export default function ClinicSettingsScreen() {
               </View>
 
               <Text style={styles.modalTitle}>{editingSection?.title}</Text>
-              <Text style={styles.modalSubtitle}>Update this category, then save your changes.</Text>
+              <Text style={styles.modalSubtitle}>Update the desired fields in this category down below, then tap the button to save changes.</Text>
             </View>
 
             <ScrollView
@@ -492,7 +492,7 @@ export default function ClinicSettingsScreen() {
                   />
 
                   <View style={styles.previewCard}>
-                    <Text style={styles.previewLabel}>Brand preview</Text>
+                    <Text style={styles.previewLabel}>Branding preview</Text>
 
                     <View style={styles.previewDots}>
                       <View style={[styles.previewDot, { backgroundColor: clinic.primary_color || '#1D4ED8' }]}/>
@@ -571,7 +571,7 @@ export default function ClinicSettingsScreen() {
                   />
 
                   <Input
-                    label="Phone"
+                    label="Phone Number"
                     value={details.phone || ''}
                     onChangeText={(phone) => setDetails({ ...details, phone })}
                   />
@@ -691,8 +691,8 @@ export default function ClinicSettingsScreen() {
               <Ionicons name="warning-outline" size={28} color="#B45309"/>
             </View>
 
-            <Text style={styles.confirmTitle}>Discard unsaved changes?</Text>
-            <Text style={styles.confirmText}>You have unsaved changes. If you close now, they will be lost.</Text>
+            <Text style={styles.confirmTitle}>Discard changes?</Text>
+            <Text style={styles.confirmText}>Any unsaved edits will be lost if you continue. Make sure to save your changes before leaving.</Text>
 
             <View style={styles.confirmActions}>
               <Pressable style={styles.confirmCancelButton} onPress={() => setDiscardConfirmOpen(false)}>

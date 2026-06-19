@@ -95,10 +95,10 @@ useEffect(() => {
 
   const featureItems = [
 
-  { title: 'Manage Users', icon: 'people-outline' as const, description: 'Manage platform users and roles.', onPress: () => go('/manage-users') },
-  { title: 'Manage Clinics', icon: 'business-outline' as const, description: 'Configure clinics platform-wide.', onPress: () => go('/manage-clinics') },
-  { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'View all appointments.', onPress: () => go('/manage-appointments'), },
-  { title: 'View Analytics', icon: 'bar-chart-outline' as const, description: 'Global usage and reporting.', onPress: () => go('/analytics') },
+  { title: 'Manage Users', icon: 'people-outline' as const, description: 'Create new users and edit user details.', onPress: () => go('/manage-users') },
+  { title: 'Manage Clinics', icon: 'business-outline' as const, description: 'Create and configure clinics platform-wide.', onPress: () => go('/manage-clinics') },
+  { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'View and edit all appointments.', onPress: () => go('/manage-appointments'), },
+  { title: 'View Analytics', icon: 'bar-chart-outline' as const, description: 'Track global usage and reporting.', onPress: () => go('/analytics') },
 
   ];
 
@@ -122,15 +122,9 @@ useEffect(() => {
           { backgroundColor: theme.soft, borderColor: theme.borderSoft },
         ]}
       >
-        <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>
-          MedSync Admin Dashboard
-        </Text>
-        <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
-          Placeholder Title
-        </Text>
-        <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-          Placeholder Subtitle
-        </Text>
+        <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>MedSync Admin Dashboard</Text>
+        <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>Monitor MedSync at Scale</Text>
+        <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>Oversee clinics, users, appointments and the platoform&apos;s activity from a single dashboard.</Text>
       </View>
 
       <View style={styles.statsGrid}>

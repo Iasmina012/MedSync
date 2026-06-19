@@ -37,7 +37,6 @@ const configs = {
       'education',
       'experience',
       'avatar_url',
-      'cover_image_url',
     ],
   },
 
@@ -102,7 +101,7 @@ function fieldIsMultiline(field: string) {
 }
 
 function formatLabel(field: string) {
-  return field.replaceAll('_', ' ');
+  return field.replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function parseArrayField(value: any) {
@@ -197,7 +196,7 @@ export default function ManageClinicContentScreen() {
     setEditing(null);
     loadItems();
     loadDoctors();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, clinicId, config.table]);
 
   const loadDoctors = async () => {
@@ -296,8 +295,8 @@ export default function ManageClinicContentScreen() {
     }
 
     setEditing(next);
-setOriginalEditing(cloneItem(next));
-setSelectedDoctorIds([]);
+    setOriginalEditing(cloneItem(next));
+    setSelectedDoctorIds([]);
   };
 
   const uploadImage = async () => {
@@ -486,12 +485,9 @@ setSelectedDoctorIds([]);
         />
 
         <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>Clinic Content</Text>
-
-          <Text style={[styles.title, { color: theme.secondary }]}>Manage Doctors, Services, Technologies and Tips</Text>
-
-          <Text style={styles.subtitle}>Add, edit and deactivate the clinic content that patients see.</Text>
-
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>Manage Clinic Content</Text>
+          <Text style={[styles.title, { color: theme.secondary }]}>Create and edit doctors, services, technologies and health tips</Text>
+          <Text style={styles.subtitle}>Create and edit clinic content with ease while also quickly activating or deactivating content as needed.</Text>
           <Pressable
             style={[
               styles.heroAddButton,
@@ -545,7 +541,7 @@ setSelectedDoctorIds([]);
           <View style={styles.emptyCard}>
             <Ionicons name={config.icon} size={30} color={theme.primary}/>
             <Text style={styles.emptyTitle}>No {config.title.toLowerCase()} yet</Text>
-            <Text style={styles.emptyText}>Press “New {config.singleTitle}” to create the first item.</Text>
+            <Text style={styles.emptyText}>Tap New {config.singleTitle} button to create the item.</Text>
           </View>
         ) : (
           <View style={styles.grid}>
@@ -693,7 +689,7 @@ setSelectedDoctorIds([]);
                 {editing?.id ? `Edit ${config.singleTitle}` : `New ${config.singleTitle}`}
               </Text>
 
-              <Text style={styles.modalSubtitle}>Update the fields below, then save the changes.</Text>
+              <Text style={styles.modalSubtitle}>Update the desired fields down below, then tap the button to save changes.</Text>
             </View>
 
             {editing && (
@@ -745,7 +741,7 @@ setSelectedDoctorIds([]);
                 ))}
                 {activeTab === 'services' && (
                   <>
-                    <Text style={styles.inputLabel}>Assigned doctors</Text>
+                    <Text style={styles.inputLabel}>Assigned Doctors</Text>
 
                     <View style={styles.doctorPicker}>
                       {doctors.map((doctor) => {
@@ -784,7 +780,7 @@ setSelectedDoctorIds([]);
                     </View>
 
                     <Text style={styles.helperText}>
-                      Select one or more doctors who can provide this service.
+                      Select one or more doctors who can provide this type of service.
                     </Text>
                   </>
                 )}
@@ -855,11 +851,9 @@ setSelectedDoctorIds([]);
               <Ionicons name="warning-outline" size={28} color="#B45309" />
             </View>
 
-            <Text style={styles.confirmTitle}>Discard unsaved changes?</Text>
+            <Text style={styles.confirmTitle}>Discard changes?</Text>
 
-            <Text style={styles.confirmText}>
-              You have unsaved changes. If you close now, they will be lost.
-            </Text>
+            <Text style={styles.confirmText}>Any unsaved edits will be lost if you continue. Make sure to save your changes before leaving.</Text>
 
             <View style={styles.confirmActions}>
               <Pressable

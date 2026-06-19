@@ -212,7 +212,7 @@ export default function ChatScreen() {
         channelRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, doctorId, clinicId]);
 
   useEffect(() => {
@@ -345,7 +345,7 @@ export default function ChatScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.primary} />
+        <ActivityIndicator size="large" color={theme.primary}/>
       </View>
     );
   }
@@ -433,7 +433,7 @@ export default function ChatScreen() {
 
         {otherTyping && (
           <View style={styles.typingBubble}>
-            <TypingDots />
+            <TypingDots/>
           </View>
         )}
       </ScrollView>

@@ -700,9 +700,9 @@ export default function MyPatientsHistoryScreen() {
         />
 
         <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>Doctor</Text>
-          <Text style={[styles.title, { color: theme.secondary }]}>Patient History</Text>
-          <Text style={styles.subtitle}>Review patients, appointments, medical records and uploaded files.</Text>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>My Patient History</Text>
+          <Text style={[styles.title, { color: theme.secondary }]}>Oversee all History</Text>
+          <Text style={styles.subtitle}>Review all information regarding patients in one place such as appointments, medical records and files.</Text>
         </View>
 
         {patientGroups.length === 0 ? (
@@ -819,7 +819,7 @@ export default function MyPatientsHistoryScreen() {
                         <Text style={styles.aiButtonText}>{generatingPatientId === selectedPatient.patientId ? 'Generating...' : getLatestClinicalSummary(selectedPatient.patientId) ? 'Regenerate AI Summary' : 'Generate AI Summary'}</Text>
                       </Pressable>
 
-                      <Text style={styles.aiDisclaimer}>AI output is informational and must be reviewed by a clinician.</Text>
+                      <Text style={styles.aiDisclaimer}>AI output is informational only and must be reviewed by a clinician.</Text>
                     </View>
                   </ExpandableSection>
 
@@ -926,7 +926,7 @@ export default function MyPatientsHistoryScreen() {
                     {selectedPatient.files.length === 0 ? (
                       <View style={styles.emptyDataCard}>
                         <Ionicons name="document-text-outline" size={24} color="#94A3B8"/>
-                        <Text style={styles.emptyDataTitle}>No patient files yet</Text>
+                        <Text style={styles.emptyDataTitle}>No patient files available yet</Text>
                         <Text style={styles.emptyDataText}>Patient Files will appear after they are uploaded.</Text>
                       </View>
                     ) : (
@@ -953,26 +953,37 @@ export default function MyPatientsHistoryScreen() {
                             </Text>
 
                             <View style={styles.fileStatusRow}>
-                              <View style={[styles.processingBadge, styles.processingBadgeProcessing]}>
-                                <Text style={styles.processingBadgeText}>
-                                summary {file.processing_status || ' pending'}
-                                </Text>
-                              </View>
-
                               <View
                                 style={[
                                   styles.processingBadge,
-                                  file.image_processing_status === 'completed'
+                                  file.processing_status === 'completed'
                                     ? styles.processingBadgeCompleted
-                                    : file.image_processing_status === 'failed'
+                                    : file.processing_status === 'failed'
                                       ? styles.processingBadgeFailed
                                       : styles.processingBadgeProcessing,
                                 ]}
                               >
                                 <Text style={styles.processingBadgeText}>
-                                  analyzer {file.image_processing_status || 'pending'}
+                                  summary {file.processing_status || 'pending'}
                                 </Text>
                               </View>
+
+                              {isImageFile(file) && (
+                                <View
+                                  style={[
+                                    styles.processingBadge,
+                                    file.image_processing_status === 'completed'
+                                      ? styles.processingBadgeCompleted
+                                      : file.image_processing_status === 'failed'
+                                        ? styles.processingBadgeFailed
+                                        : styles.processingBadgeProcessing,
+                                  ]}
+                                >
+                                  <Text style={styles.processingBadgeText}>
+                                    analyzer {file.image_processing_status || 'pending'}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
 
                               {!!file.notes && <Text style={styles.fileDescription}>{file.notes}</Text>}
@@ -1047,14 +1058,14 @@ export default function MyPatientsHistoryScreen() {
 
                                   <View style={styles.aiImageDisclaimerBox}>
                                     <Text style={styles.aiImageDisclaimerText}>
-                                      AI-assisted image review only. Not a diagnosis. Must be reviewed by a qualified clinician or radiologist before clinical decisions.
+                                      This is an AI-assisted image review only hence not a diagnosis. Must be reviewed by a qualified clinician or radiologist before clinical decisions.
                                     </Text>
                                   </View>
 
-                                  <DetailRow icon="layers-outline" label="Modality" value={formatValue(file.ai_image_modality)} />
-                                  <DetailRow icon="body-outline" label="Body region" value={formatValue(file.ai_image_body_region)} />
-                                  <DetailRow icon="image-outline" label="Image quality" value={formatValue(file.ai_image_quality)} />
-                                  <DetailRow icon="analytics-outline" label="AI confidence" value={formatValue(file.ai_image_confidence)} />
+                                  <DetailRow icon="layers-outline" label="Modality" value={formatValue(file.ai_image_modality)}/>
+                                  <DetailRow icon="body-outline" label="Body region" value={formatValue(file.ai_image_body_region)}/>
+                                  <DetailRow icon="image-outline" label="Image quality" value={formatValue(file.ai_image_quality)}/>
+                                  <DetailRow icon="analytics-outline" label="AI confidence" value={formatValue(file.ai_image_confidence)}/>
 
                                   <Text style={styles.fileAiSummaryText}>{file.ai_image_summary}</Text>
 

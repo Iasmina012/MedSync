@@ -1529,10 +1529,10 @@ export default function BookAppointmentScreen() {
                 <Ionicons name="warning-outline" size={28} color="#B45309" />
               </View>
 
-              <Text style={styles.confirmTitle}>Discard unsaved changes?</Text>
+              <Text style={styles.confirmTitle}>Discard changes?</Text>
 
               <Text style={styles.confirmText}>
-                You have unsaved appointment changes. If you leave now, they will be lost.
+              Any unsaved edits will be lost if you continue. Make sure to save your changes before leaving.
               </Text>
 
               <View style={styles.confirmActions}>

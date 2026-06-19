@@ -206,7 +206,7 @@ export default function WebNavbar() {
           <View>
             <Text style={styles.brandTitle}>MedSync</Text>
             <Text style={styles.brandSubtitle}>
-              Placeholder Motto
+              Connected Healthcare
             </Text>
           </View>
         </Pressable>

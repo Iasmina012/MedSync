@@ -291,7 +291,7 @@ export default function MyAppointmentsScreen() {
   useEffect(() => {
     loadAppointments();
     //just to get rid of the warning
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId]);
 
   useEffect(() => {
@@ -438,7 +438,7 @@ export default function MyAppointmentsScreen() {
           </Text>
 
           <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-            Placeholder Title
+            Manage Appointments Inside Clinic
           </Text>
 
           <Text style={styles.heroSubtitle}>

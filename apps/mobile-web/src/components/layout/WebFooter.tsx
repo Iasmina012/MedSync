@@ -19,9 +19,9 @@ export default function WebFooter() {
 
         <View style={styles.brandBlock}>
           <Text style={styles.brandTitle}>MedSync</Text>
-          <Text style={styles.brandText}>Placeholder motto</Text>
+          <Text style={styles.brandText}>Connected Healthcare</Text>
           <Text style={styles.brandSubtext}>
-            Placeholder description.
+            MedSync connects patients, doctors and clinics through secure appointments, messaging, medical records and AI-assisted healthcare workflows.
           </Text>
         </View>
 

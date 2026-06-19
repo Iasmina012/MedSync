@@ -366,7 +366,7 @@ export default function MyProfileScreen() {
           My Profile
         </Text>
         <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-          Manage Your Account Details
+          Manage Account Details
         </Text>
         <Text style={styles.heroSubtitle}>
           Update your personal information, profile photo and account security.
@@ -464,7 +464,7 @@ export default function MyProfileScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Phone Number</Text>
+            <Text style={styles.label}>Phone number</Text>
             <TextInput
               value={phone}
               onChangeText={setPhone}
@@ -634,7 +634,7 @@ export default function MyProfileScreen() {
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Password & Security</Text>
-        <Text style={styles.securityText}>For security, password changes are handled through a reset link sent to your account email.</Text>
+        <Text style={styles.securityText}>For security reasons, password changes are handled through a reset link sent to your account email.</Text>
         <Pressable
           style={[
             styles.secondaryButton,

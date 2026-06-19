@@ -145,14 +145,14 @@ function ClinicAnimatedCard({
           <Text style={styles.clinicName}>{clinic.name}</Text>
 
           <Text style={styles.clinicDescription}>
-            {clinic.description || 'Clinic available in the platform.'}
+            {clinic.description || 'Clinic available inside the platform.'}
           </Text>
 
           <View style={styles.cardBottom}>
             <Text style={[styles.cardBottomText, { color: clinicPrimary }]}>
               Continue
             </Text>
-            <Ionicons name="arrow-forward" size={18} color={clinicPrimary} />
+            <Ionicons name="arrow-forward" size={18} color={clinicPrimary}/>
           </View>
         </Animated.View>
       )}
@@ -242,8 +242,8 @@ export default function ClinicSelectionScreen() {
           if (assignedClinics.length === 0) {
             setError(
               membershipRole === 'doctor'
-                ? 'No clinics are assigned to this doctor yet.'
-                : 'No clinics are assigned to this clinic admin yet.'
+                ? 'No clinics are connected to this doctor yet.'
+                : 'No clinics are connected to this clinic admin yet.'
             );
             return;
           }
@@ -422,7 +422,7 @@ export default function ClinicSelectionScreen() {
         ) : !error ? (
           <View style={styles.emptyCard}>
             <Ionicons name="alert-circle-outline" size={24} color="#F59E0B" />
-            <Text style={styles.emptyTitle}>No clinics available yet!</Text>
+            <Text style={styles.emptyTitle}>No clinics available yet</Text>
             <Text style={styles.emptyText}>
               There are no clinics available for your account right now.
             </Text>

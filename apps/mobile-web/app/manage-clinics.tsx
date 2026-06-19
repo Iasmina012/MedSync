@@ -168,9 +168,9 @@ export default function ManageClinicsScreen() {
         />
 
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>Platform Admin</Text>
-          <Text style={styles.title}>Manage Clinics</Text>
-          <Text style={styles.subtitle}>Create clinics, edit branding colors, descriptions and activate or deactivate clinics.</Text>
+          <Text style={styles.eyebrow}>Manage Clinics</Text>
+          <Text style={styles.title}>Supervise the Clinics</Text>
+          <Text style={styles.subtitle}>Create and edit clinic information with ease. Customize branding colors, descriptions and basic details, while also quickly activating or deactivating clinics as needed.</Text>
 
           <Pressable style={styles.primaryButton} onPress={() => {
               const next = cloneClinic(emptyClinic);
@@ -222,7 +222,7 @@ export default function ManageClinicsScreen() {
                 </View>
               </View>
 
-              <Text style={styles.cardDescription}>{clinic.description || 'No description.'}</Text>
+              <Text style={styles.cardDescription}>{clinic.description || 'No description added yet.'}</Text>
 
               <View style={styles.colorRow}>
                 <View style={[styles.colorDot, { backgroundColor: clinic.primary_color }]}/>
@@ -289,7 +289,7 @@ export default function ManageClinicsScreen() {
 
               <Text style={styles.modalTitle}>{editing?.id ? 'Edit Clinic' : 'New Clinic'}</Text>
 
-              <Text style={styles.modalSubtitle}>Update clinic branding and basic information. Changes are saved directly to the database.</Text>
+              <Text style={styles.modalSubtitle}>Update the clinic&apos;s branding and basic information. Changes made here are saved directly to the database.</Text>
             </View>
 
             {editing && (
@@ -336,7 +336,7 @@ export default function ManageClinicsScreen() {
                 />
 
                 <View style={styles.previewCard}>
-                  <Text style={styles.previewLabel}>Brand preview</Text>
+                  <Text style={styles.previewLabel}>Branding preview</Text>
 
                   <View style={styles.previewDots}>
                     <View style={[styles.previewDot, { backgroundColor: editing.primary_color || '#1D4ED8' }]}/>
@@ -416,14 +416,12 @@ export default function ManageClinicsScreen() {
         <View style={styles.confirmOverlay}>
           <View style={styles.confirmCard}>
             <View style={styles.confirmIcon}>
-              <Ionicons name="warning-outline" size={28} color="#B45309" />
+              <Ionicons name="warning-outline" size={28} color="#B45309"/>
             </View>
 
-            <Text style={styles.confirmTitle}>Discard unsaved changes?</Text>
+            <Text style={styles.confirmTitle}>Discard changes?</Text>
 
-            <Text style={styles.confirmText}>
-              You have unsaved changes. If you close now, they will be lost.
-            </Text>
+            <Text style={styles.confirmText}>Any unsaved edits will be lost if you continue. Make sure to save your changes before leaving.</Text>
 
             <View style={styles.confirmActions}>
               <Pressable

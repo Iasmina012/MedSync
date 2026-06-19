@@ -19,6 +19,7 @@ const corsHeaders = {
 
 type Role = "guest" | "patient" | "doctor" | "clinic_admin" | "platform_admin";
 type TriageLevel = "routine" | "urgent" | "emergency";
+
 type SymptomCategory =
   | "chest_pain"
   | "rash"
@@ -44,7 +45,7 @@ type ChatAction = {
 type BookingDraft = {
 
   active?: boolean;
-  mode?: "create" | "cancel" | "reschedule";
+  mode?: "create" | "cancel" | "reschedule" | "check_in";
   step?:
     | "service"
     | "doctor"
@@ -61,7 +62,8 @@ type BookingDraft = {
     | "onboarding_chronic"
     | "confirm"
     | "select_appointment"
-    | "confirm_cancel";
+    | "confirm_cancel"
+    | "confirm_check_in";
 
   appointmentId?: string;
   serviceId?: string;
@@ -83,7 +85,6 @@ type BookingDraft = {
   aiTriagePatientNote?: string | null;
   aiTriageDoctorSummary?: string | null;
   aiTriageLevel?: TriageLevel | null;
-
   onboardingAccepted?: boolean;
   onboardingMainConcern?: string | null;
   onboardingSymptoms?: string | null;
@@ -109,6 +110,8 @@ type TriageDraft = {
   warningSigns?: string[];
   patientNote?: string;
   doctorSummary?: string;
+  sessionStartedAt?: string;
+  messageCount?: number;
 
 };
 
@@ -142,12 +145,7 @@ function withTriageDisclaimer(text: string) {
 }
 
 function json(data: unknown, status = 200) {
-
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-
+  return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" }, });
 }
 
 function normalize(text = "") {
@@ -186,6 +184,44 @@ function isRole(value: string): value is Role {
 
 function requiresClinicContext(role: Role) {
   return ["patient", "doctor", "clinic_admin"].includes(role);
+}
+
+function needsClinicForRoleWorkflow(role: Role) {
+  return role === "doctor" || role === "clinic_admin";
+}
+
+function roleWorkflowNeedsClinic(message: string, role: Role) {
+
+  if (!needsClinicForRoleWorkflow(role)) 
+    return false;
+
+  return (
+    wantsMedicalRecordHelp(message) ||
+    wantsPatientHistoryHelp(message) ||
+    wantsMessagesHelp(message) ||
+    asksHowToManageAppointments(message) ||
+    asksHowToCheckIn(message) ||
+    wantsCancelAppointment(message) ||
+    wantsRescheduleAppointment(message) ||
+    wantsCheckInAppointment(message) ||
+    wantsUsersHelp(message) ||
+    wantsClinicContentHelp(message) ||
+    wantsClinicSettingsHelp(message)
+  );
+
+}
+
+function selectClinicReply(role: Role) {
+
+  return {
+    handled: true,
+    reply:
+      role === "doctor"
+        ? "Please select a clinic first. Medical records, appointments, patient history and messages are clinic-specific, so I need to know which clinic you want to work in."
+        : "Please select a clinic first. Users, appointments, clinic content and clinic settings are clinic-specific, so I need to know which clinic you want to manage.",
+    actions: [{ label: "Select clinic", route: "/clinic-selection" }],
+  };
+
 }
 
 function timeToMinutes(time: string) {
@@ -291,7 +327,10 @@ function cancels(message: string) {
 function wantsToExitActiveFlow(message: string) {
 
   const lower = normalize(message);
-  return (lower.includes("exit flow") || lower.includes("stop flow") || lower.includes("leave booking") || lower.includes("stop booking") || lower.includes("cancel booking") || lower.includes("nevermind") || lower.includes("never mind") || lower.includes("forget it") || lower.includes("talk about something else") || lower.includes("different question") );
+  return (lower.includes("exit flow") || lower.includes("stop flow") || lower.includes("leave booking") || lower.includes("stop booking") || lower.includes("cancel booking") || lower.includes("nevermind") || lower.includes("never mind") || lower.includes("forget it") || lower.includes("talk about something else") || lower.includes("different question") || lower.includes("stop triage") ||
+lower.includes("cancel triage") ||
+lower.includes("exit triage") ||
+lower.includes("quit triage") );
 
 }
 
@@ -497,6 +536,52 @@ function wantsCheckInAppointment(message: string) {
 
   const lower = normalizeLoose(message);
   return lower.includes("check in") || lower.includes("check-in") || lower.includes("mark present");
+
+}
+
+function asksHowToManageAppointments(message: string) {
+
+  const lower = normalizeLoose(message);
+
+  return (
+    (lower.includes("how") || lower.includes("where") || lower.includes("what")) &&
+    lower.includes("appointment") &&
+    (
+      lower.includes("cancel") ||
+      lower.includes("reschedule") ||
+      lower.includes("check in") ||
+      lower.includes("check-in") ||
+      lower.includes("status")
+    )
+  );
+
+}
+
+function asksHowToCheckIn(message: string) {
+
+  const lower = normalizeLoose(message);
+  return ((lower.includes("how") || lower.includes("where") || lower.includes("what")) && (lower.includes("check in") || lower.includes("check-in") || lower.includes("mark present")));
+
+}
+
+function wantsStartCancellationFromChat(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("start cancellation") || lower.includes("cancel from chat");
+
+}
+
+function wantsStartRescheduleFromChat(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("start reschedule") || lower.includes("reschedule from chat");
+
+}
+
+function wantsStartCheckInFromChat(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("start check in") || lower.includes("check in from chat") || lower.includes("proceed with check in");
 
 }
 
@@ -1080,6 +1165,17 @@ function calculateTriageLevel(draft: TriageDraft): TriageLevel {
 
 }
 
+function calculateConfidence(draft: TriageDraft): number {
+
+  let score = 40;
+  if (draft.severity !== undefined) score += 15;
+  if (Object.keys(draft.adaptiveAnswers || {}).length >= 3) score += 20;
+  if ((draft.redFlags || []).length > 0) score += 15;
+  if (draft.symptomCategory && draft.symptomCategory !== "general") score += 10;
+  return Math.min(score, 100);
+
+}
+
 function buildTriagePatientNote(draft: TriageDraft) {
 
   return [
@@ -1432,14 +1528,23 @@ async function handleAppointmentManagement(ctx: AppContext, bookingDraft?: Booki
   if (!user)
     return { handled: true, reply: "Please log in before managing appointments.", actions: [], bookingDraft: null };
 
-  if (!clinicId)
-    return { handled: true, reply: "Please select a clinic before managing appointments.", actions: [], bookingDraft: null };
+if (!clinicId) {
+  return {
+    handled: true,
+    reply:
+      role === "platform_admin"
+        ? "As a platform admin, you can access all clinics, but please select a clinic first so I know which clinic's appointments to manage."
+        : "Please select a clinic before managing appointments.",
+    actions: [{ label: "Select clinic", route: "/clinic-selection" }],
+    bookingDraft: null,
+  };
+}
 
   let draft: BookingDraft = bookingDraft?.active
     ? { ...bookingDraft }
     : {
         active: true,
-        mode: wantsCancelAppointment(message) ? "cancel" : "reschedule",
+        mode: wantsCancelAppointment(message) ? "cancel" : wantsCheckInAppointment(message) ? "check_in" : "reschedule",
         step: "select_appointment",
       };
 
@@ -1496,6 +1601,35 @@ async function handleAppointmentManagement(ctx: AppContext, bookingDraft?: Booki
         actions: [
           { label: "Confirm cancellation", message: "Confirm" },
           { label: "Keep appointment", message: "Cancel" },
+        ],
+        bookingDraft: draft,
+      };
+    }
+
+    if (draft.mode === "check_in") {
+      if (selected.status === "checked_in") {
+        return {
+          handled: true,
+          reply: `This appointment is already checked in: ${appointmentLabel(selected)}.`,
+          actions: [
+            {
+              label: "View appointments",
+              route: "/manage-appointments",
+              params: { clinicId, clinicName: clinicName || "" },
+            },
+          ],
+          bookingDraft: null,
+        };
+      }
+
+      draft.step = "confirm_check_in";
+
+      return {
+        handled: true,
+        reply: `Please confirm check-in for this appointment: ${appointmentLabel(selected)}.`,
+        actions: [
+          { label: "Confirm check-in", message: "Confirm" },
+          { label: "Cancel", message: "Cancel" },
         ],
         bookingDraft: draft,
       };
@@ -1563,6 +1697,73 @@ async function handleAppointmentManagement(ctx: AppContext, bookingDraft?: Booki
         {
           label: "View appointments",
           route: role === "patient" ? "/my-appointments" : "/manage-appointments",
+          params: { clinicId, clinicName: clinicName || "" },
+        },
+      ],
+      bookingDraft: null,
+    };
+  }
+
+  if (draft.step === "confirm_check_in") {
+    if (!confirms(message)) {
+      return {
+        handled: true,
+        reply: "Please confirm check-in or say Cancel to stop.",
+        actions: [
+          { label: "Confirm check-in", message: "Confirm" },
+          { label: "Cancel", message: "Cancel" },
+        ],
+        bookingDraft: draft,
+      };
+    }
+
+    if (role !== "clinic_admin" && role !== "platform_admin") {
+      return {
+        handled: true,
+        reply: "Only clinic admins or platform admins can check in patients from chat.",
+        actions: [],
+        bookingDraft: null,
+      };
+    }
+
+    const { error } = await supabase
+      .from("appointments")
+      .update({
+        status: "checked_in",
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+      })
+      .eq("id", draft.appointmentId)
+      .eq("clinic_id", clinicId)
+      .in("status", ["scheduled", "rescheduled"]);
+
+    if (error) {
+      return {
+        handled: true,
+        reply: `I could not check in the appointment: ${error.message}`,
+        actions: [],
+        bookingDraft: draft,
+      };
+    }
+
+    await saveAuditLog(supabase, {
+      user_id: user.id,
+      clinic_id: clinicId,
+      action: "appointment_checked_in_from_chat",
+      metadata: {
+        role,
+        appointmentId: draft.appointmentId,
+        mode: draft.mode,
+      },
+    });
+
+    return {
+      handled: true,
+      reply: "The patient was checked in successfully.",
+      actions: [
+        {
+          label: "View appointments",
+          route: "/manage-appointments",
           params: { clinicId, clinicName: clinicName || "" },
         },
       ],
@@ -1723,7 +1924,11 @@ async function handleAppointmentManagement(ctx: AppContext, bookingDraft?: Booki
 async function handleTriageFlow(ctx: AppContext, triageDraft?: TriageDraft | null) {
 
   const { supabase, message, clinicId, clinicName, role, user } = ctx;
-  let draft: TriageDraft = triageDraft?.active ? { ...triageDraft } : { active: true, step: "symptom", adaptiveIndex: 0, adaptiveAnswers: {} };
+  let draft: TriageDraft = triageDraft?.active
+    ? { ...triageDraft }
+    : { active: true, step: "symptom", adaptiveIndex: 0, adaptiveAnswers: {}, sessionStartedAt: new Date().toISOString(), messageCount: 0 };
+
+  draft.messageCount = (draft.messageCount || 0) + 1;
 
   if (wantsToExitActiveFlow(message)) {
     await saveAuditLog(supabase, {
@@ -1873,6 +2078,11 @@ async function handleTriageFlow(ctx: AppContext, triageDraft?: TriageDraft | nul
   draft.patientNote = buildTriagePatientNote(draft);
   draft.doctorSummary = buildTriageDoctorSummary(draft);
 
+  const confidence = calculateConfidence(draft);
+  const sessionDuration = draft.sessionStartedAt
+    ? Math.round((Date.now() - new Date(draft.sessionStartedAt).getTime()) / 1000)
+    : null;
+
   const triageId = await saveTriage(supabase, {
     user_id: user?.id ?? null,
     clinic_id: clinicId ?? null,
@@ -1887,6 +2097,9 @@ async function handleTriageFlow(ctx: AppContext, triageDraft?: TriageDraft | nul
     patient_note: draft.patientNote,
     doctor_summary: draft.doctorSummary,
     raw_draft: draft,
+    triage_confidence: confidence,
+    message_count: draft.messageCount ?? null,
+    session_duration_seconds: sessionDuration,
   });
 
   await saveAuditLog(supabase, {
@@ -1963,14 +2176,17 @@ function handleRoleWorkflowHelp(ctx: AppContext) {
   const { message, role, clinicId, clinicName } = ctx;
   const params = clinicId ? { clinicId, clinicName: clinicName || "" } : undefined;
 
+  if (!clinicId && roleWorkflowNeedsClinic(message, role)) {
+  return selectClinicReply(role);
+}
+
   if (role === "doctor") {
     if (wantsMedicalRecordHelp(message)) {
       return {
         handled: true,
-        reply: "You can create medical records from Manage Appointments or from a patient profile. Open the appointment, review the patient details, then use Create Medical Record.",
+        reply: "You can create a medical record from Manage Appointments. Open the relevant appointment, review the visit details, then add symptoms, diagnosis, vitals, treatment plan, prescription and follow-up notes. After saving, the record will appear in Patient History.",
         actions: [
           { label: "Manage appointments", route: "/manage-appointments", params },
-          { label: "My patients", route: "/my-patients", params },
           { label: "Patient history", route: "/my-patients-history", params },
         ],
       };
@@ -1997,6 +2213,19 @@ function handleRoleWorkflowHelp(ctx: AppContext) {
   }
 
   if (role === "clinic_admin") {
+    if (asksHowToManageAppointments(message) || asksHowToCheckIn(message)) {
+  return {
+    handled: true,
+    reply:
+      "You can manage appointment status from Manage Appointments. There you can view appointment details, cancel or reschedule bookings, and check in patients when they arrive. Check-in marks the patient as arrived and updates the appointment status so the visit can continue smoothly.\n\nWould you like to open Manage Appointments, or do you want me to start one of these actions from chat?",
+    actions: [
+      { label: "Open appointments", route: "/manage-appointments", params },
+      { label: "Cancel from chat", message: "Start cancellation" },
+      { label: "Reschedule from chat", message: "Start reschedule" },
+      { label: "Check in from chat", message: "Start check in" },
+    ],
+  };
+}
     if (wantsCancelAppointment(message) || wantsRescheduleAppointment(message) || wantsCheckInAppointment(message)) {
       return {
         handled: true,
@@ -2031,6 +2260,22 @@ function handleRoleWorkflowHelp(ctx: AppContext) {
   }
 
   if (role === "platform_admin") {
+    if (asksHowToManageAppointments(message) || asksHowToCheckIn(message)) {
+      return {
+        handled: true,
+        reply:
+          "As a platform admin, you can review and manage appointment workflows in the selected clinic context. Manage Appointments lets you inspect bookings, review status, cancel or reschedule appointments, and check in patients. If no clinic is selected, choose a clinic first so the system knows which appointments to show.\n\nWould you like to open Manage Appointments, select a clinic, or start an action from chat?",
+        actions: [
+          clinicId
+            ? { label: "Open appointments", route: "/manage-appointments", params }
+            : { label: "Select clinic", route: "/clinic-selection" },
+          { label: "Cancel from chat", message: "Start cancellation" },
+          { label: "Reschedule from chat", message: "Start reschedule" },
+          { label: "Check in from chat", message: "Start check in" },
+        ],
+      };
+    }
+
     if (wantsCancelAppointment(message) || wantsRescheduleAppointment(message) || wantsCheckInAppointment(message)) {
       return {
         handled: true,
@@ -2053,7 +2298,7 @@ function handleRoleWorkflowHelp(ctx: AppContext) {
         reply: "You can view platform analytics, clinic activity, appointment trends and platform health from Analytics.",
         actions: [
           { label: "View analytics", route: "/analytics", params },
-          { label: "Platform dashboard", route: "/main-platform-admin", params },
+          { label: "Dashboard", route: "/main-platform-admin", params },
         ],
       };
     }
@@ -2591,6 +2836,15 @@ async function handleBookingFlow(ctx: AppContext, bookingDraft?: BookingDraft | 
   if (rpcError) 
     return { handled: true, reply: `I could not create the appointment: ${rpcError.message}`, actions: [], bookingDraft: draft };
 
+  if (draft.triageId) {
+    try {
+      await supabase
+        .from("ai_triage_sessions")
+        .update({ completed: true })
+        .eq("id", draft.triageId);
+    } catch (_) {}
+  }
+
   await saveAuditLog(supabase, {
     user_id: user.id,
     clinic_id: clinicId,
@@ -3104,16 +3358,55 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (wantsCancelAppointment(message) || wantsRescheduleAppointment(message)) {
-      const result = await handleAppointmentManagement(ctx, null);
-      return json({
-        reply: result.reply,
-        actions: result.actions,
-        bookingDraft: result.bookingDraft,
-        triageDraft: null,
-        triage: { isTriage: false, level: "unknown" },
-      });
-    }
+if (
+  wantsStartCancellationFromChat(message) ||
+  wantsStartRescheduleFromChat(message) ||
+  wantsStartCheckInFromChat(message) ||
+  (
+    !asksHowToManageAppointments(message) &&
+    !asksHowToCheckIn(message) &&
+    (
+      wantsCancelAppointment(message) ||
+      wantsRescheduleAppointment(message) ||
+      wantsCheckInAppointment(message)
+    )
+  ) ||
+  (bookingDraft?.active && bookingDraft.mode !== "create")
+) {
+  let nextBookingDraft = bookingDraft;
+
+if (wantsStartCancellationFromChat(message)) {
+  nextBookingDraft = {
+    active: true,
+    mode: "cancel",
+    step: "select_appointment",
+  };
+}
+
+if (wantsStartRescheduleFromChat(message)) {
+  nextBookingDraft = {
+    active: true,
+    mode: "reschedule",
+    step: "select_appointment",
+  };
+}
+
+if (wantsStartCheckInFromChat(message)) {
+  nextBookingDraft = {
+    active: true,
+    mode: "check_in",
+    step: "select_appointment",
+  };
+}
+  const appointmentResult = await handleAppointmentManagement(ctx, nextBookingDraft);
+    return json({
+      reply: appointmentResult.reply,
+      actions: appointmentResult.actions || [],
+      bookingDraft: appointmentResult.bookingDraft || null,
+      triageDraft: triageDraft || null,
+      triage: getTriageLevel(message),
+    });
+  }
 
     if (bookingDraft?.active || wantsBooking(message)) {
       const result = await handleBookingFlow(ctx, bookingDraft);

@@ -35,6 +35,9 @@ export default function PatientDashboard() {
 
   const [upcomingAppointments, setUpcomingAppointments] = useState(0);
   const [upcomingList, setUpcomingList] = useState<any[]>([]);
+  const [doctorsAvailable, setDoctorsAvailable] = useState(0);
+  const [activeConversations, setActiveConversations] = useState(0);
+  const [medicalDocuments, setMedicalDocuments] = useState(0);
 
   const [openTriageChat, setOpenTriageChat] = useState(false);
   const [recentChats, setRecentChats] = useState<any[]>([]);
@@ -106,12 +109,40 @@ export default function PatientDashboard() {
           .limit(3);
 
         setRecentChats(chatsData ?? []);
+        const { count: conversationsCount } = await supabase
+          .from('chat_conversations')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId)
+          .eq('patient_id', user.id);
+
+        setActiveConversations(conversationsCount ?? 0);
+
+        const { count: doctorsCount } = await supabase
+          .from('doctors')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId);
+
+        setDoctorsAvailable(doctorsCount ?? 0);
 
         const { data } = await supabase
           .from('profiles')
           .select('first_name, last_name, avatar_url')
           .eq('id', user.id)
           .maybeSingle();
+
+        const { count: filesCount } = await supabase
+          .from('patient_files')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId)
+          .eq('patient_id', user.id);
+
+        const { count: recordsCount } = await supabase
+          .from('patient_medical_records')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId)
+          .eq('patient_id', user.id);
+
+        setMedicalDocuments((filesCount ?? 0) + (recordsCount ?? 0));
 
         setProfile(data ?? null);
       } finally {
@@ -146,14 +177,14 @@ export default function PatientDashboard() {
 
   const featureItems = [
 
-    { title: 'About Us', icon: 'business-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-info') },
-    { title: 'Our Doctors', icon: 'people-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-doctors') },
-    { title: 'Our Services', icon: 'list-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-services') },
-    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Placeholder description.', onPress: openAppointmentsModal },
-    { title: 'Our Technology', icon: 'hardware-chip-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-tech') },
-    { title: 'Health Tips', icon: 'leaf-outline' as const, description: 'Placeholder description.', onPress: () => go('/health-tips') },
-    { title: 'My Documents', icon: 'document-attach-outline' as const, description: 'Placeholder description.', onPress: () => go('/my-documents'), },
-    { title: 'Messages', icon: 'chatbubble-ellipses-outline' as const, description: 'Chat with your doctors.', onPress: () => go('/messages'), },
+    { title: 'About Us', icon: 'business-outline' as const, description: 'Learn more about the clinic, its values and commitment.', onPress: () => go('/clinic-info') },
+    { title: 'Our Doctors', icon: 'people-outline' as const, description: 'Meet our specialists team, explore their journey and find the right doctor for you.', onPress: () => go('/clinic-doctors') },
+    { title: 'Our Services', icon: 'list-outline' as const, description: 'Browse available specialties and treatments offered by the clinic.', onPress: () => go('/clinic-services') },
+    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Book, reschedule when needed, cancel and track details about appointments.', onPress: openAppointmentsModal },
+    { title: 'Our Technology', icon: 'hardware-chip-outline' as const, description: 'Discover the medical technologies and equipment used to support your needs.', onPress: () => go('/clinic-tech') },
+    { title: 'Health Tips', icon: 'leaf-outline' as const, description: 'Learn about ways to improve your habits with actionable tips for a healthier lifestyle.', onPress: () => go('/health-tips') },
+    { title: 'My Documents', icon: 'document-attach-outline' as const, description: 'Access your medical records, radiology images and uploaded documents.', onPress: () => go('/my-documents'), },
+    { title: 'Messages', icon: 'chatbubble-ellipses-outline' as const, description: 'Chat with your team of doctors in a secure environment.', onPress: () => go('/messages'), },
   
   ];
 
@@ -183,11 +214,11 @@ export default function PatientDashboard() {
           </Text>
 
           <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
-            Placeholder Title in {clinicName || 'your clinic'}
+            Welcome to {clinicName || 'your clinic'}
           </Text>
 
           <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-            Placeholder Subtitle.
+            Manage appointments, access your medical documents, chat with doctors and receive personalized healthcare support in one secure place.
           </Text>
 
           <View style={[styles.heroButtons, isMobile && styles.heroButtonsMobile]}>
@@ -204,9 +235,9 @@ export default function PatientDashboard() {
         <View style={styles.statsGrid}>
           {[
             { label: 'Upcoming Appointments', value: upcomingAppointments, icon: 'calendar-outline' as const },
-            { label: 'Doctors Available', value: 7, icon: 'medkit-outline' as const },
-            { label: 'AI Reports Ready', value: 1, icon: 'sparkles-outline' as const },
-            { label: 'History Entries', value: 12, icon: 'document-text-outline' as const },
+            { label: 'Doctors Available', value: doctorsAvailable, icon: 'medkit-outline' as const },
+            { label: 'Active Conversations', value: activeConversations, icon: 'chatbubbles-outline' as const },
+            { label: 'Medical Documents', value: medicalDocuments, icon: 'document-text-outline' as const },
           ].map((item) => (
             <View key={item.label} style={isMobile ? styles.statMobileItem : styles.statWebItem}>
               <AnimatedStatsCard {...item} color={theme.primary} centered={isMobile}/>
@@ -220,18 +251,18 @@ export default function PatientDashboard() {
 
             <View style={styles.adsGrid}>
               <View style={styles.adCard}>
-                <Text style={styles.adTitle}>Placeholder Title</Text>
-                <Text style={styles.adText}>Placeholder description.</Text>
+                <Text style={styles.adTitle}>Personalized Care</Text>
+                <Text style={styles.adText}>Receive tailored healthcare from your medical history, preferences and needs.</Text>
               </View>
 
               <View style={styles.adCard}>
-                <Text style={styles.adTitle}>Placeholder Title</Text>
-                <Text style={styles.adText}>Placeholder description.</Text>
+                <Text style={styles.adTitle}>Secure Communication</Text>
+                <Text style={styles.adText}>Stay connected with your specialized healthcare team through secure messaging.</Text>
               </View>
 
               <View style={styles.adCard}>
-                <Text style={styles.adTitle}>Placeholder Title</Text>
-                <Text style={styles.adText}>Placeholder description.</Text>
+                <Text style={styles.adTitle}>Smart Healthcare</Text>
+                <Text style={styles.adText}>Benefit from AI-assisted actions designed to improve your experience.</Text>
               </View>
             </View>
           </View>
@@ -284,7 +315,7 @@ export default function PatientDashboard() {
                 <Ionicons name="calendar-clear-outline" size={24} color="#94A3B8"/>
                 <Text style={styles.emptyUpcomingTitle}>No upcoming appointments</Text>
                 <Text style={styles.emptyUpcomingText}>
-                  Your next visits will appear here after booking.
+                  Upcoming visits will appear here after booking.
                 </Text>
               </View>
             ) : (

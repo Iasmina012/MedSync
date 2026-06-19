@@ -482,9 +482,9 @@ export default function MyDocumentsScreen() {
         />
 
         <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>Documents</Text>
-          <Text style={[styles.title, { color: theme.secondary }]}>Documents & Medical Records</Text>
-          <Text style={styles.subtitle}>Review uploaded files, appointment documents and medical records from your clinic.</Text>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>My Documents</Text>
+          <Text style={[styles.title, { color: theme.secondary }]}>Oversee your Medical Files</Text>
+          <Text style={styles.subtitle}>Review all of your uploaded files such as appointment documents, radiology images and medical records from your clinic.</Text>
         </View>
 
         <View style={styles.summaryGrid}>
@@ -725,16 +725,16 @@ export default function MyDocumentsScreen() {
                   <DetailRow label="Category" value={selectedRecord.category || "Not set"}/>
                   <DetailRow label="Symptoms" value={selectedRecord.symptoms || "Not set"}/>
                   <DetailRow label="Diagnosis" value={selectedRecord.diagnosis || "Not set"}/>
-                  <DetailRow label="Treatment Plan" value={selectedRecord.treatment_plan || "Not set"}/>
+                  <DetailRow label="Treatment plan" value={selectedRecord.treatment_plan || "Not set"}/>
                   <DetailRow label="Prescription" value={selectedRecord.prescription || "Not set"}/>
                   <DetailRow label="Recommendations" value={selectedRecord.recommendations || "Not set"}/>
                   <DetailRow label="Notes" value={selectedRecord.notes || "Not set"}/>
-                  <DetailRow label="Blood Pressure" value={selectedRecord.blood_pressure || "Not set"}/>
-                  <DetailRow label="Heart Rate" value={selectedRecord.heart_rate ? `${selectedRecord.heart_rate} bpm` : "Not set"}/>
+                  <DetailRow label="Blood pressure" value={selectedRecord.blood_pressure || "Not set"}/>
+                  <DetailRow label="Heart rate" value={selectedRecord.heart_rate ? `${selectedRecord.heart_rate} bpm` : "Not set"}/>
                   <DetailRow label="Temperature" value={selectedRecord.temperature ? `${selectedRecord.temperature}°C` : "Not set"}/>
                   <DetailRow label="Weight" value={selectedRecord.weight_kg ? `${selectedRecord.weight_kg} kg` : "Not set"}/>
                   <DetailRow label="Height" value={selectedRecord.height_cm ? `${selectedRecord.height_cm} cm` : "Not set"}/>
-                  <DetailRow label="Follow Up" value={selectedRecord.follow_up_date || "Not set"}/>
+                  <DetailRow label="Follow-up" value={selectedRecord.follow_up_date || "Not set"}/>
 
                   <View style={styles.recordFilesSection}>
                     <Text style={styles.recordFilesTitle}>Attached documents</Text>

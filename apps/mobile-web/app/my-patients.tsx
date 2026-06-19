@@ -174,9 +174,9 @@ export default function DoctorPatientsScreen() {
         />
 
         <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>Doctor</Text>
-          <Text style={[styles.title, { color: theme.secondary }]}>My Patients</Text>
-          <Text style={styles.subtitle}>Patients connected to your appointments in this clinic.</Text>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>My Patients</Text>
+          <Text style={[styles.title, { color: theme.secondary }]}>Manage your Patients</Text>
+          <Text style={styles.subtitle}>Supervise patients connected to your appointments in this clinic. View general information about them and navigate further for better details.</Text>
         </View>
 
         {patients.length === 0 ? (
@@ -242,7 +242,7 @@ export default function DoctorPatientsScreen() {
               <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
                 <Text style={styles.sectionLabel}>Contact</Text>
                 <DetailRow icon="mail-outline" label="Email" value={formatValue(selected.email)}/>
-                <DetailRow icon="call-outline" label="Phone" value={formatValue(selected.phone)}/>
+                <DetailRow icon="call-outline" label="Phone number" value={formatValue(selected.phone)}/>
                 <DetailRow icon="location-outline" label="Address" value={formatValue(selected.address)}/>
                 <DetailRow icon="person-circle-outline" label="Username" value={formatValue(selected.username)}/>
 

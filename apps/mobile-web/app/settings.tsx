@@ -154,7 +154,7 @@ export default function SettingsScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.primary} />
+        <ActivityIndicator size="large" color={theme.primary}/>
       </View>
     );
   }
@@ -188,7 +188,7 @@ export default function SettingsScreen() {
           Control your account preferences
         </Text>
         <Text style={styles.heroSubtitle}>
-          Customize reminders, communication and account behavior.
+          Customize notifications, communication and account behavior.
         </Text>
       </View>
 
@@ -215,7 +215,7 @@ export default function SettingsScreen() {
           icon="alarm-outline"
           color={theme.primary}
           label="Appointment Reminders"
-          description="Get reminders before scheduled appointments."
+          description="Receive reminders before scheduled appointments."
           value={settings.appointment_reminders}
           onChange={(value) => updateField('appointment_reminders', value)}
         />

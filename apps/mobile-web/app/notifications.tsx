@@ -285,8 +285,8 @@ export default function NotificationsScreen() {
 
       <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
         <Text style={[styles.heroEyebrow, { color: theme.primary }]}>Notifications</Text>
-        <Text style={[styles.heroTitle, { color: theme.secondary }]}>Appointment Updates</Text>
-        <Text style={[styles.heroSubtitle]}>Review appointment reminders, schedule changes and clinic updates.</Text>
+        <Text style={[styles.heroTitle, { color: theme.secondary }]}>Check Appointment Updates</Text>
+        <Text style={[styles.heroSubtitle]}>Review appointment reminders, cancellatons and schedule updates.</Text>
       </View>
 
       <View style={styles.card}>
@@ -299,7 +299,7 @@ export default function NotificationsScreen() {
           <View style={[styles.headerActions, isMobile && styles.headerActionsMobile]}>
             {unreadCount > 0 && (
               <Pressable style={[styles.headerButton, isMobile && styles.headerButtonMobile]} onPress={markAllRead}>
-                <Text style={[styles.headerButtonText, { color: theme.primary }]}>Mark all read</Text>
+                <Text style={[styles.headerButtonText, { color: theme.primary }]}>Mark all as read</Text>
               </Pressable>
             )}
             {items.length > 0 && (

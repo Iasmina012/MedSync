@@ -82,17 +82,17 @@ export default function AboutScreen() {
             </View>
 
             <Text style={styles.heroTitle}>
-              Placeholder Title
+              Understand Our Platform
             </Text>
 
             <Text style={styles.heroSubtitle}>
-              Placeholder Subtitle
+              MedSync connects patients, doctors and clinics through a modern healthcare platform designed to simplify communication, appointments and medical information management.
             </Text>
 
             <View style={styles.heroPillsRow}>
               <View style={styles.heroPill}>
                 <Ionicons name="calendar-outline" size={16} color="#1D4ED8"/>
-                <Text style={styles.heroPillText}>Manage Appointments</Text>
+                <Text style={styles.heroPillText}>Appointment Manager</Text>
               </View>
 
               <View style={styles.heroPill}>
@@ -189,7 +189,7 @@ export default function AboutScreen() {
             <Text style={styles.downloadEyebrow}>Mobile Experience</Text>
             <Text style={styles.downloadTitle}>Download the MedSync App</Text>
             <Text style={styles.downloadSubtitle}>
-              Placeholder description
+              On the Go! Take MedSync with you wherever you are. Access appointments, messages, medical records and clinic services directly from your mobile device.
             </Text>
           </View>
 
@@ -212,9 +212,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="business-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Placeholder Title</Text>
+            <Text style={styles.cardTitle}>Multi-Clinic Management</Text>
             <Text style={styles.cardText}>
-              Placeholder description
+              Navigate through multiple clinics, users, services and healthcare operations from a centralized single platform.
             </Text>
           </HoverCard>
 
@@ -222,9 +222,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="phone-portrait-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Placeholder Title</Text>
+            <Text style={styles.cardTitle}>Mobile Access</Text>
             <Text style={styles.cardText}>
-              Placeholder description
+              Access healthcare tools and clinic information anytime from iOS and Android devices.
             </Text>
           </HoverCard>
 
@@ -232,9 +232,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="sparkles-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Placeholder Title</Text>
+            <Text style={styles.cardTitle}>AI Assistance</Text>
             <Text style={styles.cardText}>
-              Placeholder description
+              Use smart triage, image and document analyzer, onboarding and guidance powered by modern AI technologies.
             </Text>
           </HoverCard>
 
@@ -242,19 +242,17 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="shield-checkmark-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Placeholder Title</Text>
-            <Text style={styles.cardText}>
-              Placeholder description
-            </Text>
+            <Text style={styles.cardTitle}>Data Protection</Text>
+            <Text style={styles.cardText}>Patient information is protected using secure authentication, permissions and privacy controls.</Text>
           </HoverCard>
 
           <HoverCard pressableStyle={styles.cardHoverWrap} style={styles.card}>
             <View style={styles.iconWrap}>
               <Ionicons name="calendar-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Placeholder Title</Text>
+            <Text style={styles.cardTitle}>Appointment Scheduling</Text>
             <Text style={styles.cardText}>
-              Placeholder description
+              Book, reschedule, cancel, check-in and track appointment activity through a streamlined workflow.
             </Text>
           </HoverCard>
 
@@ -262,9 +260,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="chatbubbles-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Placeholder Title</Text>
+            <Text style={styles.cardTitle}>Secure Messaging</Text>
             <Text style={styles.cardText}>
-              Placeholder description
+              Communicate directly with healthcare professionals using secure conversations.
             </Text>
           </HoverCard>
 
@@ -272,9 +270,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="chatbubble-ellipses-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Placeholder Title</Text>
+            <Text style={styles.cardTitle}>Care Team Collaboration</Text>
             <Text style={styles.cardText}>
-              Placeholder description
+              Improve coordination between patients, doctors and clinic staff through connected workflows.
             </Text>
           </HoverCard>
 
@@ -282,9 +280,9 @@ export default function AboutScreen() {
             <View style={styles.iconWrap}>
               <Ionicons name="alarm-outline" size={22} color="#1D4ED8"/>
             </View>
-            <Text style={styles.cardTitle}>Placeholder Title</Text>
+            <Text style={styles.cardTitle}>Smart Notifications</Text>
             <Text style={styles.cardText}>
-              Placeholder description
+              Receive appointment reminders, updates and important medical alerts regarding your appointments.
             </Text>
           </HoverCard>
           

@@ -57,23 +57,23 @@ const primaryFeatures: FeatureCard[] = [
 
   {
     icon: 'calendar-outline',
-    title: 'Placeholder Title',
+    title: 'Appointment Management',
     description:
-      'Placeholder description.',
+      'Book, reschedule if needed, cancel appointments through an intuitive scheduling experience.',
   },
 
   {
     icon: 'business-outline',
-    title: 'Placeholder Title',
+    title: 'Multi-Clinic Platform',
     description:
-      'Placeholder description.',
+      'Support multiple healthcare organizations with clinic specific branding, users and services.',
   },
 
   {
     icon: 'sparkles-outline',
-    title: 'Placeholder Title',
+    title: 'AI Healthcare Assistance',
     description:
-      'Placeholder description.',
+      'Use AI-powered triage and guidance tools to improve healthcare accessibility and efficiency.',
   },
 
 ];
@@ -82,30 +82,30 @@ const secondaryFeatures: FeatureCard[] = [
 
   {
     icon: 'chatbubbles-outline',
-    title: 'Placeholder Title',
+    title: 'Secure Messaging',
     description:
-      'Placeholder description.',
+      'Communicate directly with healthcare professionals in a secure environment.',
   },
 
   {
     icon: 'document-text-outline',
-    title: 'Placeholder Title',
+    title: 'Electronic Medical Records',
     description:
-      'Placeholder description.',
+      'Store and access medical information, documents and healthcare history.',
   },
 
   {
     icon: 'bar-chart-outline',
-    title: 'Placeholder Title',
+    title: 'Analytics & Insights',
     description:
-      'Placeholder description.',
+      'Track clinic performance, appointments and operational metrics through interactive dashboards.',
   },
 
   {
     icon: 'watch-outline',
-    title: 'Placeholder Title',
+    title: 'Automated Notifications',
     description:
-      'Placeholder description.',
+      'Keep patients informed with appointment reminders and important notifications.',
   },
 
 ];
@@ -705,15 +705,15 @@ export default function HomeScreen() {
           <View style={[styles.heroLeft, isMobile && styles.heroLeftMobile]}>
             <View style={styles.badge}>
               <Ionicons name="pulse-outline" size={16} color={BRAND.primary}/>
-              <Text style={styles.badgeText}>MedSync · Motto</Text>
+              <Text style={styles.badgeText}>MedSync · Connected Healthcare</Text>
             </View>
 
             <Text style={[styles.heroTitle, isSmall && styles.heroTitleSmall]}>
-              Placeholder Title
+              Built for Every Healthcare Role
             </Text>
 
             <Text style={styles.heroDescription}>
-              Placeholder description.
+              MedSync provides dedicated experiences for patients, doctors, clinic administrators and platform administrators, ensuring that every user has access to the tools they need.
             </Text>
 
             <View
@@ -796,7 +796,7 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.previewListCard}>
-                <Text style={styles.previewListTitle}>Clinic Flow</Text>
+                <Text style={styles.previewListTitle}>Clinic Operations</Text>
 
                 {[
                   {
@@ -824,7 +824,7 @@ export default function HomeScreen() {
 
         <SectionTitle
           title="What does the app offer?"
-          subtitle="Placeholder text."
+          subtitle="MedSync delivers role-specific experiences for patients, healthcare professionals, clinic administrators, and platform administrators, empowering each user with the resources they need."
         />
 
         <View style={styles.primaryFeaturesRow}>
@@ -845,12 +845,12 @@ export default function HomeScreen() {
         <View style={styles.customSection}>
           <View style={styles.customSectionLeft}>
             <SectionTitle
-              title="Designed for multiple clinics"
-              subtitle="A single application that adapts to multiple medical centers through branding, users, roles and clinic-specific data."
+              title="Multi-Tenant Healthcare Architecture"
+              subtitle="A scalable architecture that enables multiple healthcare organizations to operate independently while sharing a common technology platform."
             />
             <View style={styles.checkListWrap}>
               {[
-                'Clinic-specific name and identity',
+                'Clinic specific name and identity',
                 'Different colors and branding examples',
                 'Doctors and patients separated by clinic',
                 'Reusable system for future expansion',
@@ -874,9 +874,9 @@ export default function HomeScreen() {
               <View style={styles.themeRow}>
                 <View style={[styles.themeSwatch, { backgroundColor: '#1D4ED8' }]}/>
                 <View>
-                  <Text style={styles.themeName}>Placeholder theme</Text>
+                  <Text style={styles.themeName}>Blue Healthcare Theme</Text>
                   <Text style={styles.themeDescription}>
-                    Placeholder text
+                    Modern and professional design focused on trust and accessibility.
                   </Text>
                 </View>
               </View>
@@ -884,9 +884,9 @@ export default function HomeScreen() {
               <View style={styles.themeRow}>
                 <View style={[styles.themeSwatch, { backgroundColor: '#059669' }]}/>
                 <View>
-                  <Text style={styles.themeName}>Placeholder theme</Text>
+                  <Text style={styles.themeName}>Green Wellness Theme</Text>
                   <Text style={styles.themeDescription}>
-                    Placeholder text
+                    A calm and wellness oriented experience suitable for prevention.
                   </Text>
                 </View>
               </View>
@@ -894,9 +894,9 @@ export default function HomeScreen() {
               <View style={styles.themeRow}>
                 <View style={[styles.themeSwatch, { backgroundColor: '#7C3AED' }]}/>
                 <View>
-                  <Text style={styles.themeName}>Placeholder theme</Text>
+                  <Text style={styles.themeName}>Purple Specialist Theme</Text>
                   <Text style={styles.themeDescription}>
-                    Placeholder text
+                    Designed for clinics requiring a premium identity.
                   </Text>
                 </View>
               </View>
@@ -904,9 +904,9 @@ export default function HomeScreen() {
               <View style={styles.themeRow}>
                 <View style={[styles.themeSwatch, { backgroundColor: '#F59E0B' }]}/>
                 <View>
-                  <Text style={styles.themeName}>Placeholder theme</Text>
+                  <Text style={styles.themeName}>Orange Innovation Theme</Text>
                   <Text style={styles.themeDescription}>
-                    Placeholder text
+                    A vibrant experience for technology and patient engagement.
                   </Text>
                 </View>
               </View>
@@ -915,8 +915,8 @@ export default function HomeScreen() {
         </View>
 
         <SectionTitle
-          title="Placeholder Title"
-          subtitle="Placeholder text"
+          title="Integrated Digital Healthcare Ecosystem"
+          subtitle="Combining communication, medical documentation, analytics and automation into a single healthcare platform."
         />
 
         <View style={styles.secondaryGrid}>
@@ -947,7 +947,7 @@ export default function HomeScreen() {
 
         <SectionTitle
           title="Reviews"
-          subtitle="Real platform feedback submitted by users"
+          subtitle="Insights and feedback from patients, healthcare professionals and clinic administrators."
         />
 
         <View style={styles.reviewSubmitCard}>
@@ -957,9 +957,9 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.reviewSubmitHeaderTextWrap}>
-              <Text style={styles.reviewSubmitTitle}>Leave a review for our platform!</Text>
+              <Text style={styles.reviewSubmitTitle}>Share Your Experience</Text>
               <Text style={styles.reviewSubmitSubtitle}>
-                Share your feedback about the experience provided by the MedSync app.
+                Help us improve MedSync by sharing your experience using the platform.
               </Text>
             </View>
           </View>
@@ -1041,7 +1041,7 @@ export default function HomeScreen() {
             disabled={reviewSubmitting}
           >
             <Text style={styles.reviewButtonText}>
-              {reviewSubmitting ? 'Submitting...' : 'Add review'}
+              {reviewSubmitting ? 'Submitting...' : 'Submit review'}
             </Text>
           </Pressable>
         </View>

@@ -254,7 +254,7 @@ export default function ManageUsersScreen() {
     if (!editing) return;
 
     if (Platform.OS !== 'web') {
-      Alert.alert('Unavailable', 'Avatar upload is currently available on web.');
+      Alert.alert('Unavailable', 'Uploading avatar is currently available on web.');
       return;
     }
 
@@ -299,7 +299,8 @@ export default function ManageUsersScreen() {
   };
 
   const hasUnsavedChanges = () => {
-    if (!editing || !originalEditing) return false;
+    if (!editing || !originalEditing) 
+      return false;
     return JSON.stringify(editing) !== JSON.stringify(originalEditing);
   };
 
@@ -401,7 +402,7 @@ export default function ManageUsersScreen() {
     if (hasErrors) return;
 
     if (trimmedPhone && !phoneRegex.test(trimmedPhone)) {
-      Alert.alert('Invalid phone', 'Please enter a valid phone number.');
+      Alert.alert('Invalid phone number', 'Please enter a valid phone number.');
       return;
     }
 
@@ -622,7 +623,7 @@ export default function ManageUsersScreen() {
         />
 
         <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>Users</Text>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>Manage Users</Text>
           <Text style={[styles.title, { color: theme.secondary }]}>
             {currentRole === 'platform_admin'
               ? 'Manage Platform Users'
@@ -632,8 +633,8 @@ export default function ManageUsersScreen() {
           </Text>
           <Text style={styles.subtitle}>
             {currentRole === 'doctor'
-              ? 'View patients connected to your appointments in this clinic.'
-              : 'View users, update profile details and manage access.'}
+              ? 'Access and manage patients associated with your appointments in this clinic.'
+              : 'Oversee and create users, update profile details and manage their access.'}
           </Text>
           {currentRole !== 'doctor' && (
             <Pressable
@@ -728,7 +729,7 @@ export default function ManageUsersScreen() {
 
                 <View style={styles.metaBlock}>
                   <DetailRow icon="person-outline" label="Username" value={userItem.username || 'Not set'} />
-                  <DetailRow icon="call-outline" label="Phone" value={userItem.phone || 'Not set'} />
+                  <DetailRow icon="call-outline" label="Phone Number" value={userItem.phone || 'Not set'} />
                   <DetailRow icon="location-outline" label="Address" value={userItem.address || 'Not set'} />
                 </View>
               </HoverCard>
@@ -754,8 +755,8 @@ export default function ManageUsersScreen() {
               <Text style={styles.modalTitle}>User Details</Text>
               <Text style={styles.modalSubtitle}>
                 {currentRole === 'doctor'
-                  ? 'Doctors can view patient information from this clinic.'
-                  : 'Update profile information, avatar URL and access details.'}
+                  ? 'View patients and their information inside this clinic.'
+                  : 'Update user profile information and access details.'}
               </Text>
             </View>
 
@@ -766,14 +767,14 @@ export default function ManageUsersScreen() {
                 showsVerticalScrollIndicator
               >
                 <Input
-                  label="First Name"
+                  label="First name"
                   value={editing.first_name || ''}
                   editable={currentRole !== 'doctor'}
                   onChangeText={(first_name) => setEditing({ ...editing, first_name })}
                 />
 
                 <Input
-                  label="Last Name"
+                  label="Last name"
                   value={editing.last_name || ''}
                   editable={currentRole !== 'doctor'}
                   onChangeText={(last_name) => setEditing({ ...editing, last_name })}
@@ -796,7 +797,7 @@ export default function ManageUsersScreen() {
                 />
 
                 <Input
-                  label="Phone"
+                  label="Phone number"
                   value={editing.phone || ''}
                   editable={currentRole !== 'doctor'}
                   onChangeText={(phone) => setEditing({ ...editing, phone })}
@@ -860,14 +861,14 @@ export default function ManageUsersScreen() {
                 ) : (
                   <View style={styles.readOnlyRoleBox}>
                     <Text style={styles.readOnlyRoleText}>{formatRole(editing.role)}</Text>
-                    <Text style={styles.readOnlyRoleHint}>Only platform admins can change the global platform role.</Text>
+                    <Text style={styles.readOnlyRoleHint}>Only platform admins can change the global role of users.</Text>
                   </View>
                 )}
 
                 {currentRole === 'platform_admin' &&
                   ['doctor', 'clinic_admin'].includes(editing.role) && (
                     <>
-                      <Text style={styles.inputLabel}>Assigned clinics</Text>
+                      <Text style={styles.inputLabel}>Assigned Clinics</Text>
 
                       <View style={styles.clinicPicker}>
                         {clinics.map((clinic) => {
@@ -907,7 +908,7 @@ export default function ManageUsersScreen() {
                       </View>
 
                       <Text style={styles.helperText}>
-                        Doctors and clinic admins can belong to one or more clinics.
+                        Doctors and clinic admins can be connected to at least one or more clinics.
                       </Text>
                     </>
                   )}
@@ -931,7 +932,7 @@ export default function ManageUsersScreen() {
                   disabled={saving || deleting}
                 >
                   <Text style={styles.modalDangerText}>
-                {deleting ? 'Deleting...' : 'Delete'}
+                {deleting ? 'Deleting...' : 'Delete User'}
               </Text>
                 </Pressable>
               )}
@@ -957,7 +958,7 @@ export default function ManageUsersScreen() {
 
               <Text style={styles.modalTitle}>New User</Text>
               <Text style={styles.modalSubtitle}>
-                Create an account and assign access.
+                Create a new account and grant access.
               </Text>
             </View>
 
@@ -1052,13 +1053,13 @@ export default function ManageUsersScreen() {
       )}
 
               <Input
-                label="Phone optional"
+                label="Phone Number (optional)"
                 value={newUser.phone}
                 onChangeText={(phone) => setNewUser({ ...newUser, phone })}
               />
 
               <Input
-                label="Address optional"
+                label="Address (optional)"
                 value={newUser.address}
                 multiline
                 onChangeText={(address) => setNewUser({ ...newUser, address })}
@@ -1120,7 +1121,7 @@ export default function ManageUsersScreen() {
                     )}
 
                     <Text style={styles.helperText}>
-                      Doctors and clinic admins can be assigned to one or more clinics.
+                      Doctors and clinic admins can be connected to at least one or more clinics.
                     </Text>
                   </>
                 )}
@@ -1152,11 +1153,8 @@ export default function ManageUsersScreen() {
               <Ionicons name="warning-outline" size={28} color="#B45309" />
             </View>
 
-            <Text style={styles.confirmTitle}>Discard unsaved changes?</Text>
-
-            <Text style={styles.confirmText}>
-              You have unsaved changes. If you close now, they will be lost.
-            </Text>
+            <Text style={styles.confirmTitle}>Discard changes?</Text>
+            <Text style={styles.confirmText}>Any unsaved edits will be lost if you continue. Make sure to save your changes before leaving.</Text>
 
             <View style={styles.confirmActions}>
               <Pressable
@@ -1181,7 +1179,7 @@ export default function ManageUsersScreen() {
               <Ionicons name="trash-outline" size={28} color="#DC2626" />
             </View>
 
-            <Text style={styles.confirmTitle}>Delete user?</Text>
+            <Text style={styles.confirmTitle}>Are you sure you want to delete this user?</Text>
 
       <Text style={styles.confirmText}>
         This will permanently delete the user account, profile and clinic access. This action cannot be undone.

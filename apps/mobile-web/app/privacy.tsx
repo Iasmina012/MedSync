@@ -69,10 +69,10 @@ export default function PrivacyScreen() {
           Privacy
         </Text>
         <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-          How your data is protected
+          See how your data is protected
         </Text>
         <Text style={styles.heroSubtitle}>
-          Understand what information is stored and how it is used inside the platform.
+          Understand what information is stored and how it is used inside our platform.
         </Text>
       </View>
 

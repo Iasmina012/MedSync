@@ -565,11 +565,11 @@ export default function HealthTipsScreen() {
               { color: theme.secondary },
             ]}
           >
-            Placeholder Title
+            Search for healthcare tips.
           </Text>
 
           <Text style={[styles.heroSubtitle, isMobile && styles.centerText]}>
-            Placeholder Subtitle
+            Navigate through tips regarding healthcare, save them, mark as complete, give feedback for other people or sort them by name, match, priority, completion and saving time.
           </Text>
 
           <View style={[styles.heroPills, isMobile && styles.heroPillsMobile]}>

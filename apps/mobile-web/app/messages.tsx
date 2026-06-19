@@ -195,7 +195,7 @@ export default function MessagesScreen() {
         channelRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId]);
 
   useEffect(() => {
@@ -260,10 +260,10 @@ export default function MessagesScreen() {
         channelRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId, profile?.id]);
 
-  const title = useMemo(() => (isDoctor ? 'Patient messages' : 'Messages'), [isDoctor]);
+  const title = useMemo(() => (isDoctor ? 'My Patient Messages' : 'My Messages'), [isDoctor]);
 
   const deleteConversation = async () => {
     if (!deleteTarget) return;
@@ -318,12 +318,12 @@ export default function MessagesScreen() {
       />
 
       <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-        <Text style={[styles.heroEyebrow, { color: theme.primary }]}>Chat</Text>
+        <Text style={[styles.heroEyebrow, { color: theme.primary }]}>My Messages</Text>
 
         <Text style={[styles.heroTitle, { color: theme.secondary }]}>{title}</Text>
 
         <Text style={styles.heroSubtitle}>
-          Continue your conversations securely with your clinic care team.
+          Continue your conversations securely with a trusted platform designed to keep your communications private, your data protected and your interactions safe at every step.
         </Text>
       </View>
 

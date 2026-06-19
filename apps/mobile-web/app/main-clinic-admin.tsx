@@ -176,8 +176,8 @@ export default function ClinicAdminDashboard() {
 
     { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Modify, cancel or sort appointments, view details and check-in patients.', onPress: () => go('/manage-appointments') },
     { title: 'Manage Users', icon: 'people-outline' as const, description: 'Manage clinic doctors, patients and clinic admins.', onPress: () => go('/manage-users') },
-    { title: 'Manage Clinic Content', icon: 'albums-outline' as const, description: 'Edit doctors, services, technologies and health tips.', onPress: () => go('/manage-clinic-content') },
-    { title: 'Clinic Settings', icon: 'settings-outline' as const, description: 'Customize branding, contact details and homepage content.', onPress: () => go('/clinic-settings') },
+    { title: 'Manage Clinic Content', icon: 'albums-outline' as const, description: 'Edit and add new doctors, services, technologies and health tips.', onPress: () => go('/manage-clinic-content') },
+    { title: 'Clinic Settings', icon: 'settings-outline' as const, description: 'Customize clinic branding, contact details and homepage content.', onPress: () => go('/clinic-settings') },
 
   ];
 
@@ -213,9 +213,9 @@ export default function ClinicAdminDashboard() {
         >
           <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>Clinic Admin Dashboard</Text>
 
-          <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>Manage Your Clinic</Text>
+          <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>Manage Your Clinic at Scale</Text>
 
-          <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>View real clinic activity, manage users, update appointments and keep public clinic content up to date.</Text>
+          <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>Track clinic activity, manage users, coordinate appointments and keep public clinic content up to date.</Text>
         </View>
 
         <View style={styles.statsGrid}>
@@ -232,7 +232,7 @@ export default function ClinicAdminDashboard() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Features</Text>
+          <Text style={styles.sectionTitle}>Global Actions</Text>
 
           <View style={styles.featuresGrid}>
             {featureItems.map((item, index) => {
@@ -307,12 +307,12 @@ export default function ClinicAdminDashboard() {
           </View>
 
           <View style={styles.sectionHalf}>
-            <Text style={styles.sectionTitle}>Today at a Glance</Text>
+            <Text style={styles.sectionTitle}>Daily Snapshot at Glance</Text>
 
             <View style={styles.glanceList}>
               <GlanceRow
                 icon="today-outline"
-                label="Today’s appointments"
+                label="Today&apos;s appointments"
                 value={String(todayAppointments)}
                 color={theme.primary}
               />
@@ -332,7 +332,7 @@ export default function ClinicAdminDashboard() {
               />
             </View>
 
-            <Text style={styles.overviewText}>Live overview based on todays schedule.</Text>
+            <Text style={styles.overviewText}>Live clinic overview based on today&apos;s schedule.</Text>
           </View>
         </View>
       </ScrollView>

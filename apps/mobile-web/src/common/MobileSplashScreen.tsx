@@ -142,7 +142,7 @@ export default function MobileSplashScreen({ onFinish }: { onFinish: () => void 
 
       <Animated.View style={[styles.textWrap, { opacity: titleOpacity, transform: [{ translateY: titleY }] }]}>
         <Text style={styles.title}>MedSync</Text>
-        <Text style={styles.subtitle}>Your care, connected.</Text>
+        <Text style={styles.subtitle}>Connected Healthcare</Text>
       </Animated.View>
 
     </Animated.View>

@@ -110,9 +110,9 @@ export default function DoctorDashboard() {
   const featureItems = [
 
     { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'Modify, cancel or sort appointments and view appointment details.', onPress: () => go('/manage-appointments') },
-    { title: 'My Patients', icon: 'people-outline' as const, description: 'View patients connected to your appointments.', onPress: () => go('/my-patients') },
+    { title: 'My Patients', icon: 'people-outline' as const, description: 'View patients connected to your appointments in this clinic.', onPress: () => go('/my-patients') },
     { title: 'Messages', icon: 'chatbubble-ellipses-outline' as const, description: 'Chat with your patients about medical related problems.', onPress: () => go('/messages'), },
-    { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Review appointment history and triage notes.', onPress: () => go('/my-patients-history'), },
+    { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Review medical patient history and generate summaries using AI.', onPress: () => go('/my-patients-history'), },
 
   ];
 
@@ -153,7 +153,7 @@ export default function DoctorDashboard() {
             Welcome back{fullName ? `, Dr. ${fullName}` : ''}
           </Text>
           <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-            Placeholder Subtitle
+            Supervise medical data, manage patients and chat with them for medical related problems in a secure environment.
           </Text>
         </View>
 
@@ -177,7 +177,7 @@ export default function DoctorDashboard() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Features</Text>
+          <Text style={styles.sectionTitle}>Global Actions</Text>
           <View style={styles.featuresGrid}>
             {featureItems.map((item, index) => {
               const isAlt = index % 2 === 0;

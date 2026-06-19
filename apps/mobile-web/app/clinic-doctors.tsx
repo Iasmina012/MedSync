@@ -164,12 +164,12 @@ function DoctorRowCard({
               <Text style={styles.doctorMeta} numberOfLines={1}>
                 {doctor.specialty || 'General Medicine'}
                 {doctor.experience_years
-                  ? ` · ${doctor.experience_years} yrs`
+                  ? ` · ${doctor.experience_years} years`
                   : ''}
               </Text>
 
               <Text style={styles.doctorDescription} numberOfLines={2}>
-                {doctor.bio || doctor.expertise || 'No details added for this doctor yet.'}
+                {doctor.bio || doctor.expertise || 'No details available for this doctor yet.'}
               </Text>
 
               <View style={styles.seeMoreRow}>
@@ -319,9 +319,9 @@ export default function ClinicDoctorsScreen() {
       />
 
       <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-        <Text style={[styles.heroEyebrow, { color: theme.primary }]}>Doctors</Text>
+        <Text style={[styles.heroEyebrow, { color: theme.primary }]}>Our Doctors</Text>
         <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-          Meet the doctors in {clinicName || 'this clinic'}
+          Meet the team of doctors in {clinicName || 'this clinic'}
         </Text>
         <Text style={styles.heroSubtitle}>
           Search by the doctor&apos;s name, specialty or area of expertise. Sort results by their name or experience.

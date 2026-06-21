@@ -286,8 +286,13 @@ export default function PlatformAdminAnalyticsScreen() {
       if (aiEval && aiEval.doctorValidations.total >= 5) {
         const n = aiEval.doctorValidations.total;
         const observed = aiEval.doctorValidations.agree;
+        const pa = aiEval.doctorValidations.partially_agree;
+        const di = aiEval.doctorValidations.disagree;
         const expected = n / 3;
-        const chiSquare = Math.pow(observed - expected, 2) / expected + Math.pow((n - observed) - (2 * n / 3), 2) / (2 * n / 3);
+        const chiSquare =
+          Math.pow(observed - expected, 2) / expected +
+          Math.pow(pa - expected, 2) / expected +
+          Math.pow(di - expected, 2) / expected;
         const rounded = Math.round(chiSquare * 100) / 100;
         const pLabel =
           rounded > 10.828 ? 'p < 0.001' :

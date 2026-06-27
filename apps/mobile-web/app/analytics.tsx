@@ -283,11 +283,11 @@ export default function PlatformAdminAnalyticsScreen() {
         setKappaEval({ kappa: roundedK, po: Math.round(Po * 1000) / 1000, pe: Math.round(Pe * 1000) / 1000, n, interpretation });
       }
 
-      if (aiEval && aiEval.doctorValidations.total >= 5) {
-        const n = aiEval.doctorValidations.total;
-        const observed = aiEval.doctorValidations.agree;
-        const pa = aiEval.doctorValidations.partially_agree;
-        const di = aiEval.doctorValidations.disagree;
+      if (doctorValidations.total >= 5) {
+        const n = doctorValidations.total;
+        const observed = doctorValidations.agree;
+        const pa = doctorValidations.partially_agree;
+        const di = doctorValidations.disagree;
         const expected = n / 3;
         const chiSquare =
           Math.pow(observed - expected, 2) / expected +
@@ -295,9 +295,9 @@ export default function PlatformAdminAnalyticsScreen() {
           Math.pow(di - expected, 2) / expected;
         const rounded = Math.round(chiSquare * 100) / 100;
         const pLabel =
-          rounded > 10.828 ? 'p < 0.001' :
-          rounded > 6.635 ? 'p < 0.01' :
-          rounded > 3.841 ? 'p < 0.05' :
+          rounded > 13.816 ? 'p < 0.001' :
+          rounded > 9.210 ? 'p < 0.01' :
+          rounded > 5.991 ? 'p < 0.05' :
           'p >= 0.05 (not significant)';
         setChiSquareEval({ chiSquare: rounded, pLabel, n, observed, expected: Math.round(expected * 10) / 10 });
       }
@@ -308,7 +308,7 @@ export default function PlatformAdminAnalyticsScreen() {
 
     load();
   
-  }, [clinicId, aiEval]);
+  }, [clinicId]);
 
   if (loading || !stats) {
     return (
@@ -424,10 +424,10 @@ export default function PlatformAdminAnalyticsScreen() {
             <View style={styles.section}>
               <View style={styles.evalHeader}>
                 <Ionicons name="flask-outline" size={22} color="#6366F1"/>
-                <Text style={styles.sectionTitle}>AI Triage Evaluation</Text>
+                <Text style={styles.sectionTitle}>Multi-Instrument AI Triage Evaluation</Text>
               </View>
 
-              <Text style={styles.evalSubtitle}>Research data collected from doctor validations and patient feedback on AI triage decisions.</Text>
+              <Text style={styles.evalSubtitle}>Doctor and patient validation of AI triage decisions, usability (SUS) and session engagement metrics, plus statistical analysis: Cohen&apos;s kappa, chi-square significance, precision/recall/F1 and confidence calibration.</Text>
 
               <View style={styles.evalGrid}>
                 <View style={styles.evalCard}>
@@ -579,27 +579,6 @@ export default function PlatformAdminAnalyticsScreen() {
                   </View>
                 )}
 
-                {confidenceEval && (confidenceEval.highCount + confidenceEval.lowCount) > 0 && (
-                  <View style={styles.evalCard}>
-                    <View style={styles.evalCardHeader}>
-                      <Ionicons name="speedometer-outline" size={16} color="#6366F1"/>
-                      <Text style={styles.evalCardTitle}>Confidence vs. Accuracy</Text>
-                    </View>
-                    <View style={styles.evalSummaryRow}>
-                      <Text style={styles.evalSummaryLabel}>High confidence (&ge;70%) accuracy</Text>
-                      <Text style={[styles.evalSummaryValue, { color: '#16A34A' }]}>
-                        {confidenceEval.highAccuracy}% <Text style={{ fontSize: 12, color: '#94A3B8' }}>({confidenceEval.highCount} cases)</Text>
-                      </Text>
-                    </View>
-                    <View style={styles.evalSummaryRow}>
-                      <Text style={styles.evalSummaryLabel}>Low confidence (&lt;70%) accuracy</Text>
-                      <Text style={[styles.evalSummaryValue, { color: '#B45309' }]}>
-                        {confidenceEval.lowAccuracy}% <Text style={{ fontSize: 12, color: '#94A3B8' }}>({confidenceEval.lowCount} cases)</Text>
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
                 {kappaEval && (
                   <View style={styles.evalCard}>
                     <View style={styles.evalCardHeader}>
@@ -654,6 +633,27 @@ export default function PlatformAdminAnalyticsScreen() {
                     <View style={styles.evalSummaryRow}>
                       <Text style={styles.evalSummaryLabel}>Expected by chance (33.3%)</Text>
                       <Text style={styles.evalSummaryValue}>{chiSquareEval.expected}</Text>
+                    </View>
+                  </View>
+                )}
+
+                {confidenceEval && (confidenceEval.highCount + confidenceEval.lowCount) > 0 && (
+                  <View style={styles.evalCard}>
+                    <View style={styles.evalCardHeader}>
+                      <Ionicons name="speedometer-outline" size={16} color="#6366F1"/>
+                      <Text style={styles.evalCardTitle}>Confidence vs. Accuracy</Text>
+                    </View>
+                    <View style={styles.evalSummaryRow}>
+                      <Text style={styles.evalSummaryLabel}>High confidence (&ge;70%) accuracy</Text>
+                      <Text style={[styles.evalSummaryValue, { color: '#16A34A' }]}>
+                        {confidenceEval.highAccuracy}% <Text style={{ fontSize: 12, color: '#94A3B8' }}>({confidenceEval.highCount} cases)</Text>
+                      </Text>
+                    </View>
+                    <View style={styles.evalSummaryRow}>
+                      <Text style={styles.evalSummaryLabel}>Low confidence (&lt;70%) accuracy</Text>
+                      <Text style={[styles.evalSummaryValue, { color: '#B45309' }]}>
+                        {confidenceEval.lowAccuracy}% <Text style={{ fontSize: 12, color: '#94A3B8' }}>({confidenceEval.lowCount} cases)</Text>
+                      </Text>
                     </View>
                   </View>
                 )}

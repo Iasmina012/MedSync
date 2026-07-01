@@ -4,13 +4,13 @@ import { ActivityIndicator, Pressable, ScrollView,  StyleSheet, Text, View, useW
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import { ClinicHealthTip, MoodType, getHealthTipMatchLabel, scoreHealthTip, scoreHealthTipForMood, } from '../src/lib/healthTips';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import InfoSearchBar from '../src/common/InfoSearchBar';
-import InfoImage from '../src/common/InfoImage';
+import InfoPreviewCard from '../src/common/InfoPreviewCard';
 import InfoModal from '../src/common/InfoModal';
-import SortDropdown from '../src/common/SortDropdown';
+import DropdownMenu from '../src/common/DropdownMenu';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
-import { ClinicHealthTip, MoodType, getHealthTipMatchLabel, scoreHealthTip, scoreHealthTipForMood, } from '../src/lib/healthTips';
 
 type FeedbackReaction = 'helpful' | 'saved' | 'done';
 
@@ -508,42 +508,13 @@ export default function HealthTipsScreen() {
     const isDone = reactions.some((item) => item.reaction === 'done');
 
     return (
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.reactionScrollContent}
-        style={styles.reactionScroll}
-      >
-
-        <ReactionButton
-          label="Helpful"
-          active={isHelpful}
-          onPress={() => handleReaction(tip.id, 'helpful')}
-          loading={savingReaction === `${tip.id}:helpful`}
-          color={theme.primary}
-        />
-
-        <ReactionButton
-          label={isSaved ? 'Saved' : 'Save'}
-          active={isSaved}
-          onPress={() => handleReaction(tip.id, 'saved')}
-          loading={savingReaction === `${tip.id}:saved`}
-          color={theme.primary}
-        />
-
-        <ReactionButton
-          label={isDone ? 'Completed' : 'Done'}
-          active={isDone}
-          onPress={() => handleReaction(tip.id, 'done')}
-          loading={savingReaction === `${tip.id}:done`}
-          color={theme.primary}
-        />
-
-      </ScrollView>
-
+      <View style={styles.reactionRow}>
+        <ReactionButton label="Helpful" active={isHelpful} onPress={() => handleReaction(tip.id, 'helpful')} loading={savingReaction === `${tip.id}:helpful`} color={theme.primary}/>
+        <ReactionButton label={isSaved ? 'Saved' : 'Save'} active={isSaved} onPress={() => handleReaction(tip.id, 'saved')} loading={savingReaction === `${tip.id}:saved`} color={theme.primary}/>
+        <ReactionButton label={isDone ? 'Done' : 'Done'} active={isDone} onPress={() => handleReaction(tip.id, 'done')} loading={savingReaction === `${tip.id}:done`} color={theme.primary}/>
+      </View>
     );
-
+  
   };
 
   return (
@@ -594,11 +565,11 @@ export default function HealthTipsScreen() {
               { color: theme.secondary },
             ]}
           >
-            Placeholder Title
+            Search for healthcare tips.
           </Text>
 
           <Text style={[styles.heroSubtitle, isMobile && styles.centerText]}>
-            Placeholder Subtitle
+            Navigate through tips regarding healthcare, save them, mark as complete, give feedback for other people or sort them by name, match, priority, completion and saving time.
           </Text>
 
           <View style={[styles.heroPills, isMobile && styles.heroPillsMobile]}>
@@ -815,7 +786,7 @@ export default function HealthTipsScreen() {
           </View>
 
           <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
-            <SortDropdown
+            <DropdownMenu
               value={sortBy}
               onChange={(value) => setSortBy(value as SortType)}
               items={[
@@ -890,7 +861,7 @@ export default function HealthTipsScreen() {
           ) : (
         <View style={styles.grid}>
           {filteredTips.map((tip) => (
-            <InfoImage
+            <InfoPreviewCard
               key={tip.id}
               title={tip.title}
               subtitle={`${tip.category} · ${tip.matchLabel}`}
@@ -1335,19 +1306,31 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
 
+  reactionRow: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 10,
+  },
+
   reactionButton: {
-    paddingHorizontal: 12,
+    flex: 1,
+    minWidth: 0,
+    minHeight: 42,
+    paddingHorizontal: 8,
     paddingVertical: 9,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   reactionButtonText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#334155',
+    textAlign: 'center',
   },
 
 });

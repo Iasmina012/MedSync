@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, Modal, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { supabase } from '../src/lib/supabase';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import HoverCard from '../src/common/HoverCard';
 
 type Conversation = {
 
@@ -58,70 +59,6 @@ function getPatientName(item: Conversation) {
   return `${item.profiles?.first_name || ''} ${item.profiles?.last_name || ''}`.trim() || 'Patient';
 }
 
-function HoverConversationCard({
-  children,
-  unread,
-  onPress,
-}: {
-  children: React.ReactNode;
-  unread: boolean;
-  onPress: () => void;
-}) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') return;
-
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1.01,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: -3,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== 'web') return;
-
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 8,
-      }),
-    ]).start();
-  };
-
-  return (
-    <Pressable onPress={onPress} onHoverIn={animateIn} onHoverOut={animateOut}>
-      <Animated.View
-        style={[
-          styles.conversationCard,
-          unread && styles.conversationCardUnread,
-          {
-            transform: [{ scale }, { translateY }],
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-}
-
 export default function MessagesScreen() {
   const { clinicId, clinicName } = useLocalSearchParams<{
     clinicId?: string;
@@ -137,7 +74,9 @@ export default function MessagesScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [typingMap, setTypingMap] = useState<Record<string, boolean>>({});
   const [error, setError] = useState('');
-
+  const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null);
+  const [deletingConversation, setDeletingConversation] = useState(false);
+  
   const isDoctor = profile?.role === 'doctor';
 
   const loadConversations = async (showLoader = true) => {
@@ -256,7 +195,7 @@ export default function MessagesScreen() {
         channelRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId]);
 
   useEffect(() => {
@@ -321,10 +260,42 @@ export default function MessagesScreen() {
         channelRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId, profile?.id]);
 
-  const title = useMemo(() => (isDoctor ? 'Patient messages' : 'Messages'), [isDoctor]);
+  const title = useMemo(() => (isDoctor ? 'My Patient Messages' : 'My Messages'), [isDoctor]);
+
+  const deleteConversation = async () => {
+    if (!deleteTarget) return;
+
+    setDeletingConversation(true);
+
+    const { error: messagesError } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('conversation_id', deleteTarget.id);
+
+    if (messagesError) {
+      setError(messagesError.message);
+      setDeletingConversation(false);
+      return;
+    }
+
+    const { error: conversationError } = await supabase
+      .from('chat_conversations')
+      .delete()
+      .eq('id', deleteTarget.id);
+
+    setDeletingConversation(false);
+
+    if (conversationError) {
+      setError(conversationError.message);
+      return;
+    }
+
+    setConversations((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+    setDeleteTarget(null);
+  };
 
   return (
 
@@ -347,12 +318,12 @@ export default function MessagesScreen() {
       />
 
       <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-        <Text style={[styles.heroEyebrow, { color: theme.primary }]}>Chat</Text>
+        <Text style={[styles.heroEyebrow, { color: theme.primary }]}>My Messages</Text>
 
         <Text style={[styles.heroTitle, { color: theme.secondary }]}>{title}</Text>
 
         <Text style={styles.heroSubtitle}>
-          Continue your conversations securely with your clinic care team.
+          Continue your conversations securely with a trusted platform designed to keep your communications private, your data protected and your interactions safe at every step.
         </Text>
       </View>
 
@@ -385,9 +356,12 @@ export default function MessagesScreen() {
             const otherIsTyping = Boolean(typingMap[item.id]);
 
             return (
-              <HoverConversationCard
+              <HoverCard
                 key={item.id}
-                unread={unreadCount > 0}
+                cardStyle={[
+                  styles.conversationCard,
+                  unreadCount > 0 && styles.conversationCardUnread,
+                ]}
                 onPress={() =>
                   router.push({
                     pathname: '/chat' as any,
@@ -450,12 +424,52 @@ export default function MessagesScreen() {
                   )}
                 </View>
 
-                <Ionicons name="chevron-forward-outline" size={20} color="#94A3B8"/>
-              </HoverConversationCard>
+                <View style={styles.conversationActions}>
+                  <Pressable
+                    style={styles.deleteConversationButton}
+                    onPress={(event: any) => {
+                      event.preventDefault?.();
+                      event.stopPropagation?.();
+                      setDeleteTarget(item);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#BE123C"/>
+                  </Pressable>
+
+                  <Ionicons name="chevron-forward-outline" size={20} color="#94A3B8"/>
+                </View>
+              </HoverCard>
             );
           })}
         </View>
       )}
+
+      <Modal visible={!!deleteTarget} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteModalCard}>
+            <View style={styles.deleteIconWrap}>
+              <Ionicons name="trash-outline" size={30} color="#BE123C"/>
+            </View>
+
+            <Text style={styles.deleteModalTitle}>Delete conversation?</Text>
+
+            <Text style={styles.deleteModalText}>
+              Are you sure you want to delete this conversation? This action cannot be undone.
+            </Text>
+
+            <View style={styles.deleteModalActions}>
+              <Pressable style={styles.deleteCancelButton} onPress={() => setDeleteTarget(null)}
+                disabled={deletingConversation}>
+                <Text style={styles.deleteCancelText}>Cancel</Text>
+              </Pressable>
+
+              <Pressable style={styles.deleteConfirmButton} onPress={deleteConversation} disabled={deletingConversation}>
+                <Text style={styles.deleteConfirmText}>{deletingConversation ? 'Deleting...' : 'Delete'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
     </ScrollView>
 
@@ -659,6 +673,104 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     fontWeight: '800',
+  },
+
+  conversationActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  deleteConversationButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  deleteModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  deleteIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 999,
+    backgroundColor: '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+
+  deleteModalTitle: {
+    fontSize: 23,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+
+  deleteModalText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  deleteModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+
+  deleteCancelButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  deleteCancelText: {
+    color: '#0F172A',
+    fontWeight: '900',
+  },
+
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  deleteConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
   },
 
 });

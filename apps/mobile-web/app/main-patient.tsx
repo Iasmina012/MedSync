@@ -3,10 +3,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ActivityIndicator, Image, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
+import { useClinicTheme } from '../src/lib/clinicTheme';
+import { rgbaFromHex } from '../src/theme/colors';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
-import { useClinicTheme } from '../src/lib/clinicTheme';
 import FloatingChatButton from '../src/common/FloatingChatButton';
 
 type PatientProfile = {
@@ -16,34 +17,6 @@ type PatientProfile = {
   avatar_url: string | null;
 
 };
-
-function hexToRgb(hex: string) {
-
-  const clean = hex.replace('#', '');
-  const normalized =
-    clean.length === 3
-      ? clean
-          .split('')
-          .map((char) => char + char)
-          .join('')
-      : clean;
-
-  const bigint = parseInt(normalized, 16);
-
-  return {
-    r: (bigint >> 16) & 255,
-    g: (bigint >> 8) & 255,
-    b: bigint & 255,
-  };
-
-}
-
-function rgbaFromHex(hex: string, alpha: number) {
-
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-
-}
 
 export default function PatientDashboard() {
 
@@ -62,6 +35,12 @@ export default function PatientDashboard() {
 
   const [upcomingAppointments, setUpcomingAppointments] = useState(0);
   const [upcomingList, setUpcomingList] = useState<any[]>([]);
+  const [doctorsAvailable, setDoctorsAvailable] = useState(0);
+  const [activeConversations, setActiveConversations] = useState(0);
+  const [medicalDocuments, setMedicalDocuments] = useState(0);
+
+  const [openTriageChat, setOpenTriageChat] = useState(false);
+  const [recentChats, setRecentChats] = useState<any[]>([]);
 
   useEffect(() => {
 
@@ -111,11 +90,59 @@ export default function PatientDashboard() {
 
         setUpcomingList(upcomingData ?? []);
 
+        const { data: chatsData } = await supabase
+          .from('chat_conversations')
+          .select(`
+            id,
+            last_message,
+            last_message_at,
+            patient_unread_count,
+            doctors (
+              first_name,
+              last_name,
+              specialty
+            )
+          `)
+          .eq('clinic_id', clinicId)
+          .eq('patient_id', user.id)
+          .order('last_message_at', { ascending: false, nullsFirst: false })
+          .limit(3);
+
+        setRecentChats(chatsData ?? []);
+        const { count: conversationsCount } = await supabase
+          .from('chat_conversations')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId)
+          .eq('patient_id', user.id);
+
+        setActiveConversations(conversationsCount ?? 0);
+
+        const { count: doctorsCount } = await supabase
+          .from('doctors')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId);
+
+        setDoctorsAvailable(doctorsCount ?? 0);
+
         const { data } = await supabase
           .from('profiles')
           .select('first_name, last_name, avatar_url')
           .eq('id', user.id)
           .maybeSingle();
+
+        const { count: filesCount } = await supabase
+          .from('patient_files')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId)
+          .eq('patient_id', user.id);
+
+        const { count: recordsCount } = await supabase
+          .from('patient_medical_records')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId)
+          .eq('patient_id', user.id);
+
+        setMedicalDocuments((filesCount ?? 0) + (recordsCount ?? 0));
 
         setProfile(data ?? null);
       } finally {
@@ -150,18 +177,14 @@ export default function PatientDashboard() {
 
   const featureItems = [
 
-    { title: 'About Us', icon: 'business-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-info') },
-    { title: 'Our Doctors', icon: 'people-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-doctors') },
-    { title: 'Our Services', icon: 'list-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-services') },
-    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Placeholder description.', onPress: openAppointmentsModal },
-    { title: 'Our Technology', icon: 'hardware-chip-outline' as const, description: 'Placeholder description.', onPress: () => go('/clinic-tech') },
-    { title: 'Health Tips', icon: 'leaf-outline' as const, description: 'Placeholder description.', onPress: () => go('/health-tips') },
-    { title: 'Self-Diagnosis', icon: 'pulse-outline' as const, description: 'Placeholder description.', onPress: () => go('/self-diagnosis') },
-    { title: 'AI Summary', icon: 'sparkles-outline' as const, description: 'Placeholder description.', onPress: () => go('/ai-summary') },
-    { title: 'Documents', icon: 'document-attach-outline' as const, description: 'Placeholder description.', onPress: () => go('/documents') },
-    { title: 'History', icon: 'document-text-outline' as const, description: 'Placeholder description.', onPress: () => go('/history') },
-    { title: 'Charts', icon: 'bar-chart-outline' as const, description: 'Placeholder description.', onPress: () => go('/patient-charts') },
-    { title: 'Messages', icon: 'chatbubble-ellipses-outline' as const, description: 'Chat with your doctors.', onPress: () => go('/messages'), },
+    { title: 'About Us', icon: 'business-outline' as const, description: 'Learn more about the clinic, its values and commitment.', onPress: () => go('/clinic-info') },
+    { title: 'Our Doctors', icon: 'people-outline' as const, description: 'Meet our specialists team, explore their journey and find the right doctor for you.', onPress: () => go('/clinic-doctors') },
+    { title: 'Our Services', icon: 'list-outline' as const, description: 'Browse available specialties and treatments offered by the clinic.', onPress: () => go('/clinic-services') },
+    { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Book, reschedule when needed, cancel and track details about appointments.', onPress: openAppointmentsModal },
+    { title: 'Our Technology', icon: 'hardware-chip-outline' as const, description: 'Discover the medical technologies and equipment used to support your needs.', onPress: () => go('/clinic-tech') },
+    { title: 'Health Tips', icon: 'leaf-outline' as const, description: 'Learn about ways to improve your habits with actionable tips for a healthier lifestyle.', onPress: () => go('/health-tips') },
+    { title: 'My Documents', icon: 'document-attach-outline' as const, description: 'Access your medical records, radiology images and uploaded documents.', onPress: () => go('/my-documents'), },
+    { title: 'Messages', icon: 'chatbubble-ellipses-outline' as const, description: 'Chat with your team of doctors in a secure environment.', onPress: () => go('/messages'), },
   
   ];
 
@@ -191,32 +214,35 @@ export default function PatientDashboard() {
           </Text>
 
           <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
-            Placeholder Title in {clinicName || 'your clinic'}
+            Welcome to {clinicName || 'your clinic'}
           </Text>
 
           <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-            Placeholder Subtitle.
+            Manage appointments, access your medical documents, chat with doctors and receive personalized healthcare support in one secure place.
           </Text>
 
           <View style={[styles.heroButtons, isMobile && styles.heroButtonsMobile]}>
-            <Pressable
-              style={[styles.primaryButton, { backgroundColor: theme.primary }]}
-              onPress={openAppointmentsModal}
-            >
+            <Pressable style={[styles.primaryButton, { backgroundColor: theme.primary }]} onPress={openAppointmentsModal}>
               <Text style={styles.primaryButtonText}>Manage Appointments</Text>
             </Pressable>
 
-            <Pressable style={styles.secondaryButton} onPress={() => go('/self-diagnosis')}>
+            <Pressable style={styles.secondaryButton} onPress={() => setOpenTriageChat(true)}>
               <Text style={styles.secondaryButtonText}>Start Triage</Text>
             </Pressable>
           </View>
         </View>
 
         <View style={styles.statsGrid}>
-          <AnimatedStatsCard label="Upcoming Appointments" value={upcomingAppointments} icon="calendar-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Doctors Available" value={7} icon="medkit-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="AI Reports Ready" value={1} icon="sparkles-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="History Entries" value={12} icon="document-text-outline" color={theme.primary}/>
+          {[
+            { label: 'Upcoming Appointments', value: upcomingAppointments, icon: 'calendar-outline' as const },
+            { label: 'Doctors Available', value: doctorsAvailable, icon: 'medkit-outline' as const },
+            { label: 'Active Conversations', value: activeConversations, icon: 'chatbubbles-outline' as const },
+            { label: 'Medical Documents', value: medicalDocuments, icon: 'document-text-outline' as const },
+          ].map((item) => (
+            <View key={item.label} style={isMobile ? styles.statMobileItem : styles.statWebItem}>
+              <AnimatedStatsCard {...item} color={theme.primary} centered={isMobile}/>
+            </View>
+          ))}
         </View>
 
         {!isMobile && (
@@ -225,18 +251,18 @@ export default function PatientDashboard() {
 
             <View style={styles.adsGrid}>
               <View style={styles.adCard}>
-                <Text style={styles.adTitle}>Placeholder Title</Text>
-                <Text style={styles.adText}>Placeholder description.</Text>
+                <Text style={styles.adTitle}>Personalized Care</Text>
+                <Text style={styles.adText}>Receive tailored healthcare from your medical history, preferences and needs.</Text>
               </View>
 
               <View style={styles.adCard}>
-                <Text style={styles.adTitle}>Placeholder Title</Text>
-                <Text style={styles.adText}>Placeholder description.</Text>
+                <Text style={styles.adTitle}>Secure Communication</Text>
+                <Text style={styles.adText}>Stay connected with your specialized healthcare team through secure messaging.</Text>
               </View>
 
               <View style={styles.adCard}>
-                <Text style={styles.adTitle}>Placeholder Title</Text>
-                <Text style={styles.adText}>Placeholder description.</Text>
+                <Text style={styles.adTitle}>Smart Healthcare</Text>
+                <Text style={styles.adText}>Benefit from AI-assisted actions designed to improve your experience.</Text>
               </View>
             </View>
           </View>
@@ -289,7 +315,7 @@ export default function PatientDashboard() {
                 <Ionicons name="calendar-clear-outline" size={24} color="#94A3B8"/>
                 <Text style={styles.emptyUpcomingTitle}>No upcoming appointments</Text>
                 <Text style={styles.emptyUpcomingText}>
-                  Your next visits will appear here after booking.
+                  Upcoming visits will appear here after booking.
                 </Text>
               </View>
             ) : (
@@ -328,8 +354,79 @@ export default function PatientDashboard() {
           </View>
 
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Chat with Doctor</Text>
-            <Text style={styles.adText}>Placeholder description.</Text>
+            <View style={styles.panelHeaderRow}>
+              <View>
+                <Text style={styles.panelEyebrow}>Care team</Text>
+                <Text style={styles.panelTitle}>Chat with Doctor</Text>
+              </View>
+
+              <View style={[styles.panelIconBadge, { backgroundColor: `${theme.primary}14` }]}>
+                <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.primary}/>
+              </View>
+            </View>
+
+            {recentChats.length === 0 ? (
+              <View style={styles.emptyUpcomingBox}>
+                <Ionicons name="chatbubbles-outline" size={24} color="#94A3B8"/>
+                <Text style={styles.emptyUpcomingTitle}>No conversations yet</Text>
+                <Text style={styles.emptyUpcomingText}>
+                  Your doctor conversations will appear here after you start chatting.
+                </Text>
+              </View>
+            ) : (
+              recentChats.map((chat) => {
+                const doctor = Array.isArray(chat.doctors) ? chat.doctors[0] : chat.doctors;
+
+                return (
+                  <Pressable
+                    key={chat.id}
+                    style={styles.chatPreviewCard}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/chat' as any,
+                        params: { clinicId, clinicName, conversationId: chat.id },
+                      })
+                    }
+                  >
+                    <View style={[styles.chatPreviewIcon, { backgroundColor: `${theme.primary}12` }]}>
+                      <Ionicons name="person-outline" size={18} color={theme.primary}/>
+                    </View>
+
+                    <View style={styles.chatPreviewContent}>
+                      <Text style={styles.chatPreviewTitle}>
+                        Dr. {doctor?.first_name || ''} {doctor?.last_name || ''}
+                      </Text>
+
+                      <Text style={styles.chatPreviewText} numberOfLines={1}>
+                        {chat.last_message || 'No messages yet.'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.chatPreviewRight}>
+                      {(chat.patient_unread_count || 0) > 0 && (
+                        <View style={styles.chatUnreadBadge}>
+                          <Text style={styles.chatUnreadText}>
+                            {chat.patient_unread_count > 9 ? '9+' : chat.patient_unread_count}
+                          </Text>
+                        </View>
+                      )}
+
+                      <Ionicons name="chevron-forward-outline" size={20} color="#94A3B8"/>
+                    </View>
+                  </Pressable>
+                );
+              })
+            )}
+
+            <Pressable
+              style={[styles.viewMessagesButton, { borderColor: theme.primary }]}
+              onPress={() => go('/messages')}
+            >
+              <Text style={[styles.viewMessagesText, { color: theme.primary }]}>
+                View all messages
+              </Text>
+              <Ionicons name="arrow-forward-outline" size={16} color={theme.primary}/>
+            </Pressable>
           </View>
         </View>
 
@@ -386,7 +483,7 @@ export default function PatientDashboard() {
 
       </Modal>
 
-      <FloatingChatButton clinicId={clinicId} clinicName={clinicName}/>
+      <FloatingChatButton clinicId={clinicId} clinicName={clinicName} forceOpen={openTriageChat} initialMode="triage" onForceOpenHandled={() => setOpenTriageChat(false)}/>
 
     </>
 
@@ -770,6 +867,90 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     fontWeight: '700',
+  },
+
+  chatPreviewCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 10,
+  },
+
+  chatPreviewIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  chatPreviewContent: {
+    flex: 1,
+  },
+
+  chatPreviewTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+
+  chatPreviewText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+
+  chatUnreadBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+
+  chatUnreadText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+
+  viewMessagesButton: {
+    marginTop: 4,
+    minHeight: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  viewMessagesText: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  chatPreviewRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  statWebItem: {
+    flex: 1,
+  },
+
+  statMobileItem: {
+    width: '47%',
   },
 
 });

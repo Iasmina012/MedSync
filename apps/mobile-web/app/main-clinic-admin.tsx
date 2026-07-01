@@ -4,12 +4,13 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensi
 import { Ionicons } from '@expo/vector-icons';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { supabase } from '../src/lib/supabase';
+import { useClinicTheme } from '../src/lib/clinicTheme';
+import { getUserClinicCount } from '../src/lib/adminData';
+import { rgbaFromHex } from '../src/theme/colors';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
-import { useClinicTheme } from '../src/lib/clinicTheme';
 import FloatingChatButton from '../src/common/FloatingChatButton';
-import { getUserClinicCount } from '../src/lib/adminData';
 
 type AppointmentRow = {
 
@@ -28,34 +29,6 @@ type AppointmentRow = {
     | null;
   
 };
-
-function hexToRgb(hex: string) {
-
-  const clean = hex.replace('#', '');
-  const normalized =
-    clean.length === 3
-      ? clean
-          .split('')
-          .map((char) => char + char)
-          .join('')
-      : clean;
-
-  const bigint = parseInt(normalized, 16);
-
-  return {
-    r: (bigint >> 16) & 255,
-    g: (bigint >> 8) & 255,
-    b: bigint & 255,
-  };
-
-}
-
-function rgbaFromHex(hex: string, alpha: number) {
-
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-
-}
 
 function formatTime(time?: string | null) {
 
@@ -203,8 +176,8 @@ export default function ClinicAdminDashboard() {
 
     { title: 'Manage Appointments', icon: 'calendar-clear-outline' as const, description: 'Modify, cancel or sort appointments, view details and check-in patients.', onPress: () => go('/manage-appointments') },
     { title: 'Manage Users', icon: 'people-outline' as const, description: 'Manage clinic doctors, patients and clinic admins.', onPress: () => go('/manage-users') },
-    { title: 'Clinic Content', icon: 'albums-outline' as const, description: 'Edit doctors, services, technologies and health tips.', onPress: () => go('/manage-clinic-content') },
-    { title: 'Clinic Settings', icon: 'settings-outline' as const, description: 'Customize branding, contact details and homepage content.', onPress: () => go('/clinic-settings') },
+    { title: 'Manage Clinic Content', icon: 'albums-outline' as const, description: 'Edit and add new doctors, services, technologies and health tips.', onPress: () => go('/manage-clinic-content') },
+    { title: 'Clinic Settings', icon: 'settings-outline' as const, description: 'Customize clinic branding, contact details and homepage content.', onPress: () => go('/clinic-settings') },
 
   ];
 
@@ -240,20 +213,26 @@ export default function ClinicAdminDashboard() {
         >
           <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>Clinic Admin Dashboard</Text>
 
-          <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>Manage Your Clinic</Text>
+          <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>Manage Your Clinic at Scale</Text>
 
-          <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>View real clinic activity, manage users, update appointments and keep public clinic content up to date.</Text>
+          <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>Track clinic activity, manage users, coordinate appointments and keep public clinic content up to date.</Text>
         </View>
 
         <View style={styles.statsGrid}>
-          <AnimatedStatsCard label="Upcoming Appointments" value={upcomingAppointments} icon="calendar-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Patients" value={patientsCount} icon="people-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Doctors" value={doctorsCount} icon="medkit-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Services" value={servicesCount} icon="list-outline" color={theme.primary}/>
+          {[
+            { label: 'Upcoming Appointments', value: upcomingAppointments, icon: 'calendar-outline' as const },
+            { label: 'Patients', value: patientsCount, icon: 'people-outline' as const },
+            { label: 'Doctors', value: doctorsCount, icon: 'medkit-outline' as const },
+            { label: 'Services', value: servicesCount, icon: 'list-outline' as const },
+          ].map((item) => (
+            <View key={item.label} style={isMobile ? styles.statMobileItem : styles.statWebItem}>
+              <AnimatedStatsCard {...item} color={theme.primary} centered={isMobile}/>
+            </View>
+          ))}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Features</Text>
+          <Text style={styles.sectionTitle}>Global Actions</Text>
 
           <View style={styles.featuresGrid}>
             {featureItems.map((item, index) => {
@@ -283,7 +262,11 @@ export default function ClinicAdminDashboard() {
             <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
 
             {upcomingList.length === 0 ? (
-              <Text style={styles.emptyUpcomingText}>No upcoming appointments.</Text>
+              <View style={styles.emptyUpcomingBox}>
+                <Ionicons name="calendar-clear-outline" size={24} color="#94A3B8"/>
+                <Text style={styles.emptyUpcomingTitle}>No upcoming appointments</Text>
+                <Text style={styles.emptyUpcomingText}>Upcoming visits will appear here after patients book appointments.</Text>
+              </View>
             ) : (
               upcomingList.map((appointment) => {
                 const doctor = Array.isArray(appointment.doctors)
@@ -324,12 +307,12 @@ export default function ClinicAdminDashboard() {
           </View>
 
           <View style={styles.sectionHalf}>
-            <Text style={styles.sectionTitle}>Today at a Glance</Text>
+            <Text style={styles.sectionTitle}>Daily Snapshot at Glance</Text>
 
             <View style={styles.glanceList}>
               <GlanceRow
                 icon="today-outline"
-                label="Today’s appointments"
+                label="Today&apos;s appointments"
                 value={String(todayAppointments)}
                 color={theme.primary}
               />
@@ -349,7 +332,7 @@ export default function ClinicAdminDashboard() {
               />
             </View>
 
-            <Text style={styles.overviewText}>Live overview based on todays schedule.</Text>
+            <Text style={styles.overviewText}>Live clinic overview based on today&apos;s schedule.</Text>
           </View>
         </View>
       </ScrollView>
@@ -484,13 +467,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
-  emptyUpcomingText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#64748B',
-    fontWeight: '700',
-  },
-
   upcomingCard: {
     flexDirection: 'row',
     gap: 12,
@@ -532,6 +508,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     fontWeight: '700',
+  },
+
+  emptyUpcomingBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    padding: 18,
+    alignItems: 'center',
+  },
+
+  emptyUpcomingTitle: {
+    marginTop: 10,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+
+  emptyUpcomingText: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#64748B',
+    textAlign: 'center',
   },
 
   glanceList: {
@@ -580,6 +580,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     fontWeight: '700',
+  },
+
+  statWebItem: {
+    flex: 1,
+  },
+
+  statMobileItem: {
+    width: '47%',
   },
 
 });

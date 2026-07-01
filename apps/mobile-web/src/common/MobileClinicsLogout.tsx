@@ -21,7 +21,7 @@ export default function MobileClinicsLogout({ inline = false }: Props) {
 
     <View style={[styles.wrapper, inline && styles.wrapperInline]}>
       <Pressable style={styles.button} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={18} color="#0F172A"/>
+        <Ionicons name="log-out-outline" size={18} color="#DC2626"/>
         <Text style={styles.buttonText}>Logout</Text>
       </Pressable>
     </View>
@@ -50,14 +50,14 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#FECACA',
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
 
   buttonText: {
-    color: '#0F172A',
+    color: '#DC2626',
     fontSize: 14,
     fontWeight: '700',
   },

@@ -11,9 +11,9 @@ const CONTACT = {
   phoneDisplay: '+40 777 777 777',
   phoneLink: '+40777777777',
   addressLine1: 'MedSync',
-  addressLine2: 'Bulevardul Unirii 10, București, România',
-  googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Bulevardul+Unirii+10+Bucuresti+Romania',
-  appleMapsUrl: 'http://maps.apple.com/?q=Bulevardul+Unirii+10+Bucuresti+Romania',
+  addressLine2: 'Bulevardul Unirii 10, Bucharest, Romania',
+  googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Bulevardul+Unirii+10+Bucharest+Romania',
+  appleMapsUrl: 'http://maps.apple.com/?q=Bulevardul+Unirii+10+Bucharest+Romania',
 
 };
 
@@ -29,16 +29,14 @@ function showAlert(title: string, message: string) {
 }
 
 async function openExternalUrl(url: string, errorMessage: string) {
-
   try {
     if (Platform.OS === 'web') {
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_self';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (url.startsWith('mailto:') || url.startsWith('tel:')) {
+        window.location.href = url;
+        return;
+      }
+
+      window.open(url, '_blank', 'noopener,noreferrer');
       return;
     }
 
@@ -53,7 +51,6 @@ async function openExternalUrl(url: string, errorMessage: string) {
   } catch {
     showAlert('Unavailable', errorMessage);
   }
-
 }
 
 export default function ContactScreen() {
@@ -212,7 +209,7 @@ const handleSendMessage = async () => {
   const trimmedMessage = message.trim();
 
   if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedMessage) {
-    showAlert('Incomplete form!', 'Please complete all fields before submiting.');
+    showAlert('Incomplete form!', 'Please complete all fields before submitting.');
     return;
   }
 
@@ -235,11 +232,15 @@ const handleSendMessage = async () => {
     ].join('\n')
   );
 
+  if (Platform.OS === 'web') {
+    const isYahoo = trimmedEmail.toLowerCase().includes('@yahoo.');
+    const webmailUrl = isYahoo ? `https://compose.mail.yahoo.com/?to=${encodeURIComponent(CONTACT.email)}&subject=${subject}&body=${body}` : `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(CONTACT.email)}&su=${subject}&body=${body}`;
+    window.open(webmailUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
   const mailtoUrl = `mailto:${CONTACT.email}?subject=${subject}&body=${body}`;
-
   await openExternalUrl(mailtoUrl, 'The email app is not available on this device.');
-
-};
+  };
 
   return (
 
@@ -260,7 +261,7 @@ const handleSendMessage = async () => {
             <Text style={styles.title}>Get in touch with us!</Text>
 
             <Text style={styles.subtitle}>
-              Placeholder text
+              Our team is here to answer your questions, address your concerns, provide support and help you learn more about the MedSync platform.
             </Text>
 
             <View style={styles.heroPillsRow}>
@@ -450,27 +451,27 @@ const handleSendMessage = async () => {
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>Placeholder text</Text>
+              <Text style={styles.bulletText}>Dedicated support for patients, clinics and healthcare professionals.</Text>
             </View>
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>Placeholder text</Text>
+              <Text style={styles.bulletText}>Fast response times for platform and account-related inquiries.</Text>
             </View>
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>Placeholder text</Text>
+              <Text style={styles.bulletText}>Guidance for onboarding, clinic setup and system configuration.</Text>
             </View>
 
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>Placeholder text</Text>
+              <Text style={styles.bulletText}>Assistance with appointments, messaging and healthcare workflows.</Text>
             </View>
             
             <View style={styles.bullet}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981"/>
-              <Text style={styles.bulletText}>Placeholder text</Text>
+              <Text style={styles.bulletText}>Continuous platform improvements based on user feedback.</Text>
             </View>
           </View>
 

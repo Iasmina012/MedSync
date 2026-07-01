@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
-import ClinicNavbar from '../src/common/ClinicNavbar';
-import SortDropdown from '../src/common/SortDropdown';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import DropdownMenu from '../src/common/DropdownMenu';
+import HoverCard from '../src/common/HoverCard';
 
 type AppointmentStatus =
   | 'scheduled'
@@ -170,112 +171,6 @@ function getStatusIcon(label: string): keyof typeof Ionicons.glyphMap {
 
 }
 
-function AppointmentHoverCard({
-  children,
-  color,
-  onPress,
-}: {
-  children: React.ReactNode;
-  color: string;
-  onPress: () => void;
-}) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const shadow = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-  
-    if (Platform.OS !== 'web') 
-      return;
-
-    Animated.parallel([
-
-      Animated.spring(scale, {
-        toValue: 1.015,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: -5,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.timing(shadow, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: false,
-      }),
-
-    ]).start();
-
-  };
-
-  const animateOut = () => {
-
-    if (Platform.OS !== 'web') 
-      return;
-
-    Animated.parallel([
-
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.timing(shadow, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: false,
-      }),
-
-    ]).start();
-
-  };
-
-  const animatedShadowOpacity = shadow.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.04, 0.12],
-  });
-
-  const animatedShadowRadius = shadow.interpolate({
-    inputRange: [0, 1],
-    outputRange: [8, 18],
-  });
-
-  return (
-
-    <Pressable
-      style={styles.appointmentItem}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View
-        style={[
-          styles.appointmentCard,
-          { borderColor: color },
-          { transform: [{ scale }, { translateY }],
-            shadowOpacity: animatedShadowOpacity as any,
-            shadowRadius: animatedShadowRadius as any,
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-
-  );
-
-}
-
 export default function MyAppointmentsScreen() {
 
   const { clinicId, clinicName, appointmentId } = useLocalSearchParams<{
@@ -296,6 +191,7 @@ export default function MyAppointmentsScreen() {
   const [cancelling, setCancelling] = useState(false);
   const [sortBy, setSortBy] = useState<AppointmentSort>('default');
   const [onboardingReviews, setOnboardingReviews] = useState<OnboardingReview[]>([]);
+  const [resolvedClinicName, setResolvedClinicName] = useState('');
 
   const loadAppointments = async () => {
 
@@ -395,8 +291,24 @@ export default function MyAppointmentsScreen() {
   useEffect(() => {
     loadAppointments();
     //just to get rid of the warning
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId]);
+
+  useEffect(() => {
+    const loadClinicName = async () => {
+      if (!clinicId || clinicName) return;
+
+      const { data } = await supabase
+        .from('clinics')
+        .select('name')
+        .eq('id', clinicId)
+        .maybeSingle();
+
+      setResolvedClinicName(data?.name || '');
+    };
+
+    loadClinicName();
+  }, [clinicId, clinicName]);
 
   const sortedAppointments = useMemo(() => {
 
@@ -482,6 +394,9 @@ export default function MyAppointmentsScreen() {
         return;
       }
 
+      const notificationResponse = await supabase.functions.invoke('notifications', { body: { appointmentId: cancelTarget.id, type: 'cancelled', }, });
+      console.log('PATIENT CANCEL NOTIFICATION RESPONSE:', JSON.stringify(notificationResponse, null, 2));
+
       setAppointments((prev) => prev.filter((item) => item.id !== cancelTarget.id));
       setCancelTarget(null);
       setDetailsTarget(null);
@@ -500,7 +415,7 @@ export default function MyAppointmentsScreen() {
       <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
 
         <ClinicNavbar
-          clinicName={clinicName}
+          clinicName={clinicName || resolvedClinicName}
           clinicId={clinicId}
           primaryColor={theme.primary}
           roleLabel="Patient"
@@ -509,7 +424,7 @@ export default function MyAppointmentsScreen() {
           onBackPress={() =>
             router.replace({
               pathname: '/main-patient',
-              params: { clinicId, clinicName },
+              params: { clinicId, clinicName: clinicName || resolvedClinicName },
             })
           }
           onChangeClinic={() => router.replace('/clinic-selection')}
@@ -523,7 +438,7 @@ export default function MyAppointmentsScreen() {
           </Text>
 
           <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-            Placeholder Title
+            Manage Appointments Inside Clinic
           </Text>
 
           <Text style={styles.heroSubtitle}>
@@ -545,7 +460,7 @@ export default function MyAppointmentsScreen() {
             </Pressable>
 
             <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
-              <SortDropdown
+              <DropdownMenu
                 value={sortBy}
                 onChange={(value) => setSortBy(value as AppointmentSort)}
                 items={[
@@ -608,9 +523,14 @@ export default function MyAppointmentsScreen() {
               const hasNotes = Boolean(appointment.notes?.trim());
 
               return (
-                <AppointmentHoverCard
+                <HoverCard
                   key={appointment.id}
-                  color={theme.primary}
+                  pressableStyle={styles.appointmentItem}
+                  cardStyle={[
+                    styles.appointmentCard,
+                    { borderColor: theme.primary },
+                  ]}
+                  withShadow
                   onPress={() => setDetailsTarget(appointment)}
                 >
 
@@ -722,7 +642,7 @@ export default function MyAppointmentsScreen() {
                       <Text style={styles.dangerActionText}>Cancel</Text>
                     </Pressable>
                   </View>
-                </AppointmentHoverCard>
+                </HoverCard>
               );
             })}
           </View>

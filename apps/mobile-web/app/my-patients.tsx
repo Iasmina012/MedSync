@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { supabase } from '../src/lib/supabase';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import HoverCard from '../src/common/HoverCard';
 
 type Patient = {
 
@@ -37,46 +38,6 @@ function formatValue(value: string | number | null | undefined) {
 
 function getPatientName(patient?: Patient | null) {
   return `${patient?.first_name || ''} ${patient?.last_name || ''}`.trim() || 'Patient';
-}
-
-function HoverCard({ children, onPress, }: { children: React.ReactNode; onPress: () => void; }) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1.015, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: -5, useNativeDriver: false, friction: 8 }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: false, friction: 8 }),
-    ]).start();
-  };
-
-  return (
-    <Pressable
-      style={styles.cardWrap}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View style={[styles.card, { transform: [{ scale }, { translateY }] }]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-
 }
 
 export default function DoctorPatientsScreen() {
@@ -213,9 +174,9 @@ export default function DoctorPatientsScreen() {
         />
 
         <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>Doctor</Text>
-          <Text style={[styles.title, { color: theme.secondary }]}>My Patients</Text>
-          <Text style={styles.subtitle}>Patients connected to your appointments in this clinic.</Text>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>My Patients</Text>
+          <Text style={[styles.title, { color: theme.secondary }]}>Manage your Patients</Text>
+          <Text style={styles.subtitle}>Supervise patients connected to your appointments in this clinic. View general information about them and navigate further for better details.</Text>
         </View>
 
         {patients.length === 0 ? (
@@ -227,7 +188,12 @@ export default function DoctorPatientsScreen() {
         ) : (
           <View style={styles.grid}>
             {patients.map((patient) => (
-              <HoverCard key={patient.id} onPress={() => setSelected(patient)}>
+              <HoverCard
+                key={patient.id}
+                pressableStyle={styles.cardWrap}
+                cardStyle={styles.card}
+                onPress={() => setSelected(patient)}
+              >
                 <View style={styles.cardTop}>
                   <View style={[styles.avatar, { backgroundColor: `${theme.primary}12` }]}>
                     {patient.avatar_url ? (
@@ -276,7 +242,7 @@ export default function DoctorPatientsScreen() {
               <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
                 <Text style={styles.sectionLabel}>Contact</Text>
                 <DetailRow icon="mail-outline" label="Email" value={formatValue(selected.email)}/>
-                <DetailRow icon="call-outline" label="Phone" value={formatValue(selected.phone)}/>
+                <DetailRow icon="call-outline" label="Phone number" value={formatValue(selected.phone)}/>
                 <DetailRow icon="location-outline" label="Address" value={formatValue(selected.address)}/>
                 <DetailRow icon="person-circle-outline" label="Username" value={formatValue(selected.username)}/>
 
@@ -313,8 +279,7 @@ export default function DoctorPatientsScreen() {
                     });
                   }}
                 >
-                  <Ionicons name="document-text-outline" size={17} color="#FFFFFF"/>
-                  <Text style={styles.historyButtonText}>View Patient History</Text>
+                <Text numberOfLines={2} style={styles.historyButtonText}>View Patient History</Text>  
                 </Pressable>
               )}
             </View>
@@ -580,15 +545,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
   },
 
   historyButtonText: {
     color: '#FFFFFF',
     fontWeight: '900',
+    textAlign: 'center',
+    lineHeight: 19,
   },
 
   closeButton: {

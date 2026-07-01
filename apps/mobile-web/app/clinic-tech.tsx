@@ -3,12 +3,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
+import { useClinicTheme } from '../src/lib/clinicTheme';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import InfoSearchBar from '../src/common/InfoSearchBar';
-import InfoImage from '../src/common/InfoImage';
+import InfoPreviewCard from '../src/common/InfoPreviewCard';
 import InfoModal from '../src/common/InfoModal';
-import SortDropdown from '../src/common/SortDropdown';
-import { useClinicTheme } from '../src/lib/clinicTheme';
+import DropdownMenu from '../src/common/DropdownMenu';
 
 type Technology = {
 
@@ -166,7 +166,7 @@ export default function ClinicTechnologiesScreen() {
         </View>
 
         <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
-          <SortDropdown
+          <DropdownMenu
             value={sortBy}
             onChange={(value) => setSortBy(value as TechnologySort)}
             items={[
@@ -237,7 +237,7 @@ export default function ClinicTechnologiesScreen() {
         ) : (
         <View style={styles.grid}>
           {filtered.map((item) => (
-            <InfoImage
+            <InfoPreviewCard
               key={item.id}
               title={item.title}
               subtitle={item.category || 'Technology'}

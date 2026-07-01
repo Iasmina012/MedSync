@@ -1,12 +1,13 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import ClinicNavbar from '../src/common/ClinicNavbar';
-import SortDropdown from '../src/common/SortDropdown';
 import { supabase } from '../src/lib/supabase';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import DropdownMenu from '../src/common/DropdownMenu';
+import HoverCard from '../src/common/HoverCard';
 
 type Role = 'patient' | 'doctor' | 'clinic_admin' | 'platform_admin';
 
@@ -22,8 +23,36 @@ type Profile = {
   username: string | null;
   address: string | null;
   avatar_url: string | null;
+  is_active?: boolean | null;
+  deleted_at?: string | null;
 
 };
+
+type NewUserForm = {
+
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  role: Role;
+  username: string;
+  phone: string;
+  address: string;
+
+};
+
+type ClinicOption = {
+
+  label: string;
+  value: string;
+
+};
+
+const usernameRegex = /^[a-z0-9._]{3,20}$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const passwordRegex = /^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/;
+const phoneRegex = /^[0-9+\s().-]{7,20}$/;
 
 const roles = [
 
@@ -46,72 +75,6 @@ function uniqueIds(ids: string[]) {
   return Array.from(new Set(ids.filter(Boolean)));
 }
 
-function HoverCard({
-  children,
-  onPress,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-}) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const shadow = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1.015, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: -5, useNativeDriver: false, friction: 8 }),
-      Animated.timing(shadow, { toValue: 1, duration: 180, useNativeDriver: false }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: false, friction: 8 }),
-      Animated.timing(shadow, { toValue: 0, duration: 180, useNativeDriver: false }),
-    ]).start();
-  };
-
-  return (
-
-    <Pressable
-      style={styles.cardWrap}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View
-        style={[
-          styles.card,
-          {
-            transform: [{ scale }, { translateY }],
-            shadowOpacity: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.04, 0.12],
-            }) as any,
-            shadowRadius: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [8, 18],
-            }) as any,
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-
-  );
-
-}
-
 export default function ManageUsersScreen() {
 
   const { clinicId, clinicName } = useLocalSearchParams<{
@@ -120,11 +83,37 @@ export default function ManageUsersScreen() {
   }>();
 
   const { theme } = useClinicTheme(clinicId);
+  const { width } = useWindowDimensions();
+  const isMobile = width < 720;
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<Profile[]>([]);
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
   const [editing, setEditing] = useState<Profile | null>(null);
+  const [originalEditing, setOriginalEditing] = useState<Profile | null>(null);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [newUserOpen, setNewUserOpen] = useState(false);
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false);
+  const [showNewUserConfirmPassword, setShowNewUserConfirmPassword] = useState(false);
+  const [newUser, setNewUser] = useState<NewUserForm>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: 'patient',
+    username: '',
+    phone: '',
+    address: '',
+  });
+  const [newUserSubmitted, setNewUserSubmitted] = useState(false);
+  const [clinics, setClinics] = useState<ClinicOption[]>([]);
+  const [selectedClinicIds, setSelectedClinicIds] = useState<string[]>([]);
+  const [editingClinicIds, setEditingClinicIds] = useState<string[]>([]);
 
   const loadUsers = useCallback(async () => {
 
@@ -143,6 +132,23 @@ export default function ManageUsersScreen() {
     }
 
     setCurrentRole(profile.role as Role);
+
+    if (profile.role === 'platform_admin') {
+      const { data: clinicRows, error: clinicError } = await supabase
+        .from('clinics')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (!clinicError) {
+        setClinics(
+          (clinicRows ?? []).map((clinic: any) => ({
+            label: clinic.name,
+            value: clinic.id,
+          }))
+        );
+      }
+    }
 
     if (profile.role !== 'platform_admin' && !clinicId) {
       router.replace('/clinic-selection');
@@ -213,7 +219,8 @@ export default function ManageUsersScreen() {
 
     let query = supabase
       .from('profiles')
-      .select('id, first_name, last_name, email, role, active_clinic_id, phone, username, address, avatar_url')
+      .select('id, first_name, last_name, email, role, active_clinic_id, phone, username, address, avatar_url, is_active, deleted_at')
+      .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     if (profileIds) {
@@ -243,9 +250,264 @@ export default function ManageUsersScreen() {
     loadUsers();
   }, [clinicId, loadUsers]);
 
+  const uploadAvatar = async () => {
+    if (!editing) return;
+
+    if (Platform.OS !== 'web') {
+      Alert.alert('Unavailable', 'Uploading avatar is currently available on web.');
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/webp';
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      try {
+        setUploadingAvatar(true);
+
+        const extension = file.name.split('.').pop() || 'jpg';
+        const path = `${editing.id}/${Date.now()}.${extension}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(path, file, {
+            upsert: true,
+            contentType: file.type,
+          });
+
+        if (uploadError) {
+          Alert.alert('Upload error', uploadError.message);
+          return;
+        }
+
+        const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+
+        setEditing({
+          ...editing,
+          avatar_url: data.publicUrl,
+        });
+      } finally {
+        setUploadingAvatar(false);
+      }
+    };
+
+    input.click();
+  };
+
+  const hasUnsavedChanges = () => {
+    if (!editing || !originalEditing) 
+      return false;
+    return JSON.stringify(editing) !== JSON.stringify(originalEditing);
+  };
+
+  const closeEditing = () => {
+    if (!hasUnsavedChanges()) {
+      setEditing(null);
+      setOriginalEditing(null);
+      return;
+    }
+
+    setDiscardConfirmOpen(true);
+  };
+
+  const discardChanges = () => {
+    setDiscardConfirmOpen(false);
+    setEditing(null);
+    setOriginalEditing(null);
+  };
+
+
+  const toggleClinicId = (
+    clinicIdValue: string,
+    selectedIds: string[],
+    setSelectedIds: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    setSelectedIds((prev) =>
+      prev.includes(clinicIdValue)
+        ? prev.filter((id) => id !== clinicIdValue)
+        : [...prev, clinicIdValue]
+    );
+  };
+
+  const resetNewUser = () => {
+    setNewUser({
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      role: 'patient',
+      username: '',
+      phone: '',
+      address: '',
+    });
+    setSelectedClinicIds([]);
+    setNewUserSubmitted(false);
+  };
+
+  const openNewUser = () => {
+    resetNewUser();
+    setNewUserOpen(true);
+  };
+
+  const closeNewUser = () => {
+    setNewUserOpen(false);
+    resetNewUser();
+  };
+
+  const newUserFirstNameError = newUserSubmitted && !newUser.firstName.trim() ? 'First name is required' : '';
+  const newUserLastNameError = newUserSubmitted && !newUser.lastName.trim() ? 'Last name is required' : '';
+  const newUserUsernameError = newUserSubmitted && !newUser.username.trim() ? 'Username is required' : newUserSubmitted && !usernameRegex.test(newUser.username.trim().toLowerCase()) ? 'Username must be 3-20 characters and can contain lowercase letters, numbers, dots and underscores.' : '';
+  const newUserEmailError = newUserSubmitted && !newUser.email.trim() ? 'Email is required' : newUserSubmitted && !emailRegex.test(newUser.email.trim().toLowerCase()) ? 'Please enter a valid email address.' : '';
+  const newUserPasswordError = newUserSubmitted && !newUser.password ? 'Password is required' : newUserSubmitted && !passwordRegex.test(newUser.password) ? 'Password must be at least 8 characters long, include one uppercase letter and one special character.' : '';
+  const newUserConfirmPasswordError = newUserSubmitted && !newUser.confirmPassword ? 'Please confirm your password' : newUserSubmitted && newUser.confirmPassword !== newUser.password ? 'Passwords do not match.' : '';
+  const newUserClinicError = newUserSubmitted && currentRole === 'platform_admin' && ['doctor', 'clinic_admin'].includes(newUser.role) && selectedClinicIds.length === 0 ? 'Please choose at least one clinic for this role.' : '';
+
+  const createUser = async () => {
+    setNewUserSubmitted(true);
+
+    const normalizedEmail = newUser.email.trim().toLowerCase();
+    const normalizedUsername = newUser.username.trim().toLowerCase();
+    const trimmedPhone = newUser.phone.trim();
+    const trimmedAddress = newUser.address.trim();
+
+    const assignedClinicIds =
+      currentRole === 'platform_admin'
+        ? selectedClinicIds
+        : clinicId
+          ? [clinicId]
+          : [];
+
+    const hasErrors =
+      !newUser.firstName.trim() ||
+      !newUser.lastName.trim() ||
+      !normalizedUsername ||
+      !usernameRegex.test(normalizedUsername) ||
+      !normalizedEmail ||
+      !emailRegex.test(normalizedEmail) ||
+      !newUser.password ||
+      !passwordRegex.test(newUser.password) ||
+      !newUser.confirmPassword ||
+      newUser.confirmPassword !== newUser.password ||
+      (
+        currentRole === 'platform_admin' &&
+        ['doctor', 'clinic_admin'].includes(newUser.role) &&
+        assignedClinicIds.length === 0
+      );
+
+    if (hasErrors) return;
+
+    if (trimmedPhone && !phoneRegex.test(trimmedPhone)) {
+      Alert.alert('Invalid phone number', 'Please enter a valid phone number.');
+      return;
+    }
+
+    if (currentRole === 'clinic_admin' && newUser.role === 'platform_admin') {
+      Alert.alert('Not allowed', 'Clinic admins cannot create platform admins.');
+      return;
+    }
+
+    if (currentRole === 'clinic_admin' && !clinicId) {
+      Alert.alert('Missing clinic', 'Clinic admins must create users inside a clinic.');
+      return;
+    }
+
+    try {
+      setCreating(true);
+
+      const payload = {
+        firstName: newUser.firstName.trim(),
+        lastName: newUser.lastName.trim(),
+        email: normalizedEmail,
+        password: newUser.password,
+        role: newUser.role,
+        username: normalizedUsername,
+        phone: trimmedPhone || null,
+        address: trimmedAddress || null,
+        clinicIds: assignedClinicIds,
+      };
+
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: payload,
+      });
+
+      if (error || data?.error) {
+        Alert.alert('Create user error', data?.error || error?.message || 'Could not create user.');
+        return;
+      }
+
+      Alert.alert('Success', 'User created successfully.');
+      closeNewUser();
+      await loadUsers();
+    } catch (error: any) {
+      Alert.alert('Create user error', error?.message || 'Unknown error.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const loadUserClinicMemberships = async (profileId: string) => {
+    const { data, error } = await supabase
+      .from('clinic_memberships')
+      .select('clinic_id')
+      .eq('profile_id', profileId)
+      .eq('is_active', true);
+
+    if (error) {
+      Alert.alert('Error', error.message);
+      setEditingClinicIds([]);
+      return;
+    }
+
+    setEditingClinicIds((data ?? []).map((item: any) => item.clinic_id));
+  };
+
+  const deleteUser = () => {
+    if (!editing) return;
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!editing) return;
+
+    setDeleteConfirmOpen(false);
+    setDeleting(true);
+
+    const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+      body: {
+        userId: editing.id,
+      },
+    });
+
+    setDeleting(false);
+
+    if (error || data?.error) {
+      Alert.alert('Delete error', data?.error || error?.message || 'Could not delete user.');
+      return;
+    }
+
+    setEditing(null);
+    setOriginalEditing(null);
+    setEditingClinicIds([]);
+    loadUsers();
+  };
+
   const saveUser = async () => {
     if (!editing || currentRole === 'doctor') 
       return;
+
+    if (
+      currentRole === 'platform_admin' &&
+      ['doctor', 'clinic_admin'].includes(editing.role) &&
+      editingClinicIds.length === 0
+    ) {
+      Alert.alert('Missing clinic', 'Please choose a clinic for this role.');
+      return;
+    }
 
     setSaving(true);
 
@@ -256,7 +518,12 @@ export default function ManageUsersScreen() {
       phone: editing.phone?.trim() || null,
       address: editing.address?.trim() || null,
       avatar_url: editing.avatar_url?.trim() || null,
-      updated_at: new Date().toISOString(),
+      active_clinic_id:
+        currentRole === 'platform_admin' &&
+        ['doctor', 'clinic_admin'].includes(editing.role)
+          ? editingClinicIds[0] || null
+          : editing.active_clinic_id,
+            updated_at: new Date().toISOString(),
     };
 
     if (currentRole === 'platform_admin')
@@ -274,7 +541,38 @@ export default function ManageUsersScreen() {
       return;
     }
 
+    if (currentRole === 'platform_admin' && ['doctor', 'clinic_admin'].includes(editing.role)) {
+      const { error: deactivateError } = await supabase
+        .from('clinic_memberships')
+        .update({ is_active: false })
+        .eq('profile_id', editing.id);
+
+      if (deactivateError) {
+        Alert.alert('Membership error', deactivateError.message);
+        return;
+      }
+
+      if (editingClinicIds.length > 0) {
+        const rows = editingClinicIds.map((clinicIdValue) => ({
+          clinic_id: clinicIdValue,
+          profile_id: editing.id,
+          role: editing.role,
+          is_active: true,
+        }));
+
+        const { error: membershipError } = await supabase
+          .from('clinic_memberships')
+          .upsert(rows, { onConflict: 'clinic_id,profile_id' });
+
+        if (membershipError) {
+          Alert.alert('Membership error', membershipError.message);
+          return;
+        }
+      }
+    }
+
     setEditing(null);
+    setOriginalEditing(null);
     loadUsers();
   };
 
@@ -293,6 +591,8 @@ export default function ManageUsersScreen() {
       </View>
     );
   }
+
+  const createRoles = currentRole === 'platform_admin' ? roles : roles.filter((item) => item.value !== 'platform_admin');
 
   return (
 
@@ -323,7 +623,7 @@ export default function ManageUsersScreen() {
         />
 
         <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>Users</Text>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>Manage Users</Text>
           <Text style={[styles.title, { color: theme.secondary }]}>
             {currentRole === 'platform_admin'
               ? 'Manage Platform Users'
@@ -333,9 +633,22 @@ export default function ManageUsersScreen() {
           </Text>
           <Text style={styles.subtitle}>
             {currentRole === 'doctor'
-              ? 'View patients connected to your appointments in this clinic.'
-              : 'View users, update profile details and manage access.'}
+              ? 'Access and manage patients associated with your appointments in this clinic.'
+              : 'Oversee and create users, update profile details and manage their access.'}
           </Text>
+          {currentRole !== 'doctor' && (
+            <Pressable
+            style={[
+              styles.primaryButton,
+              isMobile && styles.primaryButtonMobile,
+              { backgroundColor: theme.primary },
+            ]}
+            onPress={openNewUser}
+          >
+            <Ionicons name="add-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.primaryButtonText}>New User</Text>
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.list}>
@@ -345,39 +658,82 @@ export default function ManageUsersScreen() {
               'Unnamed user';
 
             return (
-              <HoverCard key={userItem.id} onPress={() => setEditing(cloneProfile(userItem))}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.avatarSmall}>
-                    {userItem.avatar_url ? (
-                      <Image source={{ uri: userItem.avatar_url }} style={styles.avatarSmallImage}/>
-                    ) : (
-                      <Ionicons name="person-outline" size={22} color={theme.primary}/>
-                    )}
-                  </View>
 
-                  <View style={styles.cardTitleWrap}>
-                    <Text style={styles.userName}>{name}</Text>
-                    <Text style={styles.email}>{userItem.email || 'No email'}</Text>
-                    <Text style={styles.cardHint}>Tap this card to view or edit user details.</Text>
-                  </View>
+              <HoverCard
+                key={userItem.id}
+                pressableStyle={styles.cardWrap}
+                cardStyle={styles.card}
+                withShadow
+                onPress={() => {
+                  const next = cloneProfile(userItem);
+                  setEditing(next);
+                  setOriginalEditing(cloneProfile(next));
+                  loadUserClinicMemberships(next.id);
+                }}
+              >
+                {isMobile ? (
+                  <>
+                    <View style={styles.mobileUserTopRow}>
+                      <View style={styles.avatarSmall}>
+                        {userItem.avatar_url ? (
+                          <Image source={{ uri: userItem.avatar_url }} style={styles.avatarSmallImage}/>
+                        ) : (
+                          <Ionicons name="person-outline" size={22} color={theme.primary}/>
+                        )}
+                      </View>
 
-                  <View style={styles.cardRight}>
-                    <View style={[styles.roleBadge, { backgroundColor: `${theme.primary}12` }]}>
-                      <Text style={[styles.roleText, { color: theme.primary }]}>
-                        {formatRole(userItem.role)}
-                      </Text>
+                      <View style={styles.mobileUserTopRight}>
+                        <View style={[styles.roleBadge, { backgroundColor: `${theme.primary}12` }]}>
+                          <Text style={[styles.roleText, { color: theme.primary }]}>
+                            {formatRole(userItem.role)}
+                          </Text>
+                        </View>
+
+                        <Ionicons name="chevron-forward-outline" size={20} color="#94A3B8"/>
+                      </View>
                     </View>
 
-                    <Ionicons name="chevron-forward-outline" size={20} color="#94A3B8"/>
+                    <View style={styles.mobileUserTextBlock}>
+                      <Text numberOfLines={2} style={styles.userName}>{name}</Text>
+                      <Text numberOfLines={1} style={styles.email}>{userItem.email || 'No email'}</Text>
+                      <Text style={styles.cardHint}>Tap this card to view or edit user details.</Text>
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.cardHeader}>
+                    <View style={styles.avatarSmall}>
+                      {userItem.avatar_url ? (
+                        <Image source={{ uri: userItem.avatar_url }} style={styles.avatarSmallImage}/>
+                      ) : (
+                        <Ionicons name="person-outline" size={22} color={theme.primary}/>
+                      )}
+                    </View>
+
+                    <View style={styles.cardTitleWrap}>
+                      <Text style={styles.userName}>{name}</Text>
+                      <Text style={styles.email}>{userItem.email || 'No email'}</Text>
+                      <Text style={styles.cardHint}>Tap this card to view or edit user details.</Text>
+                    </View>
+
+                    <View style={styles.cardRight}>
+                      <View style={[styles.roleBadge, { backgroundColor: `${theme.primary}12` }]}>
+                        <Text style={[styles.roleText, { color: theme.primary }]}>
+                          {formatRole(userItem.role)}
+                        </Text>
+                      </View>
+
+                      <Ionicons name="chevron-forward-outline" size={20} color="#94A3B8" />
+                    </View>
                   </View>
-                </View>
+                )}
 
                 <View style={styles.metaBlock}>
-                  <DetailRow icon="person-outline" label="Username" value={userItem.username || 'Not set'}/>
-                  <DetailRow icon="call-outline" label="Phone" value={userItem.phone || 'Not set'}/>
-                  <DetailRow icon="location-outline" label="Address" value={userItem.address || 'Not set'}/>
+                  <DetailRow icon="person-outline" label="Username" value={userItem.username || 'Not set'} />
+                  <DetailRow icon="call-outline" label="Phone Number" value={userItem.phone || 'Not set'} />
+                  <DetailRow icon="location-outline" label="Address" value={userItem.address || 'Not set'} />
                 </View>
               </HoverCard>
+
             );
           })}
         </View>
@@ -399,8 +755,8 @@ export default function ManageUsersScreen() {
               <Text style={styles.modalTitle}>User Details</Text>
               <Text style={styles.modalSubtitle}>
                 {currentRole === 'doctor'
-                  ? 'Doctors can view patient information from this clinic.'
-                  : 'Update profile information, avatar URL and access details.'}
+                  ? 'View patients and their information inside this clinic.'
+                  : 'Update user profile information and access details.'}
               </Text>
             </View>
 
@@ -411,14 +767,14 @@ export default function ManageUsersScreen() {
                 showsVerticalScrollIndicator
               >
                 <Input
-                  label="First Name"
+                  label="First name"
                   value={editing.first_name || ''}
                   editable={currentRole !== 'doctor'}
                   onChangeText={(first_name) => setEditing({ ...editing, first_name })}
                 />
 
                 <Input
-                  label="Last Name"
+                  label="Last name"
                   value={editing.last_name || ''}
                   editable={currentRole !== 'doctor'}
                   onChangeText={(last_name) => setEditing({ ...editing, last_name })}
@@ -441,7 +797,7 @@ export default function ManageUsersScreen() {
                 />
 
                 <Input
-                  label="Phone"
+                  label="Phone number"
                   value={editing.phone || ''}
                   editable={currentRole !== 'doctor'}
                   onChangeText={(phone) => setEditing({ ...editing, phone })}
@@ -465,28 +821,30 @@ export default function ManageUsersScreen() {
                 {currentRole !== 'doctor' && (
                   <View style={styles.avatarActions}>
                     <Pressable
-                      style={styles.avatarButton}
-                      onPress={() => Alert.alert('Upload')}
+                      style={[styles.avatarButton, uploadingAvatar && styles.buttonDisabled]}
+                      onPress={uploadAvatar}
+                      disabled={uploadingAvatar}
                     >
-                      <Ionicons name="cloud-upload-outline" size={16} color="#0F172A"/>
-                      <Text style={styles.avatarButtonText}>Upload</Text>
+                        <Ionicons
+                          name={editing.avatar_url ? 'image-outline' : 'cloud-upload-outline'}
+                          size={16}
+                          color="#0F172A"
+                        />
+
+                        <Text style={styles.avatarButtonText}>
+                          {uploadingAvatar ? 'Uploading...' : editing.avatar_url ? 'Change' : 'Upload'}
+                        </Text>
                     </Pressable>
 
-                    <Pressable
-                      style={styles.avatarButton}
-                      onPress={() => Alert.alert('Change')}
-                    >
-                      <Ionicons name="image-outline" size={16} color="#0F172A"/>
-                      <Text style={styles.avatarButtonText}>Change</Text>
-                    </Pressable>
-
-                    <Pressable
-                      style={styles.avatarDangerButton}
-                      onPress={() => setEditing({ ...editing, avatar_url: '' })}
-                    >
-                      <Ionicons name="trash-outline" size={16} color="#BE123C"/>
-                      <Text style={styles.avatarDangerText}>Remove</Text>
-                    </Pressable>
+                    {!!editing.avatar_url && (
+                      <Pressable
+                        style={styles.avatarDangerButton}
+                        onPress={() => setEditing({ ...editing, avatar_url: '' })}
+                      >
+                        <Ionicons name="trash-outline" size={16} color="#BE123C"/>
+                        <Text style={styles.avatarDangerText}>Remove</Text>
+                      </Pressable>
+                    )}
                   </View>
                 )}
 
@@ -494,7 +852,7 @@ export default function ManageUsersScreen() {
 
                 {currentRole === 'platform_admin' ? (
                   <View style={styles.dropdownWrap}>
-                    <SortDropdown
+                    <DropdownMenu
                       value={editing.role}
                       onChange={(role) => setEditing({ ...editing, role: role as Role })}
                       items={roles}
@@ -503,20 +861,81 @@ export default function ManageUsersScreen() {
                 ) : (
                   <View style={styles.readOnlyRoleBox}>
                     <Text style={styles.readOnlyRoleText}>{formatRole(editing.role)}</Text>
-                    <Text style={styles.readOnlyRoleHint}>Only platform admins can change the global platform role.</Text>
+                    <Text style={styles.readOnlyRoleHint}>Only platform admins can change the global role of users.</Text>
                   </View>
                 )}
+
+                {currentRole === 'platform_admin' &&
+                  ['doctor', 'clinic_admin'].includes(editing.role) && (
+                    <>
+                      <Text style={styles.inputLabel}>Assigned Clinics</Text>
+
+                      <View style={styles.clinicPicker}>
+                        {clinics.map((clinic) => {
+                          const selected = editingClinicIds.includes(clinic.value);
+
+                          return (
+                            <Pressable
+                              key={clinic.value}
+                              style={[
+                                styles.clinicChip,
+                                selected && {
+                                  backgroundColor: `${theme.primary}12`,
+                                  borderColor: theme.primary,
+                                },
+                              ]}
+                              onPress={() =>
+                                toggleClinicId(clinic.value, editingClinicIds, setEditingClinicIds)
+                              }
+                            >
+                              <Ionicons
+                                name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                                size={18}
+                                color={selected ? theme.primary : '#94A3B8'}
+                              />
+
+                              <Text
+                                style={[
+                                  styles.clinicChipText,
+                                  selected && { color: theme.primary },
+                                ]}
+                              >
+                                {clinic.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+
+                      <Text style={styles.helperText}>
+                        Doctors and clinic admins can be connected to at least one or more clinics.
+                      </Text>
+                    </>
+                  )}
+
               </ScrollView>
             )}
 
             <View style={styles.modalActions}>
               <Pressable
                 style={styles.modalCancelButton}
-                onPress={() => setEditing(null)}
+                onPress={closeEditing}
                 disabled={saving}
               >
                 <Text style={styles.modalCancelText}>Close</Text>
               </Pressable>
+
+              {['platform_admin', 'clinic_admin'].includes(currentRole || '') && editing?.id && (
+                <Pressable
+                  style={styles.modalDangerButton}
+                  onPress={deleteUser}
+                  disabled={saving || deleting}
+                >
+                  <Text style={styles.modalDangerText}>
+                {deleting ? 'Deleting...' : 'Delete User'}
+              </Text>
+                </Pressable>
+              )}
 
               {currentRole !== 'doctor' && (
                 <Pressable style={[styles.modalSaveButton, { backgroundColor: theme.primary }]} onPress={saveUser} disabled={saving}>
@@ -527,6 +946,265 @@ export default function ManageUsersScreen() {
           </View>
         </View>
       
+      </Modal>
+
+      <Modal visible={newUserOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCardLarge}>
+            <View style={styles.modalHeader}>
+              <View style={[styles.avatarLarge, { borderColor: `${theme.primary}25`, backgroundColor: `${theme.primary}10` }]}>
+                <Ionicons name="person-add-outline" size={40} color={theme.primary}/>
+              </View>
+
+              <Text style={styles.modalTitle}>New User</Text>
+              <Text style={styles.modalSubtitle}>
+                Create a new account and grant access.
+              </Text>
+            </View>
+
+            <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
+              <Input
+                label="First Name"
+                value={newUser.firstName}
+                onChangeText={(firstName) => setNewUser({ ...newUser, firstName })}
+              />
+              {!!newUserFirstNameError && (
+                <Text style={styles.inlineError}>{newUserFirstNameError}</Text>
+              )}
+
+              <Input
+                label="Last Name"
+                value={newUser.lastName}
+                onChangeText={(lastName) => setNewUser({ ...newUser, lastName })}
+              />
+              {!!newUserLastNameError && (
+                <Text style={styles.inlineError}>{newUserLastNameError}</Text>
+              )}
+
+              <Input
+                label="Username"
+                value={newUser.username}
+                onChangeText={(username) => setNewUser({ ...newUser, username })}
+              />
+              {!!newUserUsernameError && (
+                <Text style={styles.inlineError}>{newUserUsernameError}</Text>
+              )}
+
+              <Input
+                label="Email"
+                value={newUser.email}
+                onChangeText={(email) => setNewUser({ ...newUser, email })}
+              />
+              {!!newUserEmailError && (
+                <Text style={styles.inlineError}>{newUserEmailError}</Text>
+              )}
+
+
+      <Text style={styles.inputLabel}>Temporary Password</Text>
+      <View style={styles.passwordWrapper}>
+        <TextInput
+          placeholder="Temporary Password"
+          placeholderTextColor="#94A3B8"
+          secureTextEntry={!showNewUserPassword}
+          value={newUser.password}
+          onChangeText={(password) => setNewUser({ ...newUser, password })}
+          style={styles.passwordInput}
+        />
+
+        <Pressable
+          onPress={() => setShowNewUserPassword((prev) => !prev)}
+          style={styles.eyeButton}
+        >
+          <Ionicons
+            name={showNewUserPassword ? 'eye-off-outline' : 'eye-outline'}
+            size={20}
+            color="#64748B"
+          />
+        </Pressable>
+      </View>
+      {!!newUserPasswordError && (
+        <Text style={styles.inlineError}>{newUserPasswordError}</Text>
+      )}
+
+      <Text style={styles.inputLabel}>Confirm Temporary Password</Text>
+      <View style={styles.passwordWrapper}>
+        <TextInput
+          placeholder="Confirm Temporary Password"
+          placeholderTextColor="#94A3B8"
+          secureTextEntry={!showNewUserConfirmPassword}
+          value={newUser.confirmPassword}
+          onChangeText={(confirmPassword) => setNewUser({ ...newUser, confirmPassword })}
+          style={styles.passwordInput}
+        />
+
+        <Pressable
+          onPress={() => setShowNewUserConfirmPassword((prev) => !prev)}
+          style={styles.eyeButton}
+        >
+          <Ionicons
+            name={showNewUserConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+            size={20}
+            color="#64748B"
+          />
+        </Pressable>
+      </View>
+      {!!newUserConfirmPasswordError && (
+        <Text style={styles.inlineError}>{newUserConfirmPasswordError}</Text>
+      )}
+
+              <Input
+                label="Phone Number (optional)"
+                value={newUser.phone}
+                onChangeText={(phone) => setNewUser({ ...newUser, phone })}
+              />
+
+              <Input
+                label="Address (optional)"
+                value={newUser.address}
+                multiline
+                onChangeText={(address) => setNewUser({ ...newUser, address })}
+              />
+
+              <Text style={styles.inputLabel}>Role</Text>
+              <View style={styles.dropdownWrap}>
+                <DropdownMenu
+                  value={newUser.role}
+                  onChange={(role) => setNewUser({ ...newUser, role: role as Role })}
+                  items={createRoles}
+                />
+              </View>
+
+              {currentRole === 'platform_admin' &&
+                ['doctor', 'clinic_admin'].includes(newUser.role) && (
+                  <>
+                    <Text style={styles.inputLabel}>Assign to clinics</Text>
+
+                    <View style={styles.clinicPicker}>
+                      {clinics.map((clinic) => {
+                        const selected = selectedClinicIds.includes(clinic.value);
+
+                        return (
+                          <Pressable
+                            key={clinic.value}
+                            style={[
+                              styles.clinicChip,
+                              selected && {
+                                backgroundColor: `${theme.primary}12`,
+                                borderColor: theme.primary,
+                              },
+                            ]}
+                            onPress={() =>
+                              toggleClinicId(clinic.value, selectedClinicIds, setSelectedClinicIds)
+                            }
+                          >
+                            <Ionicons
+                              name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                              size={18}
+                              color={selected ? theme.primary : '#94A3B8'}
+                            />
+
+                            <Text
+                              style={[
+                                styles.clinicChipText,
+                                selected && { color: theme.primary },
+                              ]}
+                            >
+                              {clinic.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
+                    {!!newUserClinicError && (
+                      <Text style={styles.inlineError}>{newUserClinicError}</Text>
+                    )}
+
+                    <Text style={styles.helperText}>
+                      Doctors and clinic admins can be connected to at least one or more clinics.
+                    </Text>
+                  </>
+                )}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancelButton} onPress={closeNewUser} disabled={creating}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.modalSaveButton, { backgroundColor: theme.primary }]}
+                onPress={createUser}
+                disabled={creating}
+              >
+                <Text style={styles.modalSaveText}>
+                  {creating ? 'Creating...' : 'Create User'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={discardConfirmOpen} transparent animationType="fade">
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="warning-outline" size={28} color="#B45309" />
+            </View>
+
+            <Text style={styles.confirmTitle}>Discard changes?</Text>
+            <Text style={styles.confirmText}>Any unsaved edits will be lost if you continue. Make sure to save your changes before leaving.</Text>
+
+            <View style={styles.confirmActions}>
+              <Pressable
+                style={styles.confirmCancelButton}
+                onPress={() => setDiscardConfirmOpen(false)}
+              >
+                <Text style={styles.confirmCancelText}>Keep editing</Text>
+              </Pressable>
+
+              <Pressable style={styles.confirmDiscardButton} onPress={discardChanges}>
+                <Text style={styles.confirmDiscardText}>Discard</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={deleteConfirmOpen} transparent animationType="fade">
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <View style={[styles.confirmIcon, { backgroundColor: '#FEF2F2' }]}>
+              <Ionicons name="trash-outline" size={28} color="#DC2626" />
+            </View>
+
+            <Text style={styles.confirmTitle}>Are you sure you want to delete this user?</Text>
+
+      <Text style={styles.confirmText}>
+        This will permanently delete the user account, profile and clinic access. This action cannot be undone.
+      </Text>
+
+            <View style={styles.confirmActions}>
+              <Pressable
+                style={styles.confirmCancelButton}
+                onPress={() => setDeleteConfirmOpen(false)}
+              >
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+
+      <Pressable
+        style={styles.confirmDiscardButton}
+        onPress={confirmDeleteUser}
+        disabled={deleting}
+      >
+        <Text style={styles.confirmDiscardText}>
+          {deleting ? 'Deleting...' : 'Delete'}
+        </Text>
+      </Pressable>
+            </View>
+          </View>
+        </View>
       </Modal>
 
     </>
@@ -661,6 +1339,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  mobileUserTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  mobileUserTopRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  mobileUserTextBlock: {
+    marginTop: 14,
+  },
+
   avatarSmall: {
     width: 54,
     height: 54,
@@ -687,12 +1382,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     color: '#0F172A',
+    flexShrink: 1,
   },
 
   email: {
     color: '#64748B',
     fontWeight: '700',
     marginTop: 4,
+    flexShrink: 1,
   },
 
   cardHint: {
@@ -704,8 +1401,9 @@ const styles = StyleSheet.create({
 
   roleBadge: {
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexShrink: 0,
   },
 
   cardRight: {
@@ -860,6 +1558,10 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
+  buttonDisabled: {
+    opacity: 0.65,
+  },
+
   avatarActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -964,6 +1666,194 @@ const styles = StyleSheet.create({
   modalSaveText: {
     color: '#FFFFFF',
     fontWeight: '900',
+  },
+
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  confirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  confirmIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+
+  confirmTitle: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  confirmText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 20,
+},
+
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+
+  confirmCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+
+  confirmCancelText: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+
+  confirmDiscardButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  confirmDiscardText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+
+  primaryButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  primaryButtonMobile: {
+    width: '100%',
+    minHeight: 52,
+    marginTop: 16,
+  },
+
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+
+  clinicPicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 12,
+  },
+
+  clinicChip: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+  },
+
+  clinicChipText: {
+    color: '#334155',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+
+  modalDangerButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalDangerText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+
+  inlineError: {
+    color: '#DC2626',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: -8,
+    marginBottom: 18,
+  },
+
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 16,
+    marginBottom: 18,
+    backgroundColor: '#FFFFFF',
+  },
+
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 52,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+
+  eyeButton: {
+    paddingHorizontal: 14,
+  },
+
+  cardHeaderMobile: {
+    alignItems: 'flex-start',
+  },
+
+  cardTitleWrapMobile: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  cardRightMobile: {
+    flexShrink: 0,
   },
 
 });

@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { useClinicTheme } from '../src/lib/clinicTheme';
-import SortDropdown from '../src/common/SortDropdown';
 import { getUserClinicCount } from '../src/lib/adminData';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import HoverCard from '../src/common/HoverCard';
+import DropdownMenu from '../src/common/DropdownMenu';
 
 type Role = 'patient' | 'doctor' | 'clinic_admin' | 'platform_admin';
 
@@ -48,6 +49,9 @@ type Appointment = {
   ai_triage_summary: string | null;
   ai_triage_level: string | null;
   triage_session_id: string | null;
+  ai_triage_validation: 'agree' | 'partially_agree' | 'disagree' | null;
+  ai_triage_correction: 'routine' | 'urgent' | 'emergency' | null;
+  doctor_own_assessment: 'routine' | 'urgent' | 'emergency' | null;
 
   doctors: {
     id: string;
@@ -178,101 +182,6 @@ function getRelativeLabel(appointmentStart: string, status: AppointmentStatus) {
 
 }
 
-function AppointmentHoverCard({ children, color, onPress, }: { children: React.ReactNode; color: string; onPress: () => void; }) {
-
-  const scale = React.useRef(new Animated.Value(1)).current;
-  const translateY = React.useRef(new Animated.Value(0)).current;
-  const shadow = React.useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-
-    if (Platform.OS !== 'web') 
-      return;
-
-    Animated.parallel([
-
-      Animated.spring(scale, {
-        toValue: 1.015,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: -5,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.timing(shadow, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: false,
-      }),
-    
-    ]).start();
-
-  };
-
-  const animateOut = () => {
-
-    if (Platform.OS !== 'web') 
-      return;
-
-    Animated.parallel([
-
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: false,
-        friction: 8,
-      }),
-      Animated.timing(shadow, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: false,
-      }),
-
-    ]).start();
-
-  };
-
-  return (
-
-    <Pressable
-      style={styles.appointmentItem}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-
-      <Animated.View
-        style={[
-          styles.appointmentCard,
-          { borderColor: color },
-          { transform: [{ scale }, { translateY }], shadowOpacity: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.04, 0.12],
-            }) as any,
-            shadowRadius: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [8, 18],
-            }) as any,
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-
-    </Pressable>
-
-  );
-
-}
-
 export default function ManageAppointmentsScreen() {
 
   const { clinicId, clinicName, appointmentId } = useLocalSearchParams<{
@@ -299,9 +208,13 @@ export default function ManageAppointmentsScreen() {
   const [onboardingReviews, setOnboardingReviews] = React.useState<OnboardingReview[]>([]);
 
   const [savingAction, setSavingAction] = React.useState(false);
+  const [savingValidation, setSavingValidation] = React.useState(false);
+  const [pendingCorrection, setPendingCorrection] = React.useState<'partially_agree' | 'disagree' | null>(null);
+  const [pendingOwnAssessment, setPendingOwnAssessment] = React.useState<'routine' | 'urgent' | 'emergency' | null>(null);
   const [attendanceAction, setAttendanceAction] = React.useState<'present' | 'missed' | null>(null);
   const [sortBy, setSortBy] = React.useState<AppointmentSort>('default');
   const [canChangeClinic, setCanChangeClinic] = React.useState(false);
+  const [resolvedClinicName, setResolvedClinicName] = React.useState('');
 
   const [recordTitle, setRecordTitle] = React.useState('');
   const [recordCategory, setRecordCategory] = React.useState('Consultation');
@@ -460,6 +373,9 @@ export default function ManageAppointmentsScreen() {
           ai_triage_summary,
           ai_triage_level,
           triage_session_id,
+          ai_triage_validation,
+          ai_triage_correction,
+          doctor_own_assessment,
           doctors (
             id,
             first_name,
@@ -570,8 +486,30 @@ export default function ManageAppointmentsScreen() {
 
   useEffect(() => {
     loadAppointments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    //eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId]);
+
+  useEffect(() => {
+    setPendingCorrection(null);
+    setPendingOwnAssessment(null);
+  }, [detailsTarget?.id]);
+
+  useEffect(() => {
+    const loadClinicName = async () => {
+      if (!clinicId || clinicName) 
+        return;
+
+      const { data } = await supabase
+        .from('clinics')
+        .select('name')
+        .eq('id', clinicId)
+        .maybeSingle();
+
+      setResolvedClinicName(data?.name || '');
+    };
+
+    loadClinicName();
+  }, [clinicId, clinicName]);
 
   const sortedAppointments = useMemo(() => {
 
@@ -687,7 +625,7 @@ export default function ManageAppointmentsScreen() {
 
       const bloodPressureValue = toNull(recordBloodPressure);
       if (bloodPressureValue && !/^\d{2,3}\/\d{2,3}$/.test(bloodPressureValue)) {
-        Alert.alert('Invalid blood pressure', 'Use format like 120/80.');
+        Alert.alert('Invalid blood pressure', 'Use a format such as 120/80.');
         setSavingRecord(false);
         return;
       }
@@ -772,6 +710,24 @@ export default function ManageAppointmentsScreen() {
     }
   };
 
+  const createAppointmentNotification = async ( appointmentId: string, type: 'cancelled' | 'checked_in' | 'missed' ) => {
+    console.log('CREATING NOTIFICATION:', { appointmentId, type, });
+    const response = await supabase.functions.invoke('notifications', { body: { appointmentId, type, }, });
+    console.log('NOTIFICATION FUNCTION RESPONSE:', JSON.stringify(response, null, 2));
+
+    if (response.error) {
+      console.log('Appointment notification invoke error:', response.error);
+      return;
+    }
+
+    if (response.data?.error) {
+      console.log('Appointment notification data error:', response.data.error);
+      return;
+    }
+
+    console.log('NOTIFICATION CREATED SUCCESSFULLY');
+  };
+
   const updateAppointmentStatus = async (
     appointment: Appointment,
     status: AppointmentStatus,
@@ -800,6 +756,9 @@ export default function ManageAppointmentsScreen() {
         return;
       }
 
+      if (status === 'cancelled' || status === 'checked_in' || status === 'missed')
+        await createAppointmentNotification(appointment.id, status);
+
       setAppointments((prev) => prev.filter((item) => item.id !== appointment.id));
       setCancelTarget(null);
       setCheckTarget(null);
@@ -813,13 +772,73 @@ export default function ManageAppointmentsScreen() {
 
   };
 
+  const saveOwnAssessment = async (
+    appointment: Appointment,
+    level: 'routine' | 'urgent' | 'emergency'
+  ) => {
+    try {
+      setSavingValidation(true);
+      const { error } = await supabase
+        .from('appointments')
+        .update({ doctor_own_assessment: level })
+        .eq('id', appointment.id);
+
+      if (error) { 
+        Alert.alert('Error', error.message); 
+        return; 
+      }
+
+      setAppointments((prev) => prev.map((item) => item.id === appointment.id ? { ...item, doctor_own_assessment: level } : item));
+      setDetailsTarget((prev) => prev?.id === appointment.id ? { ...prev, doctor_own_assessment: level } : prev);
+      setPendingOwnAssessment(level);
+    } finally {
+      setSavingValidation(false);
+    }
+  };
+
+  const saveTriageValidation = async (
+    appointment: Appointment,
+    validation: 'agree' | 'partially_agree' | 'disagree',
+    correction?: 'routine' | 'urgent' | 'emergency'
+  ) => {
+    if (validation !== 'agree' && !correction) {
+      setPendingCorrection(validation);
+      return;
+    }
+
+    try {
+      setSavingValidation(true);
+
+      const updatePayload: Record<string, unknown> = { ai_triage_validation: validation };
+      if (correction) 
+        updatePayload.ai_triage_correction = correction;
+
+      const { error } = await supabase
+        .from('appointments')
+        .update(updatePayload)
+        .eq('id', appointment.id);
+
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+
+      setAppointments((prev) => prev.map((item) => item.id === appointment.id ? { ...item, ai_triage_validation: validation, ai_triage_correction: correction ?? null } : item));
+      setDetailsTarget((prev) => prev?.id === appointment.id ? { ...prev, ai_triage_validation: validation, ai_triage_correction: correction ?? null } : prev);
+      setPendingCorrection(null);
+      Alert.alert('Saved', 'Your triage assessment has been recorded. Thank you.');
+    } finally {
+      setSavingValidation(false);
+    }
+  };
+
   return (
 
     <>
 
       <ScrollView contentContainerStyle={styles.container} stickyHeaderIndices={[0]}>
         <ClinicNavbar
-          clinicName={profile?.role === 'platform_admin' ? 'MedSync Platform' : clinicName}
+          clinicName={profile?.role === 'platform_admin' ? 'MedSync Platform' : clinicName || resolvedClinicName}
           clinicId={profile?.role === 'platform_admin' ? undefined : clinicId}
           primaryColor={theme.primary}
           roleLabel={
@@ -851,13 +870,13 @@ export default function ManageAppointmentsScreen() {
         />
 
         <View style={[styles.hero, isMobile && styles.heroMobile, { backgroundColor: theme.soft, borderColor: theme.borderSoft }, ]}>
-          <Text style={[styles.heroEyebrow, { color: theme.primary }]}>Appointments</Text>
+          <Text style={[styles.heroEyebrow, { color: theme.primary }]}>Manage Appointments</Text>
           <Text style={[styles.heroTitle, { color: theme.secondary }]}>Manage Clinic Appointments</Text>
-          <Text style={styles.heroSubtitle}>Review appointments, open details, cancel, reschedule or create one medical record.</Text>
+          <Text style={styles.heroSubtitle}>Review appointments, oversee details, cancel, reschedule or create one medical record.</Text>
 
           <View style={[styles.heroControls, isMobile && styles.heroControlsMobile]}>
             <View style={[styles.sortWrap, isMobile && styles.sortWrapMobile]}>
-              <SortDropdown
+              <DropdownMenu
                 value={sortBy}
                 onChange={(value) => setSortBy(value as AppointmentSort)}
                 items={[
@@ -895,7 +914,7 @@ export default function ManageAppointmentsScreen() {
           <View style={styles.emptyCard}>
             <Ionicons name="lock-closed-outline" size={28} color={theme.primary}/>
             <Text style={styles.emptyTitle}>Access unavailable</Text>
-            <Text style={styles.emptyText}>This page is available only for doctors and clinic admins.</Text>
+            <Text style={styles.emptyText}>This page is available only for doctors and admins.</Text>
           </View>
         ) : sortedAppointments.length === 0 ? (
           <View style={styles.emptyCard}>
@@ -914,9 +933,14 @@ export default function ManageAppointmentsScreen() {
 
               return (
 
-                <AppointmentHoverCard
+                <HoverCard
                   key={appointment.id}
-                  color={theme.primary}
+                  pressableStyle={styles.appointmentItem}
+                  cardStyle={[
+                    styles.appointmentCard,
+                    { borderColor: theme.primary },
+                  ]}
+                  withShadow
                   onPress={() => setDetailsTarget(appointment)}
                 >
                   
@@ -1011,14 +1035,7 @@ export default function ManageAppointmentsScreen() {
                         onPress={() => openCreateRecordModal(appointment)}
                         disabled={hasRecord}
                       >
-                        <Ionicons
-                          name="document-text-outline"
-                          size={16}
-                          color={hasRecord ? '#94A3B8' : '#0F172A'}
-                        />
-                        <Text numberOfLines={1} style={[styles.recordActionText, hasRecord && styles.disabledActionText]}>
-                          {hasRecord ? 'Record Created' : 'Create Record'}
-                        </Text>
+                        <Text numberOfLines={1} style={[styles.recordActionText, hasRecord && styles.disabledActionText]}>{hasRecord ? 'Created' : 'Record'}</Text>
                       </Pressable>
                     )}
 
@@ -1034,13 +1051,12 @@ export default function ManageAppointmentsScreen() {
                         style={styles.checkAction}
                         onPress={() => setCheckTarget(appointment)}
                       >
-                        <Ionicons name="person-circle-outline" size={16} color="#0F172A"/>
-                        <Text style={styles.checkActionText}>Check In</Text>
+                        <Text numberOfLines={1} style={styles.checkActionText}>Check In</Text>
                       </Pressable>
                     )}
                   </View>
 
-                </AppointmentHoverCard>
+                </HoverCard>
 
               );
             })}
@@ -1143,7 +1159,7 @@ export default function ManageAppointmentsScreen() {
 
                   <DetailRow
                     icon="chatbox-ellipses-outline"
-                    label="Notes / observations"
+                    label="Notes"
                     value={detailsTarget.notes?.trim() || 'No notes provided'}
                   />
 
@@ -1172,18 +1188,21 @@ export default function ManageAppointmentsScreen() {
                           </View>
                         )}
 
-                        <View style={styles.onboardingReviewMetaRow}>
-                          <View style={[styles.onboardingReviewPill, { backgroundColor: urgencyColor.background, borderColor: urgencyColor.border }]}>
-                            <Text style={[styles.onboardingReviewPillText, { color: urgencyColor.text }]}>Urgency: {review.urgency_level || 'routine'}</Text>
+                        <View style={styles.onboardingStatusGrid}>
+                          <View style={[styles.onboardingStatusItem, { borderColor: urgencyColor.border, backgroundColor: urgencyColor.background }]}>
+                            <Text style={[styles.onboardingStatusLabel, { color: urgencyColor.text }]}>Urgency</Text>
+                            <Text style={[styles.onboardingStatusValue, { color: urgencyColor.text }]}>{(review.urgency_level || 'Routine').replaceAll('_', ' ')}</Text>
                           </View>
 
-                          <View style={styles.onboardingReviewPill}>
-                            <Text style={styles.onboardingReviewPillText}>{review.form_valid ? 'Intake complete' : 'Clinician review needed'}</Text>
+                          <View style={styles.onboardingStatusItem}>
+                            <Text style={styles.onboardingStatusLabel}>Intake</Text>
+                            <Text style={styles.onboardingStatusValue}>{review.form_valid ? 'Complete' : 'Needs Review'}</Text>
                           </View>
 
                           {review.requires_manual_review && (
-                            <View style={[styles.onboardingReviewPill, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }]}>
-                              <Text style={[styles.onboardingReviewPillText, { color: '#C2410C' }]}>Manual review required</Text>
+                            <View style={[styles.onboardingStatusItem, styles.onboardingStatusWarning]}>
+                              <Text style={[styles.onboardingStatusLabel, styles.onboardingStatusWarningText]}>Review</Text>
+                              <Text style={[styles.onboardingStatusValue, styles.onboardingStatusWarningText]}>Required Manual</Text>
                             </View>
                           )}
                         </View>
@@ -1207,7 +1226,7 @@ export default function ManageAppointmentsScreen() {
 
                         {!!review.clarifying_questions?.length && (
                           <View style={styles.onboardingReviewList}>
-                            <Text style={styles.onboardingReviewListTitle}>Clarifying questions</Text>
+                            <Text style={styles.onboardingReviewListTitle}>Questions to clarify beforehand</Text>
 
                             {review.clarifying_questions.map((item, index) => (
                               <Text key={`question-${index}`} style={styles.onboardingReviewListItem}> • {item}</Text>
@@ -1231,7 +1250,7 @@ export default function ManageAppointmentsScreen() {
 
                             {review.urgency_flags_structured.map((item, index) => (
                               <Text key={`structured-flag-${index}`} style={styles.onboardingReviewListItem}>
-                                • {item.flag} ({item.severity}) — {item.reason}
+                                • {item.flag} ({item.severity}) - {item.reason}
                               </Text>
                             ))}
                           </View>
@@ -1249,26 +1268,174 @@ export default function ManageAppointmentsScreen() {
                     />
                   )}
 
+                  {isDoctor && !!detailsTarget.ai_triage_level && (() => {
+                    const ownAssessment = pendingOwnAssessment || detailsTarget.doctor_own_assessment;
+                    const isDone = !!detailsTarget.ai_triage_validation;
+
+                    return (
+                      <View style={styles.triageValidationCard}>
+                        <View style={styles.triageValidationHeader}>
+                          <Ionicons name="flask-outline" size={18} color="#6366F1"/>
+                          <Text style={styles.triageValidationTitle}>AI Triage Evaluation</Text>
+                        </View>
+
+                        {isDone ? (
+                          <>
+                            <View style={styles.blindComparisonRow}>
+                              <View style={styles.blindComparisonCell}>
+                                <Text style={styles.blindComparisonLabel}>Your assessment</Text>
+                                <Text style={[styles.blindComparisonValue, { color: '#334155' }]}>
+                                  {(detailsTarget.doctor_own_assessment || 'not recorded').replaceAll('_', ' ')}
+                                </Text>
+                              </View>
+                              <Ionicons name="swap-horizontal-outline" size={18} color="#94A3B8"/>
+                              <View style={styles.blindComparisonCell}>
+                                <Text style={styles.blindComparisonLabel}>AI assessment</Text>
+                                <Text style={[styles.blindComparisonValue, { color: '#6366F1' }]}>
+                                  {detailsTarget.ai_triage_level.replaceAll('_', ' ')}
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={styles.triageValidationResult}>
+                              <Ionicons
+                                name={detailsTarget.ai_triage_validation === 'agree' ? 'checkmark-circle' : 'alert-circle'}
+                                size={16}
+                                color={detailsTarget.ai_triage_validation === 'agree' ? '#15803D' : '#B45309'}
+                              />
+                              <Text style={[
+                                styles.triageValidationResultText,
+                                { color: detailsTarget.ai_triage_validation === 'agree' ? '#15803D' : '#B45309' }
+                              ]}>
+                                Verdict: {detailsTarget.ai_triage_validation?.replaceAll('_', ' ')}
+                                {detailsTarget.ai_triage_correction ? ` - correct level: ${detailsTarget.ai_triage_correction}` : ''}
+                              </Text>
+                            </View>
+                          </>
+                        ) : !ownAssessment ? (
+                          <>
+                            <Text style={styles.triageValidationSubtitle}>
+                              Step 1 of 2 - Before seeing the AI result, what level would YOU assign this case?
+                            </Text>
+                            <View style={styles.triageValidationButtons}>
+                              {(
+                                [
+                                  { value: 'routine' as const, label: 'Routine', color: '#15803D', bg: '#F0FDF4', border: '#BBF7D0' },
+                                  { value: 'urgent' as const, label: 'Urgent', color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
+                                  { value: 'emergency' as const, label: 'Emergency', color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
+                                ]
+                              ).map((opt) => (
+                                <Pressable
+                                  key={opt.value}
+                                  style={[styles.triageValidationBtn, { backgroundColor: opt.bg, borderColor: opt.border }]}
+                                  onPress={() => saveOwnAssessment(detailsTarget, opt.value)}
+                                  disabled={savingValidation}
+                                >
+                                  <Text style={[styles.triageValidationBtnText, { color: opt.color }]}>{opt.label}</Text>
+                                </Pressable>
+                              ))}
+                            </View>
+                          </>
+                        ) : (
+                          <>
+                            <View style={styles.blindComparisonRow}>
+                              <View style={styles.blindComparisonCell}>
+                                <Text style={styles.blindComparisonLabel}>Your assessment</Text>
+                                <Text style={[styles.blindComparisonValue, { color: '#334155' }]}>
+                                  {ownAssessment}
+                                </Text>
+                              </View>
+                              <Ionicons name="swap-horizontal-outline" size={18} color="#94A3B8"/>
+                              <View style={styles.blindComparisonCell}>
+                                <Text style={styles.blindComparisonLabel}>AI assessment</Text>
+                                <Text style={[styles.blindComparisonValue, { color: '#6366F1' }]}>
+                                  {detailsTarget.ai_triage_level}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text style={styles.triageValidationSubtitle}>
+                              Step 2 of 2 - How would you rate the AI&apos;s assessment?
+                            </Text>
+                            <View style={styles.triageValidationButtons}>
+                              {(
+                                [
+                                  { value: 'agree' as const, label: 'Agree', icon: 'checkmark-circle-outline' as const, activeColor: '#15803D', activeBg: '#F0FDF4', activeBorder: '#BBF7D0' },
+                                  { value: 'partially_agree' as const, label: 'Partially agree', icon: 'remove-circle-outline' as const, activeColor: '#B45309', activeBg: '#FFFBEB', activeBorder: '#FDE68A' },
+                                  { value: 'disagree' as const, label: 'Disagree', icon: 'close-circle-outline' as const, activeColor: '#DC2626', activeBg: '#FFF1F2', activeBorder: '#FECDD3' },
+                                ]
+                              ).map((option) => (
+                                <Pressable
+                                  key={option.value}
+                                  style={styles.triageValidationBtn}
+                                  onPress={() => saveTriageValidation(detailsTarget, option.value)}
+                                  disabled={savingValidation}
+                                >
+                                  <Ionicons name={option.icon} size={15} color="#64748B"/>
+                                  <Text style={styles.triageValidationBtnText}>{option.label}</Text>
+                                </Pressable>
+                              ))}
+                            </View>
+                            {pendingCorrection && (
+                              <View style={styles.triageCorrectionCard}>
+                                <Text style={styles.triageCorrectionTitle}>What level was correct?</Text>
+                                <View style={styles.triageValidationButtons}>
+                                  {(
+                                    [
+                                      { value: 'routine' as const, label: 'Routine', color: '#15803D', bg: '#F0FDF4', border: '#BBF7D0' },
+                                      { value: 'urgent' as const, label: 'Urgent', color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
+                                      { value: 'emergency' as const, label: 'Emergency', color: '#DC2626', bg: '#FFF1F2', border: '#FECDD3' },
+                                    ]
+                                  ).map((opt) => (
+                                    <Pressable
+                                      key={opt.value}
+                                      style={[styles.triageValidationBtn, { backgroundColor: opt.bg, borderColor: opt.border }]}
+                                      onPress={() => saveTriageValidation(detailsTarget, pendingCorrection, opt.value)}
+                                      disabled={savingValidation}
+                                    >
+                                      <Text style={[styles.triageValidationBtnText, { color: opt.color }]}>{opt.label}</Text>
+                                    </Pressable>
+                                  ))}
+                                </View>
+                              </View>
+                            )}
+                          </>
+                        )}
+
+                        <Text style={styles.triageValidationDisclaimer}>
+                          Blind validation protocol - your independent assessment is recorded before AI result is revealed.
+                        </Text>
+                      </View>
+                    );
+                  })()}
+
                 </View>
               </ScrollView>
             )}
 
             <View style={styles.detailsModalActions}>
-              <Pressable
-                style={styles.detailsCloseButton}
-                onPress={() => setDetailsTarget(null)}
-              >
-                <Text style={styles.detailsCloseText}>Close</Text>
-              </Pressable>
+
+            <Pressable
+              style={[
+                styles.detailsCloseButton,
+                {
+                  backgroundColor:
+                    profile?.role === 'platform_admin' ? '#2563EB' : theme.primary,
+                  borderColor:
+                    profile?.role === 'platform_admin' ? '#2563EB' : theme.primary,
+                },
+              ]}
+              onPress={() => setDetailsTarget(null)}
+            >
+              <Text style={styles.detailsCloseText}>Close</Text>
+            </Pressable>
 
               {detailsTarget && isDoctor && (
                 <Pressable
                   style={[
                     styles.detailsCreateButton,
                     {
-                      backgroundColor: existingRecordAppointmentIds.has(detailsTarget.id)
-                        ? '#CBD5E1'
-                        : theme.primary,
+                      backgroundColor: '#FFFFFF',
+                      borderWidth: 1,
+                      borderColor: '#CBD5E1',
                     },
                   ]}
                   disabled={existingRecordAppointmentIds.has(detailsTarget.id)}
@@ -1278,11 +1445,7 @@ export default function ManageAppointmentsScreen() {
                     openCreateRecordModal(appointment);
                   }}
                 >
-                  <Text style={styles.detailsCreateText}>
-                    {existingRecordAppointmentIds.has(detailsTarget.id)
-                      ? 'Record Created'
-                      : 'Create Medical Record'}
-                  </Text>
+                  <Text style={styles.detailsCreateText}>{existingRecordAppointmentIds.has(detailsTarget.id) ? 'Record Created' : 'Create Record'}</Text>
                 </Pressable>
               )}
             </View>
@@ -1392,7 +1555,7 @@ export default function ManageAppointmentsScreen() {
                 <TextInput
                   value={recordTemperature}
                   onChangeText={setRecordTemperature}
-                  placeholder="Temperature in C (e.g. 37)"
+                  placeholder="Temperature in °C (e.g. 37)"
                   placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   style={[styles.input, styles.inputHalf]}
@@ -1437,7 +1600,7 @@ export default function ManageAppointmentsScreen() {
               <View style={styles.uploadSection}>
                 <Text style={styles.formSectionTitle}>Medical files</Text>
                 <Text style={styles.formHelpText}>
-                  Add PDFs, lab results or other files before saving the record.
+                  Add documents such as lab results or other relevant files before saving the record.
                 </Text>
 
                 <Pressable
@@ -1505,7 +1668,7 @@ export default function ManageAppointmentsScreen() {
 
             <Text style={styles.modalTitle}>Cancel appointment?</Text>
 
-            <Text style={styles.modalText}>This appointment will be cancelled and removed from the active list.</Text>
+            <Text style={styles.modalText}>This appointment will be cancelled and removed from the list.</Text>
 
             <View style={styles.modalActions}>
               <Pressable
@@ -1545,7 +1708,7 @@ export default function ManageAppointmentsScreen() {
             </View>
 
             <Text style={styles.modalTitle}>Patient Attendance</Text>
-            <Text style={styles.modalText}>Select whether the patient is present or not. After this action, the appointment will be archived from the active list.</Text>
+            <Text style={styles.modalText}>Select whether the patient is present or not. After performing this action, the appointment will be archived from the active list.</Text>
 
             <View style={styles.modalActionsColumn}>
               <Pressable
@@ -1567,7 +1730,7 @@ export default function ManageAppointmentsScreen() {
                 onPress={() => {
                   if (!checkTarget) return;
                   setAttendanceAction('missed');
-                  updateAppointmentStatus(checkTarget, 'missed', 'Patient marked as missed.');
+                  updateAppointmentStatus(checkTarget, 'missed', 'Patient marked as missing.');
                 }}
                 disabled={savingAction}
               >
@@ -1841,9 +2004,9 @@ const styles = StyleSheet.create({
 
   cardActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     width: '100%',
-    flexWrap: 'nowrap',
+    flexWrap: 'wrap',
   },
 
   primaryAction: {
@@ -1851,7 +2014,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 11,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1860,7 +2023,7 @@ const styles = StyleSheet.create({
   primaryActionText: {
     color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 14,
+    fontSize: 12,
   },
 
   dangerAction: {
@@ -1868,7 +2031,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#FECDD3',
@@ -1880,7 +2043,7 @@ const styles = StyleSheet.create({
   dangerActionText: {
     color: '#BE123C',
     fontWeight: '900',
-    fontSize: 14,
+    fontSize: 13,
   },
 
   recordAction: {
@@ -1888,21 +2051,19 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#CBD5E1',
     backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
   },
 
   recordActionText: {
     color: '#0F172A',
     fontWeight: '900',
-    fontSize: 14,
+    fontSize: 13,
   },
 
   disabledAction: {
@@ -1916,24 +2077,22 @@ const styles = StyleSheet.create({
 
   checkAction: {
     flex: 1,
-    minWidth: 120,
+    minWidth: 0,
     minHeight: 48,
     borderRadius: 999,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#CBD5E1',
     backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
   },
 
   checkActionText: {
     color: '#0F172A',
     fontWeight: '900',
-    fontSize: 14,
+    fontSize: 13,
   },
 
   modalOverlay: {
@@ -2200,7 +2359,7 @@ const styles = StyleSheet.create({
 
   inputHalf: {
     flex: 1,
-    minWidth: 190,
+    minWidth: 215,
   },
 
   formButton: {
@@ -2355,15 +2514,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 50,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   detailsCloseText: {
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '900',
   },
 
@@ -2376,7 +2532,7 @@ const styles = StyleSheet.create({
   },
 
   detailsCreateText: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontWeight: '900',
   },
 
@@ -2408,12 +2564,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  onboardingReviewMetaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-
   onboardingReviewBadge: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -2427,19 +2577,46 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
 
-  onboardingReviewPill: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  onboardingStatusGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    width: '100%',
   },
 
-  onboardingReviewPillText: {
-    fontSize: 12,
+  onboardingStatusItem: {
+    flex: 1,
+    minWidth: 145,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+
+  onboardingStatusLabel: {
+    color: '#64748B',
+    fontSize: 11,
     fontWeight: '900',
-    color: '#475569',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+
+  onboardingStatusValue: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'capitalize',
+  },
+
+  onboardingStatusWarning: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
+  },
+
+  onboardingStatusWarningText: {
+    color: '#C2410C',
   },
 
   onboardingRecommendationBox: {
@@ -2479,6 +2656,129 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '700',
+  },
+
+  triageValidationCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 16,
+    gap: 10,
+  },
+
+  triageValidationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  triageValidationTitle: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+
+  triageValidationSubtitle: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  triageValidationLevel: {
+    color: '#0F172A',
+    fontWeight: '900',
+    textTransform: 'capitalize',
+  },
+
+  triageValidationResult: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  triageValidationResultText: {
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'capitalize',
+  },
+
+  triageValidationButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
+  triageValidationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+
+  triageValidationBtnText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#64748B',
+  },
+
+  triageValidationDisclaimer: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+
+  triageCorrectionCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+
+  triageCorrectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#334155',
+  },
+
+  blindComparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+
+  blindComparisonCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  blindComparisonLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  blindComparisonValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    textTransform: 'capitalize',
   },
 
 });

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View, ScrollView, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -38,8 +38,23 @@ type BookingDraft = {
   startTime?: string;
   endTime?: string;
   reason?: string;
+  triageId?: string;
+  aiTriageLevel?: string;
 
 } | null;
+
+const SUS_QUESTIONS = [
+  'I think that I would like to use this system frequently.',
+  'I found the system unnecessarily complex.',
+  'I thought the system was easy to use.',
+  'I think that I would need the support of a technical person to be able to use this system.',
+  'I found the various functions in this system were well integrated.',
+  'I thought there was too much inconsistency in this system.',
+  'I would imagine that most people would learn to use this system very quickly.',
+  'I found the system very cumbersome to use.',
+  'I felt very confident using the system.',
+  'I needed to learn a lot of things before I could get going with this system.',
+];
 
 function cleanBotText(text: string) {
 
@@ -51,19 +66,82 @@ function cleanBotText(text: string) {
 
 }
 
+function SusQuestionnaire({
+  answers,
+  onAnswer,
+  onSubmit,
+  submitting,
+}: {
+  answers: number[];
+  onAnswer: (index: number, value: number) => void;
+  onSubmit: () => void;
+  submitting: boolean;
+}) {
+
+  const allAnswered = answers.every((a) => a > 0);
+
+  return (
+    <View>
+      <Text style={styles.susTitle}>Usability questionnaire (10 questions, 1 = Strongly Disagree, 5 = Strongly Agree)</Text>
+
+      {SUS_QUESTIONS.map((question, qi) => (
+        <View key={qi}>
+          <Text style={styles.susQuestion}>{qi + 1}. {question}</Text>
+          <View style={styles.susScale}>
+            {[1, 2, 3, 4, 5].map((val) => {
+              const selected = answers[qi] === val;
+              return (
+                <Pressable
+                  key={val}
+                  style={[styles.susScaleBtn, selected && styles.susScaleBtnActive]}
+                  onPress={() => onAnswer(qi, val)}
+                >
+                  <Text style={[styles.susScaleBtnText, selected && styles.susScaleBtnTextActive]}>
+                    {val}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+
+      <View style={styles.susScaleLabels}>
+        <Text style={styles.susScaleLabelText}>1 = Strongly disagree</Text>
+        <Text style={styles.susScaleLabelText}>5 = Strongly agree</Text>
+      </View>
+
+      <Pressable
+        style={[styles.susSubmitBtn, (!allAnswered || submitting) && styles.susSubmitBtnDisabled]}
+        onPress={onSubmit}
+        disabled={!allAnswered || submitting}
+      >
+        <Text style={styles.susSubmitBtnText}>{submitting ? 'Submitting...' : 'Submit responses'}</Text>
+      </Pressable>
+    </View>
+  );
+
+}
+
 export default function FloatingChatButton({
   clinicId,
   clinicName,
   userRole,
+  forceOpen = false,
+  initialMode,
+  onForceOpenHandled,
 }: {
   clinicId?: string;
   clinicName?: string;
   userRole?: string;
+  forceOpen?: boolean;
+  initialMode?: 'triage' | 'default';
+  onForceOpenHandled?: () => void;
 }) {
 
   const scrollRef = useRef<ScrollView | null>(null);
   const chatAnimation = useRef(new Animated.Value(0)).current;
-
+  const forceOpenHandledRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [typing, setTyping] = useState(false);
@@ -71,6 +149,16 @@ export default function FloatingChatButton({
   const [bookingDraft, setBookingDraft] = useState<BookingDraft>(null);
   const [triageDraft, setTriageDraft] = useState<any>(null);
   const [resolvedRole, setResolvedRole] = useState(userRole || 'guest');
+
+  const [showRatingPrompt, setShowRatingPrompt] = useState(false);
+  const [ratingTriageId, setRatingTriageId] = useState<string | null>(null);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [showSusPrompt, setShowSusPrompt] = useState(false);
+  const [susAnswers, setSusAnswers] = useState<number[]>(Array(10).fill(0));
+  const [susSubmitted, setSusSubmitted] = useState(false);
+  const [submittingSus, setSubmittingSus] = useState(false);
+  const prevBookingDraftRef = useRef<BookingDraft>(null);
 
   const [messages, setMessages] = useState<ChatbotMessage[]>([
     {
@@ -113,7 +201,7 @@ export default function FloatingChatButton({
 
   }, [userRole]);
 
-  const openChat = () => {
+  const openChat = useCallback(() => {
     setOpen(true);
     chatAnimation.setValue(0);
 
@@ -123,7 +211,7 @@ export default function FloatingChatButton({
       friction: 8,
       tension: 70,
     }).start();
-  };
+  }, [chatAnimation]);
 
   const closeChat = () => {
     Animated.timing(chatAnimation, {
@@ -134,7 +222,7 @@ export default function FloatingChatButton({
     }).start(() => setOpen(false));
   };
 
-  const sendMessage = async (overrideMessage?: string) => {
+  const sendMessage = useCallback(async (overrideMessage?: string) => {
     const value = (overrideMessage ?? message).trim();
     if (!value || typing) return;
 
@@ -187,7 +275,18 @@ export default function FloatingChatButton({
       ]);
 
       setActions(Array.isArray(data?.actions) ? data.actions : []);
-      setBookingDraft(data?.bookingDraft ?? null);
+
+      const prevDraft = prevBookingDraftRef.current;
+      const newDraft = data?.bookingDraft ?? null;
+
+      if (prevDraft?.active && prevDraft?.triageId && newDraft === null) {
+        setRatingTriageId(prevDraft.triageId);
+        setShowRatingPrompt(true);
+        setRatingSubmitted(false);
+      }
+
+      prevBookingDraftRef.current = newDraft;
+      setBookingDraft(newDraft);
       setTriageDraft(data?.triageDraft ?? null);
     } catch {
       setMessages((prev) => [
@@ -201,6 +300,71 @@ export default function FloatingChatButton({
     } finally {
       setTyping(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }, [ message, typing, clinicId, clinicName, resolvedRole, messages, bookingDraft, triageDraft, ]);
+
+  useEffect(() => {
+    if (!forceOpen) {
+      forceOpenHandledRef.current = false;
+      return;
+    }
+
+    if (forceOpenHandledRef.current) return;
+
+    forceOpenHandledRef.current = true;
+
+    openChat();
+
+    if (initialMode === 'triage') {
+      setTimeout(() => {
+        sendMessage('I have symptoms and need triage help.');
+      }, 250);
+    }
+
+    onForceOpenHandled?.();
+  }, [forceOpen, initialMode, onForceOpenHandled, openChat, sendMessage]);
+
+  const submitRating = async (rating: 'yes' | 'no' | 'somewhat') => {
+    if (!ratingTriageId || submittingRating) return;
+
+    try {
+      setSubmittingRating(true);
+      await supabase
+        .from('ai_triage_sessions')
+        .update({ chatbot_rating: rating })
+        .eq('id', ratingTriageId);
+      setRatingSubmitted(true);
+      setShowSusPrompt(true);
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  const submitSus = async () => {
+    if (susAnswers.some((a) => a === 0) || !ratingTriageId || submittingSus) return;
+
+    const susScore =
+      ((susAnswers[0] - 1) + (5 - susAnswers[1]) +
+       (susAnswers[2] - 1) + (5 - susAnswers[3]) +
+       (susAnswers[4] - 1) + (5 - susAnswers[5]) +
+       (susAnswers[6] - 1) + (5 - susAnswers[7]) +
+       (susAnswers[8] - 1) + (5 - susAnswers[9])) * 2.5;
+
+    try {
+      setSubmittingSus(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('sus_responses').insert({
+        triage_session_id: ratingTriageId,
+        user_id: user?.id ?? null,
+        q1: susAnswers[0], q2: susAnswers[1], q3: susAnswers[2],
+        q4: susAnswers[3], q5: susAnswers[4], q6: susAnswers[5],
+        q7: susAnswers[6], q8: susAnswers[7], q9: susAnswers[8],
+        q10: susAnswers[9],
+        sus_score: susScore,
+      });
+      setSusSubmitted(true);
+    } finally {
+      setSubmittingSus(false);
     }
   };
 
@@ -331,6 +495,67 @@ export default function FloatingChatButton({
                   ))}
                 </View>
               )}
+
+              {showRatingPrompt && !typing && (
+                <View style={styles.ratingCard}>
+                  <View style={styles.ratingHeader}>
+                    <Ionicons name="sparkles-outline" size={16} color="#6366F1"/>
+                    <Text style={styles.ratingTitle}>Quick feedback</Text>
+                  </View>
+
+                  {susSubmitted ? (
+                    <View style={styles.ratingThanks}>
+                      <Ionicons name="checkmark-circle" size={18} color="#15803D"/>
+                      <Text style={styles.ratingThanksText}>Thank you - your responses help improve AI triage accuracy.</Text>
+                    </View>
+                  ) : showSusPrompt ? (
+                    <SusQuestionnaire
+                      answers={susAnswers}
+                      onAnswer={(index, value) => {
+                        const updated = [...susAnswers];
+                        updated[index] = value;
+                        setSusAnswers(updated);
+                      }}
+                      onSubmit={submitSus}
+                      submitting={submittingSus}
+                    />
+                  ) : ratingSubmitted ? (
+                    <View style={styles.ratingThanks}>
+                      <Ionicons name="checkmark-circle" size={18} color="#15803D"/>
+                      <Text style={styles.ratingThanksText}>Thank you!</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={styles.ratingQuestion}>
+                        Did the AI correctly assess how urgent your situation was?
+                      </Text>
+                      <View style={styles.ratingButtons}>
+                        <Pressable
+                          style={[styles.ratingBtn, styles.ratingBtnYes]}
+                          onPress={() => submitRating('yes')}
+                          disabled={submittingRating}
+                        >
+                          <Text style={styles.ratingBtnYesText}>Yes</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.ratingBtn, styles.ratingBtnNo]}
+                          onPress={() => submitRating('no')}
+                          disabled={submittingRating}
+                        >
+                          <Text style={styles.ratingBtnNoText}>No</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.ratingBtn, styles.ratingBtnNeutral]}
+                          onPress={() => submitRating('somewhat')}
+                          disabled={submittingRating}
+                        >
+                          <Text style={styles.ratingBtnNeutralText}>Somewhat</Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  )}
+                </View>
+              )}
             </ScrollView>
 
             <View style={styles.quickActions}>
@@ -338,7 +563,7 @@ export default function FloatingChatButton({
                 style={styles.quickChip}
                 onPress={() => sendMessage('What can I do in MedSync?')}
               >
-                <Text style={styles.quickChipText}>About MedSync</Text>
+                <Text style={styles.quickChipText}>MedSync</Text>
               </Pressable>
 
               <Pressable
@@ -359,7 +584,7 @@ export default function FloatingChatButton({
                 style={styles.quickChip}
                 onPress={() => sendMessage('I want to book an appointment.')}
               >
-                <Text style={styles.quickChipText}>Book App</Text>
+                <Text style={styles.quickChipText}>Booking</Text>
               </Pressable>
             </View>
 
@@ -543,10 +768,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 8,
   },
 
   quickChip: {
+    minWidth: 82,
+    alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -596,6 +825,172 @@ const styles = StyleSheet.create({
 
   pressed: {
     opacity: 0.88,
+  },
+
+  ratingCard: {
+    alignSelf: 'stretch',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 18,
+    padding: 14,
+    gap: 10,
+    marginTop: 4,
+  },
+
+  ratingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  ratingTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+
+  ratingQuestion: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#475569',
+    fontWeight: '700',
+  },
+
+  ratingButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+
+  ratingBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+
+  ratingBtnYes: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+
+  ratingBtnYesText: {
+    color: '#15803D',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+
+  ratingBtnNo: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECDD3',
+  },
+
+  ratingBtnNoText: {
+    color: '#BE123C',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+
+  ratingBtnNeutral: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+
+  ratingBtnNeutralText: {
+    color: '#64748B',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+
+  ratingThanks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  ratingThanksText: {
+    flex: 1,
+    color: '#15803D',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
+  },
+
+  susTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#334155',
+    marginBottom: 10,
+  },
+
+  susQuestion: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '700',
+    marginBottom: 5,
+    lineHeight: 16,
+  },
+
+  susScale: {
+    flexDirection: 'row',
+    gap: 5,
+    marginBottom: 10,
+  },
+
+  susScaleBtn: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+
+  susScaleBtnActive: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#818CF8',
+  },
+
+  susScaleBtnText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#64748B',
+  },
+
+  susScaleBtnTextActive: {
+    color: '#4338CA',
+  },
+
+  susScaleLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+
+  susScaleLabelText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+
+  susSubmitBtn: {
+    backgroundColor: '#4338CA',
+    borderRadius: 999,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+
+  susSubmitBtnDisabled: {
+    opacity: 0.45,
+  },
+
+  susSubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
   },
 
 });

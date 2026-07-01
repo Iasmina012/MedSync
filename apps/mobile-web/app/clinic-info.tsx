@@ -337,7 +337,7 @@ export default function ClinicInfoScreen() {
           </Text>
 
           <Text style={styles.heroSubtitle}>
-            {details?.hero_subtitle || 'Explore the clinic story, contact details, schedule and location in one place.'}
+            {details?.hero_subtitle || 'Explore the clinic story, contact details, schedule and location all in one place.'}
           </Text>
 
           <View style={styles.heroPills}>
@@ -391,7 +391,7 @@ export default function ClinicInfoScreen() {
         <View style={styles.panel}>
           <Text style={styles.panelTitle}>About the Clinic</Text>
           <Text style={styles.panelText}>
-            {details?.about || 'No clinic description added yet.'}
+            {details?.about || 'No clinic description available yet.'}
           </Text>
         </View>
 
@@ -401,28 +401,28 @@ export default function ClinicInfoScreen() {
           <View style={styles.infoRow}>
             <Ionicons name="location-outline" size={18} color={theme.primary}/>
             <Text style={styles.infoText}>
-              {details?.address || 'No clinic address added yet.'}
+              {details?.address || 'No clinic address available yet.'}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Ionicons name="call-outline" size={18} color={theme.primary}/>
             <Text style={styles.infoText}>
-              {details?.phone || 'No clinic phone added yet.'}
+              {details?.phone || 'No clinic phone available yet.'}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Ionicons name="mail-outline" size={18} color={theme.primary}/>
             <Text style={styles.infoText}>
-              {details?.email || 'No clinic email added yet.'}
+              {details?.email || 'No clinic email available yet.'}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Ionicons name="time-outline" size={18} color={theme.primary}/>
             <Text style={styles.infoText}>
-              {details?.opening_hours || 'No clinic schedule added yet.'}
+              {details?.opening_hours || 'No clinic schedule available yet.'}
             </Text>
           </View>
         </View>
@@ -432,7 +432,7 @@ export default function ClinicInfoScreen() {
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Emergency Information</Text>
         <Text style={styles.panelText}>
-          {details?.emergency_text || 'No clinic emergency information added yet.'}
+          {details?.emergency_text || 'No clinic emergency information available yet.'}
         </Text>
       </View>
 

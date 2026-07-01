@@ -1,13 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import ColorPicker, { HueSlider, Panel1, Preview } from 'reanimated-color-picker';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { supabase } from '../src/lib/supabase';
 import { requireRole } from '../src/lib/adminData';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import { normalizeHex } from '../src/theme/colors';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import HoverCard from '../src/common/HoverCard';
 
 type ClinicRow = {
 
@@ -52,7 +54,7 @@ type EditingSection = {
 
 type ImageField = 'logo_url' | 'hero_image_url' | 'cover_image_url';
 
-const STORAGE_BUCKET = 'clinic-assets';
+const STORAGE_BUCKET = 'clinic-content';
 
 const EMPTY_DETAILS: DetailsRow = {
 
@@ -74,86 +76,11 @@ const EMPTY_DETAILS: DetailsRow = {
 
 const sections: EditingSection[] = [
 
-  { key: 'branding', title: 'Branding', icon: 'color-palette-outline' },
+  { key: 'branding', title: 'Branding Preview', icon: 'color-palette-outline' },
   { key: 'details', title: 'Clinic Details', icon: 'business-outline' },
   { key: 'homepage', title: 'Homepage Content', icon: 'images-outline' },
 
 ];
-
-function normalizeHex(value: string) {
-
-  const clean = value.trim();
-  if (!clean) 
-    return '#FFFFFF';
-  return clean.startsWith('#') ? clean.toUpperCase() : `#${clean.toUpperCase()}`;
-
-}
-
-function HoverCard({
-  children,
-  onPress,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-}) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const shadow = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1.015, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: -5, useNativeDriver: false, friction: 8 }),
-      Animated.timing(shadow, { toValue: 1, duration: 180, useNativeDriver: false }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: false, friction: 8 }),
-      Animated.timing(shadow, { toValue: 0, duration: 180, useNativeDriver: false }),
-    ]).start();
-  };
-
-  return (
-
-    <Pressable
-      style={styles.cardWrap}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View
-        style={[
-          styles.card,
-          {
-            transform: [{ scale }, { translateY }],
-            shadowOpacity: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.04, 0.12],
-            }) as any,
-            shadowRadius: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [8, 18],
-            }) as any,
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-
-  );
-
-}
 
 export default function ClinicSettingsScreen() {
 
@@ -167,9 +94,11 @@ export default function ClinicSettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [uploadingField, setUploadingField] = useState<ImageField | null>(null);
   const [editingSection, setEditingSection] = useState<EditingSection | null>(null);
-
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [clinic, setClinic] = useState<ClinicRow | null>(null);
   const [details, setDetails] = useState<DetailsRow>(EMPTY_DETAILS);
+  const [originalClinic, setOriginalClinic] = useState<ClinicRow | null>(null);
+  const [originalDetails, setOriginalDetails] = useState<DetailsRow>(EMPTY_DETAILS);
 
   useEffect(() => {
 
@@ -210,9 +139,9 @@ export default function ClinicSettingsScreen() {
         .eq('clinic_id', clinicId)
         .maybeSingle();
 
-      setClinic(clinicData);
+      const nextClinic = clinicData as ClinicRow;
 
-      setDetails({
+      const nextDetails = {
         about: detailsData?.about || '',
         address: detailsData?.address || '',
         phone: detailsData?.phone || '',
@@ -226,13 +155,35 @@ export default function ClinicSettingsScreen() {
         logo_url: detailsData?.logo_url || '',
         hero_image_url: detailsData?.hero_image_url || '',
         cover_image_url: detailsData?.cover_image_url || '',
-      });
+      };
 
+      setClinic(nextClinic);
+      setOriginalClinic({ ...nextClinic });
+      setDetails(nextDetails);
+      setOriginalDetails({ ...nextDetails });
       setLoading(false);
     };
     loadData();
 
   }, [clinicId]);
+
+  const hasUnsavedChanges = () => { return (JSON.stringify(clinic) !== JSON.stringify(originalClinic) || JSON.stringify(details) !== JSON.stringify(originalDetails)); };
+
+  const closeSection = () => {
+    if (!hasUnsavedChanges()) {
+      setEditingSection(null);
+      return;
+    }
+    setDiscardConfirmOpen(true);
+  };
+
+  const discardChanges = () => {
+    setDiscardConfirmOpen(false);
+    if (originalClinic) 
+      setClinic({ ...originalClinic });
+    setDetails({ ...originalDetails });
+    setEditingSection(null);
+  };
 
   const save = async () => {
     if (!clinic || !clinicId) 
@@ -290,6 +241,8 @@ export default function ClinicSettingsScreen() {
       return;
     }
 
+   setOriginalClinic(clinic ? { ...clinic } : null);
+    setOriginalDetails({ ...details });
     setEditingSection(null);
     Alert.alert('Saved', 'Clinic settings were updated.');
   };
@@ -297,6 +250,61 @@ export default function ClinicSettingsScreen() {
   const uploadImage = async (field: ImageField) => {
     if (!clinicId) 
       return;
+
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/png,image/jpeg,image/webp';
+      input.style.display = 'none';
+
+      document.body.appendChild(input);
+
+      input.onchange = async () => {
+        const file = input.files?.[0];
+
+        document.body.removeChild(input);
+
+        if (!file) 
+          return;
+
+        try {
+          setUploadingField(field);
+
+          const extension = file.name.split('.').pop() || 'jpg';
+          const filePath = `${clinicId}/${field}-${Date.now()}.${extension}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(STORAGE_BUCKET)
+            .upload(filePath, file, {
+              upsert: true,
+              contentType: file.type || `image/${extension}`,
+            });
+
+          if (uploadError) {
+            Alert.alert('Upload error', uploadError.message);
+            return;
+          }
+
+          const { data } = supabase.storage
+            .from(STORAGE_BUCKET)
+            .getPublicUrl(filePath);
+
+          const nextUrl = `${data.publicUrl}?t=${Date.now()}`;
+
+          setDetails((prev) => ({
+            ...prev,
+            [field]: nextUrl,
+          }));
+        } catch (error: any) {
+          Alert.alert('Upload error', error?.message || 'Could not upload image.');
+        } finally {
+          setUploadingField(null);
+        }
+      };
+
+      input.click();
+      return;
+    }
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -306,7 +314,7 @@ export default function ClinicSettingsScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'] as any,
       allowsEditing: true,
       quality: 0.85,
     });
@@ -355,11 +363,11 @@ export default function ClinicSettingsScreen() {
 
   const getSectionSubtitle = (key: SectionKey) => {
     if (key === 'branding')
-      return clinic?.name || 'Clinic name, slug, description and brand colors.';
+      return clinic?.name || 'Edit clinic name, slug, description and brand colors.';
     if (key === 'details')
-      return details.address || details.phone || details.email || 'Public contact information and opening hours.';
+      return details.address || details.phone || details.email || 'Edit clinic public contact information and opening hours.';
 
-    return details.hero_title || details.logo_url || 'Landing page text and image URLs.';
+    return details.hero_title || details.logo_url || 'Edit clinic homepage content.';
   };
 
   if (loading || !clinic) {
@@ -394,14 +402,14 @@ export default function ClinicSettingsScreen() {
         />
 
         <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>Clinic Admin</Text>
-          <Text style={[styles.title, { color: theme.secondary }]}>Clinic Settings</Text>
-          <Text style={styles.subtitle}>Update public clinic information, branding colors, contact details and landing page content.</Text>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>Clinic Settings</Text>
+          <Text style={[styles.title, { color: theme.secondary }]}>Configure Clinic</Text>
+          <Text style={styles.subtitle}>Update clinic public information, branding colors, contact details and landing page content.</Text>
         </View>
 
         <View style={styles.grid}>
           {sections.map((section) => (
-            <HoverCard key={section.key} onPress={() => setEditingSection(section)}>
+            <HoverCard key={section.key} pressableStyle={styles.cardWrap} cardStyle={styles.card} withShadow onPress={() => setEditingSection(section)}>
               <View style={styles.cardTop}>
                 <View style={[styles.cardIcon, { backgroundColor: `${theme.primary}12` }]}>
                   <Ionicons name={section.icon} size={22} color={theme.primary}/>
@@ -436,7 +444,7 @@ export default function ClinicSettingsScreen() {
               </View>
 
               <Text style={styles.modalTitle}>{editingSection?.title}</Text>
-              <Text style={styles.modalSubtitle}>Update this category, then save your changes.</Text>
+              <Text style={styles.modalSubtitle}>Update the desired fields in this category down below, then tap the button to save changes.</Text>
             </View>
 
             <ScrollView
@@ -484,7 +492,7 @@ export default function ClinicSettingsScreen() {
                   />
 
                   <View style={styles.previewCard}>
-                    <Text style={styles.previewLabel}>Brand preview</Text>
+                    <Text style={styles.previewLabel}>Branding preview</Text>
 
                     <View style={styles.previewDots}>
                       <View style={[styles.previewDot, { backgroundColor: clinic.primary_color || '#1D4ED8' }]}/>
@@ -563,7 +571,7 @@ export default function ClinicSettingsScreen() {
                   />
 
                   <Input
-                    label="Phone"
+                    label="Phone Number"
                     value={details.phone || ''}
                     onChangeText={(phone) => setDetails({ ...details, phone })}
                   />
@@ -622,6 +630,7 @@ export default function ClinicSettingsScreen() {
                     label="Logo"
                     value={details.logo_url || ''}
                     field="logo_url"
+                    centered
                     uploading={uploadingField === 'logo_url'}
                     onChangeText={(logo_url) => setDetails({ ...details, logo_url })}
                     onUpload={() => uploadImage('logo_url')}
@@ -656,7 +665,7 @@ export default function ClinicSettingsScreen() {
             <View style={styles.modalActions}>
               <Pressable
                 style={styles.modalCancelButton}
-                onPress={() => setEditingSection(null)}
+                onPress={closeSection}
                 disabled={saving}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
@@ -672,7 +681,31 @@ export default function ClinicSettingsScreen() {
             </View>
           </View>
         </View>
-      
+    
+      </Modal>
+
+      <Modal visible={discardConfirmOpen} transparent animationType="fade">
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="warning-outline" size={28} color="#B45309"/>
+            </View>
+
+            <Text style={styles.confirmTitle}>Discard changes?</Text>
+            <Text style={styles.confirmText}>Any unsaved edits will be lost if you continue. Make sure to save your changes before leaving.</Text>
+
+            <View style={styles.confirmActions}>
+              <Pressable style={styles.confirmCancelButton} onPress={() => setDiscardConfirmOpen(false)}>
+                <Text style={styles.confirmCancelText}>Keep editing</Text>
+              </Pressable>
+
+              <Pressable style={styles.confirmDiscardButton} onPress={discardChanges}>
+                <Text style={styles.confirmDiscardText}>Discard</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
       </Modal>
 
     </>
@@ -766,6 +799,7 @@ function ImageInput({
   onChangeText,
   onUpload,
   onRemove,
+  centered,
 }: {
   label: string;
   value: string;
@@ -775,6 +809,7 @@ function ImageInput({
   onChangeText: (value: string) => void;
   onUpload: () => void;
   onRemove: () => void;
+  centered?: boolean;
 }) {
 
   const hasImage = Boolean(value?.trim());
@@ -783,9 +818,8 @@ function ImageInput({
     <View style={styles.inputWrap}>
       <Text style={styles.inputLabel}>{label}</Text>
 
-      <View style={[styles.imagePreviewBox, wide && styles.imagePreviewBoxWide]}>
-        {hasImage ? (
-          <Image source={{ uri: value }} style={styles.imagePreview}/>
+      <View style={[styles.imagePreviewBox, wide && styles.imagePreviewBoxWide, centered && styles.imagePreviewBoxCentered]}>
+        {hasImage ? ( <Image source={{ uri: value }} style={styles.imagePreview}/>
         ) : (
           <View style={styles.imagePlaceholder}>
             <Ionicons name="image-outline" size={28} color="#64748B"/>
@@ -1142,6 +1176,10 @@ const styles = StyleSheet.create({
     height: 180,
   },
 
+  imagePreviewBoxCentered: {
+    alignSelf: 'center',
+  },
+
   imagePreview: {
     width: '100%',
     height: '100%',
@@ -1164,21 +1202,20 @@ const styles = StyleSheet.create({
 
   imageActions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
-    marginTop: -4,
+    flexWrap: 'wrap',
   },
 
   imageButton: {
+    alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: '#CBD5E1',
     borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    backgroundColor: '#FFFFFF',
+    gap: 8,
   },
 
   imageButtonText: {
@@ -1188,15 +1225,16 @@ const styles = StyleSheet.create({
   },
 
   imageDangerButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF1F2',
     borderWidth: 1,
     borderColor: '#FECDD3',
     borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    backgroundColor: '#FFF1F2',
+    gap: 8,
   },
 
   imageDangerText: {
@@ -1263,6 +1301,87 @@ const styles = StyleSheet.create({
   },
 
   modalSaveText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  confirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  confirmIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+
+  confirmTitle: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  confirmText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+
+  confirmCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+
+  confirmCancelText: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+
+  confirmDiscardButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  confirmDiscardText: {
     color: '#FFFFFF',
     fontWeight: '900',
   },

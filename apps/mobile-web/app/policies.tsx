@@ -5,6 +5,7 @@ import { getCurrentUserProfile } from '../src/lib/auth';
 import { getBackPathWithClinicFallback } from '../src/lib/navigation';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 import ClinicNavbar from '../src/common/ClinicNavbar';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function PoliciesScreen() {
 
@@ -76,29 +77,56 @@ export default function PoliciesScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Account Use</Text>
-        <Text style={styles.text}>
-          Keep your login secure and do not share access with other people. You are responsible for activity performed using your account.
-        </Text>
+        <PolicyItem icon="key-outline" title="Account responsibility" color={theme.primary}>
+          Keep your login details private and use your account only for authorized activity. Do not share access or impersonate another user.
+        </PolicyItem>
 
-        <Text style={styles.sectionTitle}>Clinic Communication</Text>
-        <Text style={styles.text}>
-          Messages, appointment requests and medical notes must be used respectfully and only for legitimate health-related communication.
-        </Text>
+        <PolicyItem icon="chatbubbles-outline" title="Communication rules" color={theme.primary}>
+          Appointment notes, messages and clinic communication should stay respectful, accurate and related to healthcare or clinic services.
+        </PolicyItem>
 
-        <Text style={styles.sectionTitle}>Medical Information</Text>
-        <Text style={styles.text}>
-          This platform supports communication and organization, but urgent medical issues must follow the clinic emergency instructions and local emergency services.
-        </Text>
+        <PolicyItem icon="medkit-outline" title="Medical limitations" color={theme.primary}>
+          MedSync helps organize care, but it does not replace emergency services. For urgent symptoms, contact your clinic or local emergency services.
+        </PolicyItem>
 
-        <Text style={styles.sectionTitle}>Platform Conduct</Text>
-        <Text style={styles.text}>
-          Abusive behavior, spam, misuse of patient data or unauthorized access attempts may lead to account restriction.
-        </Text>
+        <PolicyItem icon="document-attach-outline" title="Document policy" color={theme.primary}>
+          Uploaded files and medical notes must be relevant, lawful and appropriate for care. Do not upload false, harmful or unauthorized material.
+        </PolicyItem>
+
+        <PolicyItem icon="lock-closed-outline" title="Platform safety" color={theme.primary}>
+          Misusing patient data, bypassing permissions, disrupting the platform or accessing restricted areas may lead to account restrictions.
+        </PolicyItem>
       </View>
 
     </ScrollView>
 
+  );
+
+}
+
+function PolicyItem({
+  icon,
+  title,
+  children,
+  color,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  children: React.ReactNode;
+  color: string;
+}) {
+
+  return (
+    <View style={styles.policyItem}>
+      <View style={[styles.policyIcon, { backgroundColor: `${color}12` }]}>
+        <Ionicons name={icon} size={20} color={color}/>
+      </View>
+
+      <View style={styles.policyContent}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={styles.text}>{children}</Text>
+      </View>
+    </View>
   );
 
 }
@@ -147,15 +175,38 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 22,
+    padding: 18,
+    gap: 14,
+  },
+
+  policyItem: {
+    flexDirection: 'row',
+    gap: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    padding: 16,
+  },
+
+  policyIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  policyContent: {
+    flex: 1,
+    minWidth: 0,
   },
 
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '900',
     color: '#0F172A',
-    marginTop: 10,
-    marginBottom: 8,
+    marginBottom: 6,
   },
 
   text: {

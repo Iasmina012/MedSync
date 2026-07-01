@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View, } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { getBackPathWithClinicFallback } from '../src/lib/navigation';
 import { useClinicTheme } from '../src/lib/clinicTheme';
@@ -68,37 +69,64 @@ export default function PrivacyScreen() {
           Privacy
         </Text>
         <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-          How your data is protected
+          See how your data is protected
         </Text>
         <Text style={styles.heroSubtitle}>
-          Understand what information is stored and how it is used inside the platform.
+          Understand what information is stored and how it is used inside our platform.
         </Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Data we store</Text>
-        <Text style={styles.text}>
-          We store account details, clinic membership, profile information, appointments and health-related platform records that are necessary for the services you use.
-        </Text>
+        <PrivacyItem icon="server-outline" title="Data we collect" color={theme.primary}>
+          MedSync stores the information needed to provide your account, clinic access, appointments, uploaded files, medical records and communication history.
+        </PrivacyItem>
 
-        <Text style={styles.sectionTitle}>How we use your data</Text>
-        <Text style={styles.text}>
-          Your data is used to provide appointments, communication, onboarding, health information and clinic-specific features. Access is limited by role.
-        </Text>
+        <PrivacyItem icon="eye-outline" title="How your data is used" color={theme.primary}>
+          Your data is used to schedule care, organize records, support clinic communication, prepare onboarding summaries and personalize your experience by role.
+        </PrivacyItem>
 
-        <Text style={styles.sectionTitle}>Your control</Text>
-        <Text style={styles.text}>
-          You can update your profile details, manage certain preferences and request support for account-related privacy questions.
-        </Text>
+        <PrivacyItem icon="people-outline" title="Role-based access" color={theme.primary}>
+          Patients can view their own data, doctors can access relevant care information, clinic admins manage clinic operations and platform admins support the system securely.
+        </PrivacyItem>
 
-        <Text style={styles.sectionTitle}>Security</Text>
-        <Text style={styles.text}>
-          We use authentication, role-based access and secure storage practices to reduce unauthorized access to your information.
-        </Text>
+        <PrivacyItem icon="create-outline" title="Your control" color={theme.primary}>
+          You can update your profile details and contact support for privacy questions, account changes or information requests.
+        </PrivacyItem>
+
+        <PrivacyItem icon="shield-checkmark-outline" title="Protection and security" color={theme.primary}>
+          MedSync uses authentication, role-based permissions and secure storage practices to help protect personal and health-related information.
+        </PrivacyItem>
       </View>
 
     </ScrollView>
 
+  );
+
+}
+
+function PrivacyItem({
+  icon,
+  title,
+  children,
+  color,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  children: React.ReactNode;
+  color: string;
+}) {
+
+  return (
+    <View style={styles.PrivacyItem}>
+      <View style={[styles.policyIcon, { backgroundColor: `${color}12` }]}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+
+      <View style={styles.policyContent}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={styles.text}>{children}</Text>
+      </View>
+    </View>
   );
 
 }
@@ -148,15 +176,38 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 22,
+    padding: 18,
+    gap: 14,
+  },
+
+  PrivacyItem: {
+    flexDirection: 'row',
+    gap: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    padding: 16,
+  },
+
+  policyIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  policyContent: {
+    flex: 1,
+    minWidth: 0,
   },
 
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '900',
     color: '#0F172A',
-    marginTop: 10,
-    marginBottom: 8,
+    marginBottom: 6,
   },
 
   text: {

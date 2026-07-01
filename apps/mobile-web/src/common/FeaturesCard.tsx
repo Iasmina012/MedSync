@@ -116,6 +116,7 @@ export default function FeaturesCard({
           style={[
             styles.card,
             compact && styles.cardCompact,
+            mobileTwoColumns && styles.cardMobileTwoColumns,
             hideDescription && styles.cardMobileSimple,
             {
               backgroundColor,
@@ -130,23 +131,13 @@ export default function FeaturesCard({
           <View
             style={[
               styles.iconWrap,
-              { backgroundColor: '#FFFFFF' },
               hideDescription && styles.iconWrapMobileCentered,
+              { backgroundColor: '#FFFFFF' },
             ]}
           >
             <Ionicons name={icon} size={22} color={color}/>
           </View>
-
-          <Text
-            style={[
-              styles.title,
-              hideDescription && styles.titleMobileSimple,
-            ]}
-            numberOfLines={2}
-          >
-            {title}
-          </Text>
-
+          <Text style={[styles.title, hideDescription && styles.titleMobileSimple]} numberOfLines={hideDescription ? 2 : 1}>{hideDescription ? title.replace(' ', '\n') : title}</Text>
           {!hideDescription && (
             <Text style={styles.description}>{description}</Text>
           )}
@@ -155,8 +146,7 @@ export default function FeaturesCard({
       )}
 
     </Pressable>
-  
-);
+  );
 
 }
 
@@ -170,30 +160,39 @@ const styles = StyleSheet.create({
 
   pressableMobileTwoColumns: {
     flexBasis: '47%',
+    maxWidth: '47%',
     minWidth: 0,
     flexGrow: 0,
+    flexShrink: 0,
   },
 
-card: {
-  borderRadius: 24,
-  borderWidth: 1,
-  padding: 18,
-  minHeight: 154,
-  shadowColor: '#0F172A',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: Platform.OS === 'web' ? 0.04 : 0,
-  shadowRadius: Platform.OS === 'web' ? 8 : 0,
-  elevation: Platform.OS === 'web' ? 2 : 0,
-},
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 18,
+    minHeight: 154,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: Platform.OS === 'web' ? 0.04 : 0,
+    shadowRadius: Platform.OS === 'web' ? 8 : 0,
+    elevation: Platform.OS === 'web' ? 2 : 0,
+  },
 
   cardCompact: {
     minHeight: 138,
   },
 
   cardMobileSimple: {
-    minHeight: 132,
+    height: 145,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  cardMobileTwoColumns: {
+    height: 145,
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   iconWrap: {
@@ -206,6 +205,9 @@ card: {
   },
 
   iconWrapMobileCentered: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     marginBottom: 12,
   },
 
@@ -218,9 +220,10 @@ card: {
 
   titleMobileSimple: {
     marginBottom: 0,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 18,
     textAlign: 'center',
+    maxWidth: '95%',
   },
 
   description: {

@@ -145,14 +145,14 @@ function ClinicAnimatedCard({
           <Text style={styles.clinicName}>{clinic.name}</Text>
 
           <Text style={styles.clinicDescription}>
-            {clinic.description || 'Clinic available in the platform.'}
+            {clinic.description || 'Clinic available inside the platform.'}
           </Text>
 
           <View style={styles.cardBottom}>
             <Text style={[styles.cardBottomText, { color: clinicPrimary }]}>
               Continue
             </Text>
-            <Ionicons name="arrow-forward" size={18} color={clinicPrimary} />
+            <Ionicons name="arrow-forward" size={18} color={clinicPrimary}/>
           </View>
         </Animated.View>
       )}
@@ -167,6 +167,7 @@ export default function ClinicSelectionScreen() {
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState('');
+  const [role, setRole] = useState('');
 
   useEffect(() => {
 
@@ -181,7 +182,7 @@ export default function ClinicSelectionScreen() {
           router.replace('/login');
           return;
         }
-
+        setRole(profile.role ?? '');
         if (profile.role === 'platform_admin') {
           router.replace('/main-platform-admin');
           return;
@@ -241,8 +242,8 @@ export default function ClinicSelectionScreen() {
           if (assignedClinics.length === 0) {
             setError(
               membershipRole === 'doctor'
-                ? 'No clinics are assigned to this doctor yet.'
-                : 'No clinics are assigned to this clinic admin yet.'
+                ? 'No clinics are connected to this doctor yet.'
+                : 'No clinics are connected to this clinic admin yet.'
             );
             return;
           }
@@ -285,6 +286,11 @@ export default function ClinicSelectionScreen() {
     loadData();
   
   }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.replace('/login');
+  };
 
   const openConfirm = (clinic: Clinic) => {
     setSelectedClinic(clinic);
@@ -365,7 +371,7 @@ export default function ClinicSelectionScreen() {
 
   return (
 
-    <PublicPageLayout>
+    <PublicPageLayout showWebNavbar={role === 'patient'} showWebFloatingChat={role === 'patient'}>
 
       <ScrollView contentContainerStyle={styles.container}>
         
@@ -384,7 +390,14 @@ export default function ClinicSelectionScreen() {
               />
             </View>
 
-          { Platform.OS !== 'web' && <MobileClinicsLogout inline/> }
+          {Platform.OS !== 'web' ? (
+            <MobileClinicsLogout inline/>
+          ) : role !== 'patient' ? (
+            <Pressable style={styles.heroLogoutButton} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={18} color="#DC2626"/>
+              <Text style={styles.heroLogoutText}>Logout</Text>
+            </Pressable>
+          ) : null}
           </View>
 
           <Text style={styles.title}>Choose Your Clinic</Text>
@@ -409,7 +422,7 @@ export default function ClinicSelectionScreen() {
         ) : !error ? (
           <View style={styles.emptyCard}>
             <Ionicons name="alert-circle-outline" size={24} color="#F59E0B" />
-            <Text style={styles.emptyTitle}>No clinics available yet!</Text>
+            <Text style={styles.emptyTitle}>No clinics available yet</Text>
             <Text style={styles.emptyText}>
               There are no clinics available for your account right now.
             </Text>
@@ -529,6 +542,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     lineHeight: 22,
+  },
+
+  heroLogoutButton: {
+    minHeight: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  heroLogoutText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '800',
   },
 
   grid: {

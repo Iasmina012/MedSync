@@ -2,41 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useClinicTheme } from '../src/lib/clinicTheme';
+import { supabase } from '../src/lib/supabase';
+import { requireRole, countRows } from '../src/lib/adminData';
+import { rgbaFromHex } from '../src/theme/colors';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
-import { useClinicTheme } from '../src/lib/clinicTheme';
-import { supabase } from '../src/lib/supabase';
 import FloatingChatButton from '../src/common/FloatingChatButton';
-import { requireRole, countRows } from '../src/lib/adminData';
-
-function hexToRgb(hex: string) {
-
-  const clean = hex.replace('#', '');
-  const normalized =
-    clean.length === 3
-      ? clean
-          .split('')
-          .map((char) => char + char)
-          .join('')
-      : clean;
-
-  const bigint = parseInt(normalized, 16);
-
-  return {
-    r: (bigint >> 16) & 255,
-    g: (bigint >> 8) & 255,
-    b: bigint & 255,
-  };
-
-}
-
-function rgbaFromHex(hex: string, alpha: number) {
-
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-
-}
 
 export default function PlatformAdminDashboard() {
 
@@ -115,27 +88,6 @@ useEffect(() => {
     clinicAdmins: 0,
   });
 
-  useEffect(() => {
-    const load = async () => {
-      const roleCheck = await requireRole(['platform_admin']);
-      if (!roleCheck.user) return router.replace('/login');
-      if (roleCheck.error === 'role') return router.replace('/main-patient');
-
-      const [clinics, doctors, patients, clinicAdmins] = await Promise.all([
-        countRows('clinics'),
-        countRows('doctors', (q) => q.eq('is_active', true)),
-        countRows('profiles', (q) => q.eq('role', 'patient')),
-        countRows('profiles', (q) => q.eq('role', 'clinic_admin')),
-      ]);
-
-      setStats({ clinics, doctors, patients, clinicAdmins });
-    };
-
-    load();
-  }, []);
-
-  
-
   const featureAccentA = rgbaFromHex(theme.primary, 0.11);
   const featureAccentB = rgbaFromHex(theme.primary, 0.18);
   const featureBorderA = rgbaFromHex(theme.primary, 0.22);
@@ -143,10 +95,10 @@ useEffect(() => {
 
   const featureItems = [
 
-  { title: 'Manage Users', icon: 'people-outline' as const, description: 'Manage platform users and roles.', onPress: () => go('/manage-users') },
-  { title: 'Manage Clinics', icon: 'business-outline' as const, description: 'Configure clinics platform-wide.', onPress: () => go('/manage-clinics') },
-  { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'View all appointments.', onPress: () => go('/manage-appointments'), },
-  { title: 'Analytics', icon: 'bar-chart-outline' as const, description: 'Global usage and reporting.', onPress: () => go('/analytics') },
+  { title: 'Manage Users', icon: 'people-outline' as const, description: 'Create new users and edit user details.', onPress: () => go('/manage-users') },
+  { title: 'Manage Clinics', icon: 'business-outline' as const, description: 'Create and configure clinics platform-wide.', onPress: () => go('/manage-clinics') },
+  { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'View and edit all appointments.', onPress: () => go('/manage-appointments'), },
+  { title: 'View Analytics', icon: 'bar-chart-outline' as const, description: 'Track global usage and reporting.', onPress: () => go('/analytics') },
 
   ];
 
@@ -170,22 +122,22 @@ useEffect(() => {
           { backgroundColor: theme.soft, borderColor: theme.borderSoft },
         ]}
       >
-        <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>
-          MedSync Admin Dashboard
-        </Text>
-        <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>
-          Placeholder Title
-        </Text>
-        <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-          Placeholder Subtitle
-        </Text>
+        <Text style={[styles.heroEyebrow, isMobile && styles.heroTextCenter, { color: theme.primary }]}>MedSync Admin Dashboard</Text>
+        <Text style={[styles.heroTitle, isMobile && styles.heroTextCenter, { color: theme.secondary }]}>Monitor MedSync at Scale</Text>
+        <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>Oversee clinics, users, appointments and the platoform&apos;s activity from a single dashboard.</Text>
       </View>
 
       <View style={styles.statsGrid}>
-        <AnimatedStatsCard label="Clinics" value={stats.clinics} icon="business-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Doctors" value={stats.doctors} icon="medkit-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Patients" value={stats.patients} icon="people-outline" color={theme.primary}/>
-        <AnimatedStatsCard label="Clinic Admins" value={stats.clinicAdmins} icon="shield-checkmark-outline" color={theme.primary}/>
+        {[
+          { label: 'Clinics', value: stats.clinics, icon: 'business-outline' as const },
+          { label: 'Doctors', value: stats.doctors, icon: 'medkit-outline' as const },
+          { label: 'Patients', value: stats.patients, icon: 'people-outline' as const },
+          { label: 'Clinic Admins', value: stats.clinicAdmins, icon: 'shield-checkmark-outline' as const },
+        ].map((item) => (
+          <View key={item.label} style={isMobile ? styles.statMobileItem : styles.statWebItem}>
+            <AnimatedStatsCard {...item} color={theme.primary} centered={isMobile}/>
+          </View>
+        ))}
       </View>
 
       <View style={styles.section}>
@@ -219,24 +171,24 @@ useEffect(() => {
         <Text style={styles.sectionTitle}>Platform Overview</Text>
 
         <View style={styles.miniStatsGrid}>
-          <View style={styles.miniStatCard}>
-            <Text style={styles.miniStatValue}>{platformActivity.activeClinics}</Text>
-            <Text style={styles.miniStatLabel}>Active clinics</Text>
+          <View style={[styles.miniStatCard, isMobile && styles.miniStatCardMobile]}>
+            <Text style={[styles.miniStatValue, isMobile && styles.miniStatValueMobile]}>{platformActivity.activeClinics}</Text>
+            <Text style={[styles.miniStatLabel, isMobile && styles.miniStatLabelMobile]}>Active clinics</Text>
           </View>
 
-          <View style={styles.miniStatCard}>
-            <Text style={styles.miniStatValue}>{platformActivity.inactiveClinics}</Text>
-            <Text style={styles.miniStatLabel}>Inactive clinics</Text>
+          <View style={[styles.miniStatCard, isMobile && styles.miniStatCardMobile]}>
+            <Text style={[styles.miniStatValue, isMobile && styles.miniStatValueMobile]}>{platformActivity.inactiveClinics}</Text>
+            <Text style={[styles.miniStatLabel, isMobile && styles.miniStatLabelMobile]}>Inactive clinics</Text>
           </View>
 
-          <View style={styles.miniStatCard}>
-            <Text style={styles.miniStatValue}>{platformActivity.appointmentsToday}</Text>
-            <Text style={styles.miniStatLabel}>Appointments today</Text>
+          <View style={[styles.miniStatCard, isMobile && styles.miniStatCardMobile]}>
+            <Text style={[styles.miniStatValue, isMobile && styles.miniStatValueMobile]}>{platformActivity.appointmentsToday}</Text>
+            <Text style={[styles.miniStatLabel, isMobile && styles.miniStatLabelMobile]}>Appointments today</Text>
           </View>
 
-          <View style={styles.miniStatCard}>
-            <Text style={styles.miniStatValue}>{platformActivity.triageSessions}</Text>
-            <Text style={styles.miniStatLabel}>AI triage sessions</Text>
+          <View style={[styles.miniStatCard, isMobile && styles.miniStatCardMobile]}>
+            <Text style={[styles.miniStatValue, isMobile && styles.miniStatValueMobile]}>{platformActivity.triageSessions}</Text>
+            <Text style={[styles.miniStatLabel, isMobile && styles.miniStatLabelMobile]}>AI triage sessions</Text>
           </View>
         </View>
 
@@ -415,6 +367,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 
+  miniStatCardMobile: {
+    flexBasis: '47%',
+    flexGrow: 0,
+    alignItems: 'center',
+  },
+
   miniStatValue: {
     fontSize: 26,
     fontWeight: '900',
@@ -426,6 +384,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#64748B',
+  },
+
+  miniStatValueMobile: {
+    textAlign: 'center',
+  },
+
+  miniStatLabelMobile: {
+    textAlign: 'center',
   },
 
   subSectionTitle: {
@@ -445,6 +411,14 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '900',
+  },
+
+  statWebItem: {
+    flex: 1,
+  },
+
+  statMobileItem: {
+    width: '47%',
   },
 
 });

@@ -1,11 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import ColorPicker, { HueSlider, Panel1, Preview } from 'reanimated-color-picker';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { supabase } from '../src/lib/supabase';
 import { requireRole } from '../src/lib/adminData';
+import { normalizeHex } from '../src/theme/colors';
+import ColorPicker, { HueSlider, Panel1, Preview } from 'reanimated-color-picker';
+import ClinicNavbar from '../src/common/ClinicNavbar';
+import HoverCard from '../src/common/HoverCard';
 
 type Clinic = {
 
@@ -37,87 +39,13 @@ function cloneClinic(clinic: Clinic): Clinic {
   return { ...clinic };
 }
 
-function normalizeHex(value: string) {
-
-  const clean = value.trim();
-  if (!clean) 
-    return '#FFFFFF';
-
-  return clean.startsWith('#') ? clean.toUpperCase() : `#${clean.toUpperCase()}`;
-
-}
-
-function HoverCard({
-  children,
-  onPress,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-}) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const shadow = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1.015, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: -5, useNativeDriver: false, friction: 8 }),
-      Animated.timing(shadow, { toValue: 1, duration: 180, useNativeDriver: false }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: false, friction: 8 }),
-      Animated.timing(shadow, { toValue: 0, duration: 180, useNativeDriver: false }),
-    ]).start();
-  };
-
-  return (
-
-    <Pressable
-      style={styles.cardWrap}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View
-        style={[
-          styles.card,
-          {
-            transform: [{ scale }, { translateY }],
-            shadowOpacity: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.04, 0.12],
-            }) as any,
-            shadowRadius: shadow.interpolate({
-              inputRange: [0, 1],
-              outputRange: [8, 18],
-            }) as any,
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
-
-  );
-
-}
-
 export default function ManageClinicsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [editing, setEditing] = useState<Clinic | null>(null);
+  const [originalEditing, setOriginalEditing] = useState<Clinic | null>(null);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const loadClinics = async () => {
@@ -144,6 +72,30 @@ export default function ManageClinicsScreen() {
   useEffect(() => {
     loadClinics();
   }, []);
+
+  const hasUnsavedChanges = () => {
+    if (!editing || !originalEditing) return false;
+
+    const isNew = !editing.id;
+
+    return isNew || JSON.stringify(editing) !== JSON.stringify(originalEditing);
+  };
+
+  const closeEditing = () => {
+    if (!hasUnsavedChanges()) {
+      setEditing(null);
+      setOriginalEditing(null);
+      return;
+    }
+
+    setDiscardConfirmOpen(true);
+  };
+
+  const discardChanges = () => {
+    setDiscardConfirmOpen(false);
+    setEditing(null);
+    setOriginalEditing(null);
+  };
 
   const saveClinic = async () => {
     if (!editing?.name.trim()) {
@@ -173,6 +125,7 @@ export default function ManageClinicsScreen() {
     }
 
     setEditing(null);
+    setOriginalEditing(null);
     loadClinics();
   };
 
@@ -215,11 +168,15 @@ export default function ManageClinicsScreen() {
         />
 
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>Platform Admin</Text>
-          <Text style={styles.title}>Manage Clinics</Text>
-          <Text style={styles.subtitle}>Create clinics, edit branding colors, descriptions and activate or deactivate clinics.</Text>
+          <Text style={styles.eyebrow}>Manage Clinics</Text>
+          <Text style={styles.title}>Supervise the Clinics</Text>
+          <Text style={styles.subtitle}>Create and edit clinic information with ease. Customize branding colors, descriptions and basic details, while also quickly activating or deactivating clinics as needed.</Text>
 
-          <Pressable style={styles.primaryButton} onPress={() => setEditing(cloneClinic(emptyClinic))}>
+          <Pressable style={styles.primaryButton} onPress={() => {
+              const next = cloneClinic(emptyClinic);
+              setEditing(next);
+              setOriginalEditing(cloneClinic(next));
+            }}>
             <Ionicons name="add-outline" size={18} color="#FFFFFF"/>
             <Text style={styles.primaryButtonText}>New Clinic</Text>
           </Pressable>
@@ -227,31 +184,45 @@ export default function ManageClinicsScreen() {
 
         <View style={styles.grid}>
           {clinics.map((clinic) => (
-            <HoverCard key={clinic.id} onPress={() => setEditing(cloneClinic(clinic))}>
+            <HoverCard
+              key={clinic.id}
+              pressableStyle={styles.cardWrap}
+              cardStyle={styles.card}
+              withShadow
+              onPress={() => {
+                const next = cloneClinic(clinic);
+                setEditing(next);
+                setOriginalEditing(cloneClinic(next));
+              }}
+            >
               <View style={styles.cardTop}>
                 <View style={styles.cardTitleWrap}>
                   <Text style={styles.cardTitle}>{clinic.name}</Text>
                   <Text style={styles.cardMeta}>{clinic.slug || 'No slug'}</Text>
                 </View>
 
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: clinic.is_active ? '#DCFCE7' : '#FEE2E2' },
-                  ]}
-                >
-                  <Text
+                <View style={styles.cardRight}>
+                  <View
                     style={[
-                      styles.statusText,
-                      { color: clinic.is_active ? '#166534' : '#991B1B' },
+                      styles.statusBadge,
+                      { backgroundColor: clinic.is_active ? '#DCFCE7' : '#FEE2E2' },
                     ]}
                   >
-                    {clinic.is_active ? 'Active' : 'Inactive'}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: clinic.is_active ? '#166534' : '#991B1B' },
+                      ]}
+                    >
+                      {clinic.is_active ? 'Active' : 'Inactive'}
+                    </Text>
+                  </View>
+
+                  <Ionicons name="chevron-forward-outline" size={20} color="#94A3B8" />
                 </View>
               </View>
 
-              <Text style={styles.cardDescription}>{clinic.description || 'No description.'}</Text>
+              <Text style={styles.cardDescription}>{clinic.description || 'No description added yet.'}</Text>
 
               <View style={styles.colorRow}>
                 <View style={[styles.colorDot, { backgroundColor: clinic.primary_color }]}/>
@@ -270,7 +241,9 @@ export default function ManageClinicsScreen() {
                   ]}
                   onPress={(event) => {
                     event.stopPropagation?.();
-                    setEditing(cloneClinic(clinic));
+                    const next = cloneClinic(clinic);
+                    setEditing(next);
+                    setOriginalEditing(cloneClinic(next));
                   }}
                 >
                   <Text style={styles.secondaryButtonText}>Edit</Text>
@@ -316,7 +289,7 @@ export default function ManageClinicsScreen() {
 
               <Text style={styles.modalTitle}>{editing?.id ? 'Edit Clinic' : 'New Clinic'}</Text>
 
-              <Text style={styles.modalSubtitle}>Update clinic branding and basic information. Changes are saved directly to the database.</Text>
+              <Text style={styles.modalSubtitle}>Update the clinic&apos;s branding and basic information. Changes made here are saved directly to the database.</Text>
             </View>
 
             {editing && (
@@ -363,7 +336,7 @@ export default function ManageClinicsScreen() {
                 />
 
                 <View style={styles.previewCard}>
-                  <Text style={styles.previewLabel}>Brand preview</Text>
+                  <Text style={styles.previewLabel}>Branding preview</Text>
 
                   <View style={styles.previewDots}>
                     <View style={[styles.previewDot, { backgroundColor: editing.primary_color || '#1D4ED8' }]}/>
@@ -427,12 +400,39 @@ export default function ManageClinicsScreen() {
             )}
 
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelButton} onPress={() => setEditing(null)} disabled={saving}>
+              <Pressable style={styles.modalCancelButton} onPress={closeEditing} disabled={saving}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
 
               <Pressable style={styles.modalSaveButton} onPress={saveClinic} disabled={saving}>
                 <Text style={styles.modalSaveText}>{saving ? 'Saving...' : 'Save Clinic'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={discardConfirmOpen} transparent animationType="fade">
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="warning-outline" size={28} color="#B45309"/>
+            </View>
+
+            <Text style={styles.confirmTitle}>Discard changes?</Text>
+
+            <Text style={styles.confirmText}>Any unsaved edits will be lost if you continue. Make sure to save your changes before leaving.</Text>
+
+            <View style={styles.confirmActions}>
+              <Pressable
+                style={styles.confirmCancelButton}
+                onPress={() => setDiscardConfirmOpen(false)}
+              >
+                <Text style={styles.confirmCancelText}>Keep editing</Text>
+              </Pressable>
+
+              <Pressable style={styles.confirmDiscardButton} onPress={discardChanges}>
+                <Text style={styles.confirmDiscardText}>Discard</Text>
               </Pressable>
             </View>
           </View>
@@ -621,15 +621,26 @@ const styles = StyleSheet.create({
   },
 
   statusBadge: {
+    minHeight: 34,
     borderRadius: 999,
-    paddingHorizontal: 10,
+    paddingHorizontal: 18,
     paddingVertical: 6,
-    alignSelf: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
   },
 
   statusText: {
     fontWeight: '900',
     fontSize: 12,
+    lineHeight: 14,
+  },
+
+  cardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
 
   colorRow: {
@@ -943,6 +954,87 @@ const styles = StyleSheet.create({
   },
 
   modalSaveText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+    
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  confirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  confirmIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+
+  confirmTitle: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  confirmText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+
+  confirmCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+
+  confirmCancelText: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+
+  confirmDiscardButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  confirmDiscardText: {
     color: '#FFFFFF',
     fontWeight: '900',
   },

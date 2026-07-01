@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, Alert} from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View, Alert, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import ClinicNavbar from '../src/common/ClinicNavbar';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { supabase } from '../src/lib/supabase';
 import { useClinicTheme } from '../src/lib/clinicTheme';
+import ClinicNavbar from '../src/common/ClinicNavbar';
 import PatientHealthCharts from '../src/common/PatientHealthCharts';
+import HoverCard from '../src/common/HoverCard';
 
 type HistoryItem = {
 
@@ -194,46 +195,6 @@ function getStatusLabel(status?: string | null) {
 
 }
 
-function HoverCard({ children, onPress, }: { children: React.ReactNode; onPress: () => void; }) {
-
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const animateIn = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1.015, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: -5, useNativeDriver: false, friction: 8 }),
-    ]).start();
-  };
-
-  const animateOut = () => {
-    if (Platform.OS !== 'web') 
-      return;
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: false, friction: 8 }),
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: false, friction: 8 }),
-    ]).start();
-  };
-
-  return (
-    <Pressable
-      style={styles.cardWrap}
-      onPress={onPress}
-      onHoverIn={animateIn}
-      onHoverOut={animateOut}
-      onPressIn={animateIn}
-      onPressOut={animateOut}
-    >
-      <Animated.View style={[styles.card, { transform: [{ scale }, { translateY }] }]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-
-}
-
 function ExpandableSection({ title, children, defaultOpen = false, }: { title: string; children: React.ReactNode; defaultOpen?: boolean; }) {
 
   const [open, setOpen] = useState(defaultOpen);
@@ -250,10 +211,10 @@ function ExpandableSection({ title, children, defaultOpen = false, }: { title: s
 
 }
 
-function SummaryPill({ icon, label, value, }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; }) {
+function SummaryPill({ icon, label, value, mobile = false, }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; mobile?: boolean; }) {
 
   return (
-    <View style={styles.summaryPill}>
+    <View style={[styles.summaryPill, mobile && styles.summaryPillMobile]}>
       <Ionicons name={icon} size={15} color="#64748B"/>
       <Text style={styles.summaryPillText}>{label}</Text>
       <Text style={styles.summaryPillValue}>{value}</Text>
@@ -318,6 +279,8 @@ export default function MyPatientsHistoryScreen() {
   }>();
 
   const { theme } = useClinicTheme(clinicId);
+  const { width } = useWindowDimensions();
+  const isMobile = width < 720;
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [records, setRecords] = useState<MedicalRecord[]>([]);
@@ -737,9 +700,9 @@ export default function MyPatientsHistoryScreen() {
         />
 
         <View style={[styles.hero, { backgroundColor: theme.soft, borderColor: theme.borderSoft }]}>
-          <Text style={[styles.eyebrow, { color: theme.primary }]}>Doctor</Text>
-          <Text style={[styles.title, { color: theme.secondary }]}>Patient History</Text>
-          <Text style={styles.subtitle}>Review patients, appointments, medical records and uploaded files.</Text>
+          <Text style={[styles.eyebrow, { color: theme.primary }]}>My Patient History</Text>
+          <Text style={[styles.title, { color: theme.secondary }]}>Oversee all History</Text>
+          <Text style={styles.subtitle}>Review all information regarding patients in one place such as appointments, medical records and files.</Text>
         </View>
 
         {patientGroups.length === 0 ? (
@@ -755,7 +718,12 @@ export default function MyPatientsHistoryScreen() {
               const aiTriageCount = patient.appointments.filter((appointment) => appointment.triage_session_id).length;
 
               return (
-                <HoverCard key={patient.patientId} onPress={() => setSelectedPatient(patient)}>
+                <HoverCard
+                  key={patient.patientId}
+                  pressableStyle={styles.cardWrap}
+                  cardStyle={styles.card}
+                  onPress={() => setSelectedPatient(patient)}
+                >
                   <View style={styles.cardTop}>
                     <View style={[styles.avatarBox, { backgroundColor: `${theme.primary}12` }]}>
                       {patient.avatarUrl ? (
@@ -772,11 +740,11 @@ export default function MyPatientsHistoryScreen() {
                     <Ionicons name="chevron-forward-outline" size={24} color="#94A3B8"/>
                   </View>
 
-                  <View style={styles.patientSummaryGrid}>
-                    <SummaryPill icon="calendar-outline" label="Appointments" value={`${patient.appointments.length}`}/>
-                    <SummaryPill icon="document-text-outline" label="Medical Records" value={`${patient.records.length}`}/>
-                    <SummaryPill icon="folder-open-outline" label="Medical Files" value={`${patient.files.length}`}/>
-                    <SummaryPill icon="sparkles-outline" label="AI Triage Sessions" value={`${aiTriageCount}`}/>
+                  <View style={[styles.patientSummaryGrid, isMobile && styles.patientSummaryGridMobile]}>
+                    <SummaryPill icon="calendar-outline" label="Appointments" value={`${patient.appointments.length}`} mobile={isMobile}/>
+                    <SummaryPill icon="document-text-outline" label="Medical Records" value={`${patient.records.length}`} mobile={isMobile}/>
+                    <SummaryPill icon="folder-open-outline" label="Medical Files" value={`${patient.files.length}`} mobile={isMobile}/>
+                    <SummaryPill icon="sparkles-outline" label="AI Triage Sessions" value={`${aiTriageCount}`} mobile={isMobile}/>
                   </View>
                 </HoverCard>
               );
@@ -851,7 +819,7 @@ export default function MyPatientsHistoryScreen() {
                         <Text style={styles.aiButtonText}>{generatingPatientId === selectedPatient.patientId ? 'Generating...' : getLatestClinicalSummary(selectedPatient.patientId) ? 'Regenerate AI Summary' : 'Generate AI Summary'}</Text>
                       </Pressable>
 
-                      <Text style={styles.aiDisclaimer}>AI output is informational and must be reviewed by a clinician.</Text>
+                      <Text style={styles.aiDisclaimer}>AI output is informational only and must be reviewed by a clinician.</Text>
                     </View>
                   </ExpandableSection>
 
@@ -897,7 +865,11 @@ export default function MyPatientsHistoryScreen() {
 
                   <ExpandableSection title="Medical Records">
                     {selectedPatient.records.length === 0 ? (
-                      <Text style={styles.emptyInlineText}>No medical records.</Text>
+                      <View style={styles.emptyDataCard}>
+                        <Ionicons name="document-text-outline" size={24} color="#94A3B8"/>
+                        <Text style={styles.emptyDataTitle}>No medical records yet</Text>
+                        <Text style={styles.emptyDataText}>Medical Records will appear after they are created.</Text>
+                      </View>
                     ) : (
                       selectedPatient.records.map((record) => {
                         const attachedFiles = selectedPatient.files.filter((file) => file.medical_record_id === record.id || (!!record.appointment_id && file.appointment_id === record.appointment_id));
@@ -937,10 +909,9 @@ export default function MyPatientsHistoryScreen() {
                                       </Text>
                                     </View>
 
-                                    <Pressable style={[styles.fileButton, { backgroundColor: theme.primary }]} onPress={() => openFile(file.file_url)}>
-                                      <Ionicons name="open-outline" size={15} color="#FFFFFF"/>
-                                      <Text style={styles.fileButtonText}>Open</Text>
-                                    </Pressable>
+                                  <Pressable style={styles.fileOpenIconButton} onPress={() => openFile(file.file_url)}>
+                                    <Ionicons name="open-outline" size={17} color="#64748B"/>
+                                  </Pressable>
                                   </View>
                                 ))
                               )}
@@ -953,38 +924,68 @@ export default function MyPatientsHistoryScreen() {
 
                   <ExpandableSection title="All Patient Files">
                     {selectedPatient.files.length === 0 ? (
-                      <Text style={styles.emptyInlineText}>No uploaded files.</Text>
+                      <View style={styles.emptyDataCard}>
+                        <Ionicons name="document-text-outline" size={24} color="#94A3B8"/>
+                        <Text style={styles.emptyDataTitle}>No patient files available yet</Text>
+                        <Text style={styles.emptyDataText}>Patient Files will appear after they are uploaded.</Text>
+                      </View>
                     ) : (
                       selectedPatient.files.map((file) => (
                         <View key={file.id} style={styles.infoCard}>
                           <View style={styles.fileRowWide}>
                             <View style={styles.fileRowText}>
-                              <View style={styles.fileTitleRow}>
-                                <Ionicons name="document-attach-outline" size={17} color="#64748B"/>
+                            <View style={styles.fileHeaderRow}>
+                              <Ionicons name="document-attach-outline" size={17} color="#64748B"/>
 
-                                <Text style={styles.fileTitle}>{file.title}</Text>
+                              <Text style={styles.fileTitle}>{file.title}</Text>
 
-                                {!!file.processing_status && (
-                                  <View style={[styles.processingBadge, file.processing_status === "completed" ? styles.processingBadgeCompleted : file.processing_status === "failed" ? styles.processingBadgeFailed : styles.processingBadgeProcessing]}>
-                                    <Text style={styles.processingBadgeText}>{file.processing_status}</Text>
-                                  </View>
-                                )}
+                              <Pressable style={styles.fileOpenIconButton} onPress={() => openFile(file.file_url)}>
+                                <Ionicons name="open-outline" size={17} color="#64748B"/>
+                              </Pressable>
+                            </View>
 
-                                {!!file.image_processing_status && (
-                                  <View style={[styles.processingBadge, file.image_processing_status === "completed" ? styles.processingBadgeCompleted : file.image_processing_status === "failed" ? styles.processingBadgeFailed : styles.processingBadgeProcessing]}>
-                                    <Text style={styles.processingBadgeText}>image {file.image_processing_status}</Text>
-                                  </View>
-                                )}
+                            <Text style={styles.fileTypeText}>
+                              {file.category || 'file'} · {file.file_type || 'unknown type'}
+                            </Text>
+
+                            <Text style={styles.fileUploadedText}>
+                              {file.description || 'Uploaded file.'} · {formatDateTimeShort(file.created_at)}
+                            </Text>
+
+                            <View style={styles.fileStatusRow}>
+                              <View
+                                style={[
+                                  styles.processingBadge,
+                                  file.processing_status === 'completed'
+                                    ? styles.processingBadgeCompleted
+                                    : file.processing_status === 'failed'
+                                      ? styles.processingBadgeFailed
+                                      : styles.processingBadgeProcessing,
+                                ]}
+                              >
+                                <Text style={styles.processingBadgeText}>
+                                  summary {file.processing_status || 'pending'}
+                                </Text>
                               </View>
 
-                              <Text style={styles.fileMeta}>
-                                {file.category || "file"} ·{" "}
-                                {file.file_type || "unknown type"} ·{" "}
-                                {formatDateTimeShort(file.created_at)}
-                              </Text>
+                              {isImageFile(file) && (
+                                <View
+                                  style={[
+                                    styles.processingBadge,
+                                    file.image_processing_status === 'completed'
+                                      ? styles.processingBadgeCompleted
+                                      : file.image_processing_status === 'failed'
+                                        ? styles.processingBadgeFailed
+                                        : styles.processingBadgeProcessing,
+                                  ]}
+                                >
+                                  <Text style={styles.processingBadgeText}>
+                                    analyzer {file.image_processing_status || 'pending'}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
 
-                              {!!file.description && <Text style={styles.fileDescription}>{file.description}</Text>} 
-                              
                               {!!file.notes && <Text style={styles.fileDescription}>{file.notes}</Text>}
                               
                               {!!file.ai_summary && (() => {
@@ -1057,14 +1058,14 @@ export default function MyPatientsHistoryScreen() {
 
                                   <View style={styles.aiImageDisclaimerBox}>
                                     <Text style={styles.aiImageDisclaimerText}>
-                                      AI-assisted image review only. Not a diagnosis. Must be reviewed by a qualified clinician or radiologist before clinical decisions.
+                                      This is an AI-assisted image review only hence not a diagnosis. Must be reviewed by a qualified clinician or radiologist before clinical decisions.
                                     </Text>
                                   </View>
 
-                                  <DetailRow icon="layers-outline" label="Modality" value={formatValue(file.ai_image_modality)} />
-                                  <DetailRow icon="body-outline" label="Body region" value={formatValue(file.ai_image_body_region)} />
-                                  <DetailRow icon="image-outline" label="Image quality" value={formatValue(file.ai_image_quality)} />
-                                  <DetailRow icon="analytics-outline" label="AI confidence" value={formatValue(file.ai_image_confidence)} />
+                                  <DetailRow icon="layers-outline" label="Modality" value={formatValue(file.ai_image_modality)}/>
+                                  <DetailRow icon="body-outline" label="Body region" value={formatValue(file.ai_image_body_region)}/>
+                                  <DetailRow icon="image-outline" label="Image quality" value={formatValue(file.ai_image_quality)}/>
+                                  <DetailRow icon="analytics-outline" label="AI confidence" value={formatValue(file.ai_image_confidence)}/>
 
                                   <Text style={styles.fileAiSummaryText}>{file.ai_image_summary}</Text>
 
@@ -1102,23 +1103,35 @@ export default function MyPatientsHistoryScreen() {
                               )}
                             </View>
 
-                            <View style={styles.fileActionsRow}>
-                              <Pressable style={[styles.fileActionButton, { backgroundColor: theme.primary, opacity: generatingFileId === file.id ? 0.7 : 1 }]} onPress={() => generateFileSummary(file)} disabled={generatingFileId === file.id}>
+                            <View style={[styles.fileActionsRow, isMobile && styles.fileActionsRowMobile]}>
+                              <Pressable
+                                style={[
+                                  styles.fileActionButton,
+                                  isMobile && styles.fileActionButtonMobile,
+                                  { backgroundColor: theme.primary, opacity: generatingFileId === file.id ? 0.7 : 1 },
+                                ]}
+                                onPress={() => generateFileSummary(file)}
+                                disabled={generatingFileId === file.id}
+                              >
                                 <Ionicons name="sparkles-outline" size={16} color="#FFFFFF"/>
-                                <Text style={styles.fileButtonText}>{generatingFileId === file.id ? "Generating..." : file.ai_summary ? "Regenerate Summary" : "Generate Summary"}</Text>
+                                <Text numberOfLines={isMobile ? 2 : 1} style={styles.fileButtonText}>{generatingFileId === file.id ? "Generating..." : file.ai_summary ? "Regenerate Summary" : "Generate Summary"}</Text>
                               </Pressable>
 
                               {isImageFile(file) && (
-                                <Pressable style={[styles.fileActionButton, { backgroundColor: "#475569", opacity: generatingImageFileId === file.id ? 0.7 : 1 }]} onPress={() => generateImageAnalysis(file)} disabled={generatingImageFileId === file.id}>
+                                  <Pressable
+                                    style={[
+                                      styles.fileActionButton,
+                                      isMobile && styles.fileActionButtonMobile,
+                                      { backgroundColor: '#475569', opacity: generatingImageFileId === file.id ? 0.7 : 1 },
+                                    ]}
+                                    onPress={() => generateImageAnalysis(file)}
+                                    disabled={generatingImageFileId === file.id}
+                                  >
                                   <Ionicons name="scan-outline" size={16} color="#FFFFFF"/>
-                                  <Text style={styles.fileButtonText}>{generatingImageFileId === file.id ? "Analyzing..." : file.ai_image_summary ? "Regenerate Image AI" : "Analyze Image"}</Text>
-                                </Pressable>
+                                    <Text numberOfLines={isMobile ? 2 : 1} style={styles.fileButtonText}>{generatingImageFileId === file.id ? "Analyzing..." : file.ai_image_summary ? "Reanalyze Image" : "Analyze Image"}</Text>
+                                  </Pressable>
                               )}
 
-                              <Pressable style={[styles.fileActionButton, { backgroundColor: "#0F172A" }]} onPress={() => openFile(file.file_url)}>
-                                <Ionicons name="open-outline" size={16} color="#FFFFFF"/>
-                                <Text style={styles.fileButtonText}>Open File</Text>
-                              </Pressable>
                             </View>
                           </View>
                         </View>
@@ -1322,6 +1335,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     fontWeight: '700',
+  },
+
+  emptyDataCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 18,
+    alignItems: 'center',
+  },
+
+  emptyDataTitle: {
+    marginTop: 8,
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+
+  emptyDataText: {
+    marginTop: 5,
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 
   modalOverlay: {
@@ -1531,9 +1569,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
+    flexWrap: 'wrap',
   },
 
   fileTitle: {
+    flex: 1,
+    minWidth: 0,
     color: '#0F172A',
     fontWeight: '900',
     fontSize: 13,
@@ -1594,6 +1635,10 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
 
+  fileActionsRowMobile: {
+    flexWrap: 'wrap',
+  },
+
   fileActionButton: {
     flex: 1,
     minHeight: 42,
@@ -1602,6 +1647,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  fileActionButtonMobile: {
+    minHeight: 54,
+    minWidth: 135,
   },
 
   fileButton: {
@@ -1619,6 +1671,60 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '900',
     fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 15,
+    flexShrink: 1,
+  },
+
+  fileOpenIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+
+  fileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  fileTypeText: {
+    color: '#64748B',
+    fontWeight: '800',
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  fileUploadedText: {
+    color: '#64748B',
+    fontWeight: '700',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+
+  fileStatusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+
+  patientSummaryGridMobile: {
+    flexDirection: 'column',
+  },
+
+  summaryPillMobile: {
+    width: '100%',
+    flexBasis: 'auto',
   },
 
   aiSummaryCard: {

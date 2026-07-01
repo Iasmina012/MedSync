@@ -4,40 +4,13 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensi
 import { Ionicons } from '@expo/vector-icons';
 import { getCurrentUserProfile } from '../src/lib/auth';
 import { supabase } from '../src/lib/supabase';
+import { useClinicTheme } from '../src/lib/clinicTheme';
+import { countRows, getUserClinicCount } from '../src/lib/adminData';
+import { rgbaFromHex } from '../src/theme/colors';
 import ClinicNavbar from '../src/common/ClinicNavbar';
 import AnimatedStatsCard from '../src/common/AnimatedStatsCard';
 import FeaturesCard from '../src/common/FeaturesCard';
-import { useClinicTheme } from '../src/lib/clinicTheme';
 import FloatingChatButton from '../src/common/FloatingChatButton';
-import { countRows, getUserClinicCount } from '../src/lib/adminData';
-
-function hexToRgb(hex: string) {
-
-  const clean = hex.replace('#', '');
-  const normalized =
-    clean.length === 3
-      ? clean
-          .split('')
-          .map((char) => char + char)
-          .join('')
-      : clean;
-
-  const bigint = parseInt(normalized, 16);
-
-  return {
-    r: (bigint >> 16) & 255,
-    g: (bigint >> 8) & 255,
-    b: bigint & 255,
-  };
-
-}
-
-function rgbaFromHex(hex: string, alpha: number) {
-
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-
-}
 
 export default function DoctorDashboard() {
 
@@ -137,9 +110,9 @@ export default function DoctorDashboard() {
   const featureItems = [
 
     { title: 'Manage Appointments', icon: 'calendar-outline' as const, description: 'Modify, cancel or sort appointments and view appointment details.', onPress: () => go('/manage-appointments') },
-    { title: 'My Patients', icon: 'people-outline' as const, description: 'View patients connected to your appointments.', onPress: () => go('/my-patients') },
+    { title: 'My Patients', icon: 'people-outline' as const, description: 'View patients connected to your appointments in this clinic.', onPress: () => go('/my-patients') },
     { title: 'Messages', icon: 'chatbubble-ellipses-outline' as const, description: 'Chat with your patients about medical related problems.', onPress: () => go('/messages'), },
-    { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Review appointment history and triage notes.', onPress: () => go('/my-patients-history'), },
+    { title: 'Patient History', icon: 'document-text-outline' as const, description: 'Review medical patient history and generate summaries using AI.', onPress: () => go('/my-patients-history'), },
 
   ];
 
@@ -180,19 +153,31 @@ export default function DoctorDashboard() {
             Welcome back{fullName ? `, Dr. ${fullName}` : ''}
           </Text>
           <Text style={[styles.heroSubtitle, isMobile && styles.heroTextCenter]}>
-            Placeholder Subtitle
+            Supervise medical data, manage patients and chat with them for medical related problems in a secure environment.
           </Text>
         </View>
 
         <View style={styles.statsGrid}>
-          <AnimatedStatsCard label="Appointments Today" value={stats.appointmentsToday} icon="calendar-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="My Patients" value={stats.myPatients} icon="people-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="AI Triage Cases" value={stats.triageAttached} icon="sparkles-outline" color={theme.primary}/>
-          <AnimatedStatsCard label="Unread Chats" value={stats.unreadChats} icon="chatbubble-ellipses-outline" color={theme.primary}/>
+          {[
+            { label: 'Appointments Today', value: stats.appointmentsToday, icon: 'calendar-outline' as const },
+            { label: 'My Patients', value: stats.myPatients, icon: 'people-outline' as const },
+            { label: 'AI Triage Cases', value: stats.triageAttached, icon: 'sparkles-outline' as const },
+            { label: 'Unread Chats', value: stats.unreadChats, icon: 'chatbubble-ellipses-outline' as const },
+          ].map((item) => (
+            <View key={item.label} style={isMobile ? styles.statMobileItem : styles.statWebItem}>
+              <AnimatedStatsCard
+                label={item.label}
+                value={item.value}
+                icon={item.icon}
+                color={theme.primary}
+                centered={isMobile}
+              />
+            </View>
+          ))}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Features</Text>
+          <Text style={styles.sectionTitle}>Global Actions</Text>
           <View style={styles.featuresGrid}>
             {featureItems.map((item, index) => {
               const isAlt = index % 2 === 0;
@@ -223,7 +208,11 @@ export default function DoctorDashboard() {
           <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
 
           {upcomingList.length === 0 ? (
-            <Text style={styles.emptyUpcomingText}>No upcoming appointments.</Text>
+            <View style={styles.emptyUpcomingBox}>
+              <Ionicons name="calendar-clear-outline" size={24} color="#94A3B8"/>
+              <Text style={styles.emptyUpcomingTitle}>No upcoming appointments</Text>
+              <Text style={styles.emptyUpcomingText}>Your upcoming patient visits will appear here once appointments are scheduled.</Text>
+            </View>
           ) : (
             upcomingList.map((appointment) => {
               const service = Array.isArray(appointment.clinic_services)
@@ -317,12 +306,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   
-  statsGrid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    gap: 16 
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
   },
-  
+
+  statWebItem: {
+    flex: 1,
+  },
+
+  statMobileItem: {
+    width: '47%',
+  },
+
+  contentCentered: {
+    alignItems: 'center',
+  },
+
+  textCentered: {
+    textAlign: 'center',
+  },
+
   section: { 
     backgroundColor: '#FFF', 
     borderRadius: 28, 
@@ -342,13 +347,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     flexWrap: 'wrap', 
     gap: 16 
-  },
-
-  emptyUpcomingText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#64748B',
-    fontWeight: '700',
   },
 
   upcomingCard: {
@@ -392,6 +390,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     fontWeight: '700',
+  },
+
+  emptyUpcomingBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 22,
+    padding: 18,
+    alignItems: 'center',
+  },
+
+  emptyUpcomingTitle: {
+    marginTop: 10,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+
+  emptyUpcomingText: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#64748B',
+    textAlign: 'center',
   },
 
 });

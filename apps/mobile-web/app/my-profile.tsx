@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform, useWindowDimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -10,69 +10,8 @@ import { getCurrentUserProfile } from '../src/lib/auth';
 import { getBackPathWithClinicFallback } from '../src/lib/navigation';
 import { useClinicTheme } from '../src/lib/clinicTheme';
 import ClinicNavbar from '../src/common/ClinicNavbar';
-
-type SelectOption = {
-
-  label: string;
-  value: string;
-
-};
-
-function SelectField({
-  label,
-  value,
-  options,
-  onChange,
-  placeholder,
-  zIndex = 1000,
-}: {
-
-  label: string;
-  value: string;
-  options: SelectOption[];
-  onChange: (value: string) => void;
-  placeholder: string;
-  zIndex?: number;
-}) {
-
-  const [open, setOpen] = useState(false);
-  const selectedLabel = options.find((option) => option.value === value)?.label || '';
-
-  return (
-
-    <View style={[styles.selectWrap, { zIndex }]}>
-
-      <Text style={styles.label}>{label}</Text>
-
-      <Pressable style={styles.selectButton} onPress={() => setOpen(!open)}>
-        <Text style={[styles.selectText, !selectedLabel && styles.selectPlaceholder]}>
-          {selectedLabel || placeholder}
-        </Text>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color="#64748B"/>
-      </Pressable>
-
-      {open && (
-        <View style={styles.selectMenu}>
-          {options.map((option) => (
-            <Pressable
-              key={option.value}
-              style={styles.selectOption}
-              onPress={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
-            >
-              <Text style={styles.selectOptionText}>{option.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
-
-    </View>
-
-  );
-
-}
+import { getUserClinicCount } from '../src/lib/adminData';
+import DropdownMenu from '../src/common/DropdownMenu';
 
 export default function MyProfileScreen() {
 
@@ -82,6 +21,9 @@ export default function MyProfileScreen() {
   }>();
 
   const { theme } = useClinicTheme(clinicId);
+  const { width } = useWindowDimensions();
+  const isMobile = width < 720;
+  const [canChangeClinic, setCanChangeClinic] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,6 +45,7 @@ export default function MyProfileScreen() {
   const [allergies, setAllergies] = useState('');
   const [conditions, setConditions] = useState('');
   const [insurance, setInsurance] = useState('');
+  const [insuranceDetails, setInsuranceDetails] = useState('');
   const [address, setAddress] = useState('');
 
   useEffect(() => {
@@ -125,11 +68,19 @@ export default function MyProfileScreen() {
       setAvatarUrl(profile.avatar_url ?? null);
       setRole(profile.role ?? 'patient');
 
+      if (profile.role === 'clinic_admin' || profile.role === 'doctor') {
+        const clinicCount = await getUserClinicCount(user.id);
+        setCanChangeClinic(clinicCount > 1);
+      } else {
+        setCanChangeClinic(false);
+      }
+
       setGender(profile.gender ?? '');
       setBloodType(profile.blood_type ?? '');
       setAllergies(profile.allergies ?? '');
       setConditions(profile.chronic_conditions ?? '');
       setInsurance(profile.insurance_provider ?? '');
+      setInsuranceDetails(profile.insurance_details ?? '');
       setAddress(profile.address ?? '');
 
       setLoading(false);
@@ -171,6 +122,7 @@ export default function MyProfileScreen() {
         updatePayload.allergies = allergies.trim() || null;
         updatePayload.chronic_conditions = conditions.trim() || null;
         updatePayload.insurance_provider = insurance || null;
+        updatePayload.insurance_details = insurance === 'other' ? insuranceDetails.trim() || null : null;
         updatePayload.address = address.trim() || null;
       }
 
@@ -332,9 +284,7 @@ export default function MyProfileScreen() {
 
       setSendingReset(true);
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'medsync://reset-password',
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'medsync://reset-password',});
 
       if (error) {
         Alert.alert('Error', error.message);
@@ -401,6 +351,7 @@ export default function MyProfileScreen() {
         roleLabel="Profile"
         showRolePill={false}
         onChangeClinic={() => router.replace('/clinic-selection')}
+        canChangeClinic={canChangeClinic}
         showBackButton
         onBackPress={() => router.replace(backRoute as any)}
       />
@@ -415,7 +366,7 @@ export default function MyProfileScreen() {
           My Profile
         </Text>
         <Text style={[styles.heroTitle, { color: theme.secondary }]}>
-          Manage Your Account Details
+          Manage Account Details
         </Text>
         <Text style={styles.heroSubtitle}>
           Update your personal information, profile photo and account security.
@@ -450,6 +401,7 @@ export default function MyProfileScreen() {
               style={[
                 styles.secondaryButton,
                 uploadingPhoto && styles.buttonDisabled,
+                isMobile && styles.mobileFullButton,
               ]}
               onPress={handlePickImage}
               disabled={uploadingPhoto}
@@ -460,7 +412,10 @@ export default function MyProfileScreen() {
             </Pressable>
 
             {!!avatarUrl && (
-              <Pressable style={styles.removeButton} onPress={handleRemovePhoto}>
+              <Pressable
+                style={[styles.removeButton, isMobile && styles.mobileFullButton]}
+                onPress={handleRemovePhoto}
+              >
                 <Text style={styles.removeButtonText}>Remove photo</Text>
               </Pressable>
             )}
@@ -509,7 +464,7 @@ export default function MyProfileScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Phone Number</Text>
+            <Text style={styles.label}>Phone number</Text>
             <TextInput
               value={phone}
               onChangeText={setPhone}
@@ -561,6 +516,7 @@ export default function MyProfileScreen() {
         <Pressable
           style={[
             styles.primaryButton,
+            isMobile && styles.mobileFullButton,
             { backgroundColor: theme.primary },
             saving && styles.buttonDisabled,
           ]}
@@ -578,27 +534,25 @@ export default function MyProfileScreen() {
           <Text style={styles.sectionTitle}>Medical Information</Text>
 
           <View style={styles.row}>
-            <View style={styles.field}>
-              <SelectField
-                label="Gender"
-                value={gender}
-                onChange={setGender}
-                options={genderOptions}
-                placeholder="Select gender"
-                zIndex={3000}
-              />
-            </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Gender</Text>
+            <DropdownMenu
+              value={gender}
+              onChange={setGender}
+              items={genderOptions}
+              placeholder="Select gender"
+            />
+          </View>
 
-            <View style={styles.field}>
-              <SelectField
-                label="Blood type"
-                value={bloodType}
-                onChange={setBloodType}
-                options={bloodTypeOptions}
-                placeholder="Select blood type"
-                zIndex={2000}
-              />
-            </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Blood type</Text>
+            <DropdownMenu
+              value={bloodType}
+              onChange={setBloodType}
+              items={bloodTypeOptions}
+              placeholder="Select blood type"
+            />
+          </View>
           </View>
 
           <View style={styles.fieldFull}>
@@ -625,15 +579,29 @@ export default function MyProfileScreen() {
             />
           </View>
 
+          <View style={styles.row}>
           <View style={styles.fieldFull}>
-            <SelectField
-              label="Insurance"
+            <Text style={styles.label}>Insurance</Text>
+            <DropdownMenu
               value={insurance}
               onChange={setInsurance}
-              options={insuranceOptions}
+              items={insuranceOptions}
               placeholder="Select insurance type"
-              zIndex={1000}
             />
+          </View>
+
+            {insurance === 'other' && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Insurance details</Text>
+                <TextInput
+                  value={insuranceDetails}
+                  onChangeText={setInsuranceDetails}
+                  placeholder="Please describe your insurance/payment option"
+                  placeholderTextColor="#94A3B8"
+                  style={styles.input}
+                />
+              </View>
+            )}
           </View>
 
           <View style={styles.fieldFull}>
@@ -650,6 +618,7 @@ export default function MyProfileScreen() {
           <Pressable
             style={[
               styles.primaryButton,
+              isMobile && styles.mobileFullButton,
               { backgroundColor: theme.primary },
               saving && styles.buttonDisabled,
             ]}
@@ -665,10 +634,13 @@ export default function MyProfileScreen() {
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Password & Security</Text>
-        <Text style={styles.securityText}>For security, password changes are handled through a reset link sent to your account email.</Text>
-
+        <Text style={styles.securityText}>For security reasons, password changes are handled through a reset link sent to your account email.</Text>
         <Pressable
-          style={[styles.secondaryButton, sendingReset && styles.buttonDisabled]}
+          style={[
+            styles.secondaryButton,
+            isMobile && styles.mobileFullButton,
+            sendingReset && styles.buttonDisabled,
+          ]}
           onPress={handleSendPasswordReset}
           disabled={sendingReset}
         >
@@ -698,7 +670,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     padding: 24,
     gap: 18,
-    overflow: 'visible',
+    //overflow: 'visible',
   },
 
   hero: {
@@ -732,7 +704,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     padding: 22,
     gap: 14,
-    overflow: 'visible',
+    overflow: Platform.OS === 'web' ? ('visible' as any) : 'hidden',
   },
 
   sectionTitle: {
@@ -777,7 +749,6 @@ const styles = StyleSheet.create({
     gap: 14,
     flexWrap: 'wrap',
     overflow: 'visible',
-    zIndex: 20,
   },
 
   field: {
@@ -883,64 +854,18 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 
-  selectWrap: {
+  mobileFullButton: {
+    width: '100%',
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  insuranceDetailsField: {
     width: '100%',
     position: 'relative',
     overflow: 'visible',
-  },
-
-  selectButton: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  selectText: {
-    fontSize: 14,
-    color: '#0F172A',
-    fontWeight: '700',
-  },
-
-  selectPlaceholder: {
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-
-  selectMenu: {
-    position: 'absolute',
-    top: 76,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-    zIndex: 9999,
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-  },
-
-  selectOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-
-  selectOptionText: {
-    fontSize: 14,
-    color: '#0F172A',
-    fontWeight: '700',
+    marginTop: 14,
   },
   
 });

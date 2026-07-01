@@ -3,6 +3,7 @@
 // This enables autocomplete, go to definition, etc.
 
 // Setup type definitions for built-in Supabase Runtime APIs
+// deno-lint-ignore-file no-explicit-any no-import-prefix no-unversioned-import no-empty no-unused-vars
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -18,7 +19,19 @@ const corsHeaders = {
 
 type Role = "guest" | "patient" | "doctor" | "clinic_admin" | "platform_admin";
 type TriageLevel = "routine" | "urgent" | "emergency";
-type SymptomCategory = "chest_pain" | "rash" | "headache" | "digestive" | "respiratory" | "general";
+
+type SymptomCategory =
+  | "chest_pain"
+  | "rash"
+  | "headache"
+  | "digestive"
+  | "respiratory"
+  | "musculoskeletal"
+  | "urinary"
+  | "eye"
+  | "mental_health"
+  | "dental"
+  | "general";
 
 type ChatAction = {
 
@@ -32,7 +45,7 @@ type ChatAction = {
 type BookingDraft = {
 
   active?: boolean;
-  mode?: "create" | "cancel" | "reschedule";
+  mode?: "create" | "cancel" | "reschedule" | "check_in";
   step?:
     | "service"
     | "doctor"
@@ -42,9 +55,15 @@ type BookingDraft = {
     | "insurance"
     | "insurance_details"
     | "notes"
+    | "onboarding_offer"
+    | "onboarding_main"
+    | "onboarding_symptoms"
+    | "onboarding_medications"
+    | "onboarding_chronic"
     | "confirm"
     | "select_appointment"
-    | "confirm_cancel";
+    | "confirm_cancel"
+    | "confirm_check_in";
 
   appointmentId?: string;
   serviceId?: string;
@@ -66,6 +85,11 @@ type BookingDraft = {
   aiTriagePatientNote?: string | null;
   aiTriageDoctorSummary?: string | null;
   aiTriageLevel?: TriageLevel | null;
+  onboardingAccepted?: boolean;
+  onboardingMainConcern?: string | null;
+  onboardingSymptoms?: string | null;
+  onboardingMedications?: string | null;
+  onboardingChronicConditions?: string | null;
 
 };
 
@@ -86,6 +110,8 @@ type TriageDraft = {
   warningSigns?: string[];
   patientNote?: string;
   doctorSummary?: string;
+  sessionStartedAt?: string;
+  messageCount?: number;
 
 };
 
@@ -119,12 +145,7 @@ function withTriageDisclaimer(text: string) {
 }
 
 function json(data: unknown, status = 200) {
-
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-
+  return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" }, });
 }
 
 function normalize(text = "") {
@@ -163,6 +184,44 @@ function isRole(value: string): value is Role {
 
 function requiresClinicContext(role: Role) {
   return ["patient", "doctor", "clinic_admin"].includes(role);
+}
+
+function needsClinicForRoleWorkflow(role: Role) {
+  return role === "doctor" || role === "clinic_admin";
+}
+
+function roleWorkflowNeedsClinic(message: string, role: Role) {
+
+  if (!needsClinicForRoleWorkflow(role)) 
+    return false;
+
+  return (
+    wantsMedicalRecordHelp(message) ||
+    wantsPatientHistoryHelp(message) ||
+    wantsMessagesHelp(message) ||
+    asksHowToManageAppointments(message) ||
+    asksHowToCheckIn(message) ||
+    wantsCancelAppointment(message) ||
+    wantsRescheduleAppointment(message) ||
+    wantsCheckInAppointment(message) ||
+    wantsUsersHelp(message) ||
+    wantsClinicContentHelp(message) ||
+    wantsClinicSettingsHelp(message)
+  );
+
+}
+
+function selectClinicReply(role: Role) {
+
+  return {
+    handled: true,
+    reply:
+      role === "doctor"
+        ? "Please select a clinic first. Medical records, appointments, patient history and messages are clinic-specific, so I need to know which clinic you want to work in."
+        : "Please select a clinic first. Users, appointments, clinic content and clinic settings are clinic-specific, so I need to know which clinic you want to manage.",
+    actions: [{ label: "Select clinic", route: "/clinic-selection" }],
+  };
+
 }
 
 function timeToMinutes(time: string) {
@@ -268,7 +327,10 @@ function cancels(message: string) {
 function wantsToExitActiveFlow(message: string) {
 
   const lower = normalize(message);
-  return (lower.includes("exit flow") || lower.includes("stop flow") || lower.includes("leave booking") || lower.includes("stop booking") || lower.includes("cancel booking") || lower.includes("nevermind") || lower.includes("never mind") || lower.includes("forget it") || lower.includes("talk about something else") || lower.includes("different question") );
+  return (lower.includes("exit flow") || lower.includes("stop flow") || lower.includes("leave booking") || lower.includes("stop booking") || lower.includes("cancel booking") || lower.includes("nevermind") || lower.includes("never mind") || lower.includes("forget it") || lower.includes("talk about something else") || lower.includes("different question") || lower.includes("stop triage") ||
+lower.includes("cancel triage") ||
+lower.includes("exit triage") ||
+lower.includes("quit triage") );
 
 }
 
@@ -470,17 +532,118 @@ function wantsBooking(message: string) {
 
 }
 
+function wantsCheckInAppointment(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("check in") || lower.includes("check-in") || lower.includes("mark present");
+
+}
+
+function asksHowToManageAppointments(message: string) {
+
+  const lower = normalizeLoose(message);
+
+  return (
+    (lower.includes("how") || lower.includes("where") || lower.includes("what")) &&
+    lower.includes("appointment") &&
+    (
+      lower.includes("cancel") ||
+      lower.includes("reschedule") ||
+      lower.includes("check in") ||
+      lower.includes("check-in") ||
+      lower.includes("status")
+    )
+  );
+
+}
+
+function asksHowToCheckIn(message: string) {
+
+  const lower = normalizeLoose(message);
+  return ((lower.includes("how") || lower.includes("where") || lower.includes("what")) && (lower.includes("check in") || lower.includes("check-in") || lower.includes("mark present")));
+
+}
+
+function wantsStartCancellationFromChat(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("start cancellation") || lower.includes("cancel from chat");
+
+}
+
+function wantsStartRescheduleFromChat(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("start reschedule") || lower.includes("reschedule from chat");
+
+}
+
+function wantsStartCheckInFromChat(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("start check in") || lower.includes("check in from chat") || lower.includes("proceed with check in");
+
+}
+
+function wantsMedicalRecordHelp(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("medical record") || lower.includes("create record") || lower.includes("patient chart");
+
+}
+
+function wantsUsersHelp(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("user") || lower.includes("users") || lower.includes("doctor account") || lower.includes("patient account");
+
+}
+
+function wantsClinicContentHelp(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("clinic content") || lower.includes("services") || lower.includes("technologies") || lower.includes("health tips");
+
+}
+
+function wantsClinicSettingsHelp(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("clinic settings") || lower.includes("logo") || lower.includes("branding") || lower.includes("clinic profile");
+
+}
+
+function wantsAnalyticsHelp(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("analytics") || lower.includes("stats") || lower.includes("overview") || lower.includes("platform health");
+
+}
+
+function wantsPatientHistoryHelp(message: string) {
+  const lower = normalizeLoose(message);
+  return lower.includes("patient history") || lower.includes("my patients") || lower.includes("history");
+
+}
+
+function wantsMessagesHelp(message: string) {
+
+  const lower = normalizeLoose(message);
+  return lower.includes("message") || lower.includes("chat") || lower.includes("conversation");
+
+}
+
 function detectSymptomCategory(message: string): SymptomCategory {
 
   const lower = normalize(message);
 
-  if (lower.includes("chest pain") ||lower.includes("chest pressure") ||lower.includes("heart") ||lower.includes("palpitation")) 
+  if (lower.includes("chest pain") || lower.includes("chest pressure") || lower.includes("heart") || lower.includes("palpitation")) 
     return "chest_pain";
 
   if (lower.includes("rash") || lower.includes("itching") || lower.includes("hives") || lower.includes("skin") || lower.includes("allergy")) 
     return "rash";
 
-  if (lower.includes("headache") || lower.includes("migraine") || lower.includes("head pain")) 
+  if (lower.includes("headache") || lower.includes("migraine") || lower.includes("head pain"))
     return "headache";
 
   if ( lower.includes("stomach") || lower.includes("nausea") || lower.includes("vomit") || lower.includes("diarrhea") || lower.includes("abdominal")) 
@@ -488,6 +651,21 @@ function detectSymptomCategory(message: string): SymptomCategory {
 
   if ( lower.includes("cough") || lower.includes("fever") || lower.includes("breathing") || lower.includes("sore throat")) 
     return "respiratory";
+
+  if (lower.includes("back pain") || lower.includes("joint") || lower.includes("knee") || lower.includes("shoulder") || lower.includes("muscle") || lower.includes("bone")) 
+    return "musculoskeletal";
+
+  if (lower.includes("urine") || lower.includes("urinary") || lower.includes("burning when peeing") || lower.includes("kidney") || lower.includes("bladder")) 
+    return "urinary";
+
+  if (lower.includes("eye") || lower.includes("vision") || lower.includes("blurry") || lower.includes("red eye")) 
+    return "eye";
+
+  if (lower.includes("anxiety") || lower.includes("panic") || lower.includes("depression") || lower.includes("stress") || lower.includes("mental")) 
+    return "mental_health";
+
+  if (lower.includes("tooth") || lower.includes("teeth") || lower.includes("dental") || lower.includes("gum")) 
+    return "dental";
 
   return "general";
 
@@ -528,6 +706,11 @@ function categoryKeywordsForService(category: SymptomCategory) {
     headache: ["neurology", "neuro", "headache", "migraine", "internal medicine", "general medicine"],
     digestive: ["gastro", "gastroenterology", "digestive", "internal medicine", "general medicine"],
     respiratory: ["pulmonology", "respiratory", "lung", "internal medicine", "general medicine"],
+    musculoskeletal: ["orthopedics", "orthopedic", "rheumatology", "physical therapy", "sports medicine"],
+    urinary: ["urology", "nephrology", "urinary", "kidney"],
+    eye: ["ophthalmology", "optometry", "eye", "vision"],
+    mental_health: ["psychology", "psychiatry", "mental health", "therapy"],
+    dental: ["dentistry", "dental", "stomatology"],
     general: ["general medicine", "general", "consultation", "consult", "check-up", "internal medicine"],
   };
 
@@ -794,6 +977,66 @@ function getAdaptiveQuestions(category: SymptomCategory) {
         ],
       },
     ],
+    musculoskeletal: [
+      {
+        key: "injury",
+        question: "Did this start after an injury, fall, exercise, or sudden movement?",
+        actions: [
+          { label: "No injury", message: "No injury" },
+          { label: "After injury", message: "After injury" },
+          { label: "After exercise", message: "After exercise" },
+        ],
+      },
+    ],
+
+    urinary: [
+      {
+        key: "urinary_symptoms",
+        question: "Do you have burning, frequent urination, fever, back pain, or blood in urine?",
+        actions: [
+          { label: "Burning/frequent", message: "Burning and frequent urination" },
+          { label: "Fever/back pain", message: "Fever or back pain" },
+          { label: "Blood in urine", message: "Blood in urine" },
+        ],
+      },
+    ],
+
+    eye: [
+      {
+        key: "vision",
+        question: "Do you have vision loss, severe eye pain, redness, discharge, or light sensitivity?",
+        actions: [
+          { label: "Redness/discharge", message: "Redness or discharge" },
+          { label: "Eye pain", message: "Eye pain" },
+          { label: "Vision loss", message: "Vision loss" },
+        ],
+      },
+    ],
+
+    mental_health: [
+      {
+        key: "safety",
+        question: "Are you feeling unsafe, having panic symptoms, or thoughts of harming yourself?",
+        actions: [
+          { label: "No safety risk", message: "No safety risk" },
+          { label: "Panic symptoms", message: "Panic symptoms" },
+          { label: "Feeling unsafe", message: "Feeling unsafe" },
+        ],
+      },
+    ],
+
+    dental: [
+      {
+        key: "dental_pain",
+        question: "Do you have tooth pain, swelling, fever, bleeding, or trouble opening your mouth?",
+        actions: [
+          { label: "Tooth pain", message: "Tooth pain" },
+          { label: "Swelling/fever", message: "Swelling or fever" },
+          { label: "Bleeding", message: "Bleeding" },
+        ],
+      },
+    ],
+
     general: [
       {
         key: "progression",
@@ -829,6 +1072,11 @@ function getPossibleCauses(draft: TriageDraft) {
     headache: ["migraine", "tension headache", "dehydration", "blood pressure changes"],
     digestive: ["digestive infection", "food intolerance", "gastritis", "viral gastroenteritis"],
     respiratory: ["viral respiratory infection", "flu-like illness", "bronchitis", "allergy-related irritation"],
+    musculoskeletal: ["muscle strain", "joint inflammation", "sprain", "orthopedic condition"],
+    urinary: ["urinary tract infection", "kidney irritation", "bladder inflammation"],
+    eye: ["eye irritation", "infection", "vision-related condition"],
+    mental_health: ["anxiety-related symptoms", "stress reaction", "mood-related condition"],
+    dental: ["tooth infection", "gum inflammation", "dental cavity"],
     general: ["several medical conditions that need clinical evaluation"],
   };
 
@@ -845,6 +1093,11 @@ function getWarningSigns(category: SymptomCategory) {
     headache: ["sudden worst headache", "vision loss", "weakness or numbness", "confusion", "seizure"],
     digestive: ["blood in vomit or stool", "severe abdominal pain", "dehydration", "persistent vomiting"],
     respiratory: ["difficulty breathing", "blue lips", "chest tightness", "high fever that persists"],
+    musculoskeletal: ["severe swelling", "inability to move limb", "numbness", "pain after major injury"],
+    urinary: ["fever with back pain", "blood in urine", "severe kidney pain", "confusion"],
+    eye: ["vision loss", "severe eye pain", "eye injury", "sudden vision changes"],
+    mental_health: ["thoughts of self-harm", "feeling unsafe", "severe panic", "confusion"],
+    dental: ["facial swelling", "fever", "trouble swallowing", "severe uncontrolled pain"],
     general: shared,
   };
 
@@ -909,6 +1162,17 @@ function calculateTriageLevel(draft: TriageDraft): TriageLevel {
     return "urgent";
 
   return "routine";
+
+}
+
+function calculateConfidence(draft: TriageDraft): number {
+
+  let score = 40;
+  if (draft.severity !== undefined) score += 15;
+  if (Object.keys(draft.adaptiveAnswers || {}).length >= 3) score += 20;
+  if ((draft.redFlags || []).length > 0) score += 15;
+  if (draft.symptomCategory && draft.symptomCategory !== "general") score += 10;
+  return Math.min(score, 100);
 
 }
 
@@ -1264,14 +1528,23 @@ async function handleAppointmentManagement(ctx: AppContext, bookingDraft?: Booki
   if (!user)
     return { handled: true, reply: "Please log in before managing appointments.", actions: [], bookingDraft: null };
 
-  if (!clinicId)
-    return { handled: true, reply: "Please select a clinic before managing appointments.", actions: [], bookingDraft: null };
+if (!clinicId) {
+  return {
+    handled: true,
+    reply:
+      role === "platform_admin"
+        ? "As a platform admin, you can access all clinics, but please select a clinic first so I know which clinic's appointments to manage."
+        : "Please select a clinic before managing appointments.",
+    actions: [{ label: "Select clinic", route: "/clinic-selection" }],
+    bookingDraft: null,
+  };
+}
 
   let draft: BookingDraft = bookingDraft?.active
     ? { ...bookingDraft }
     : {
         active: true,
-        mode: wantsCancelAppointment(message) ? "cancel" : "reschedule",
+        mode: wantsCancelAppointment(message) ? "cancel" : wantsCheckInAppointment(message) ? "check_in" : "reschedule",
         step: "select_appointment",
       };
 
@@ -1328,6 +1601,35 @@ async function handleAppointmentManagement(ctx: AppContext, bookingDraft?: Booki
         actions: [
           { label: "Confirm cancellation", message: "Confirm" },
           { label: "Keep appointment", message: "Cancel" },
+        ],
+        bookingDraft: draft,
+      };
+    }
+
+    if (draft.mode === "check_in") {
+      if (selected.status === "checked_in") {
+        return {
+          handled: true,
+          reply: `This appointment is already checked in: ${appointmentLabel(selected)}.`,
+          actions: [
+            {
+              label: "View appointments",
+              route: "/manage-appointments",
+              params: { clinicId, clinicName: clinicName || "" },
+            },
+          ],
+          bookingDraft: null,
+        };
+      }
+
+      draft.step = "confirm_check_in";
+
+      return {
+        handled: true,
+        reply: `Please confirm check-in for this appointment: ${appointmentLabel(selected)}.`,
+        actions: [
+          { label: "Confirm check-in", message: "Confirm" },
+          { label: "Cancel", message: "Cancel" },
         ],
         bookingDraft: draft,
       };
@@ -1395,6 +1697,73 @@ async function handleAppointmentManagement(ctx: AppContext, bookingDraft?: Booki
         {
           label: "View appointments",
           route: role === "patient" ? "/my-appointments" : "/manage-appointments",
+          params: { clinicId, clinicName: clinicName || "" },
+        },
+      ],
+      bookingDraft: null,
+    };
+  }
+
+  if (draft.step === "confirm_check_in") {
+    if (!confirms(message)) {
+      return {
+        handled: true,
+        reply: "Please confirm check-in or say Cancel to stop.",
+        actions: [
+          { label: "Confirm check-in", message: "Confirm" },
+          { label: "Cancel", message: "Cancel" },
+        ],
+        bookingDraft: draft,
+      };
+    }
+
+    if (role !== "clinic_admin" && role !== "platform_admin") {
+      return {
+        handled: true,
+        reply: "Only clinic admins or platform admins can check in patients from chat.",
+        actions: [],
+        bookingDraft: null,
+      };
+    }
+
+    const { error } = await supabase
+      .from("appointments")
+      .update({
+        status: "checked_in",
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+      })
+      .eq("id", draft.appointmentId)
+      .eq("clinic_id", clinicId)
+      .in("status", ["scheduled", "rescheduled"]);
+
+    if (error) {
+      return {
+        handled: true,
+        reply: `I could not check in the appointment: ${error.message}`,
+        actions: [],
+        bookingDraft: draft,
+      };
+    }
+
+    await saveAuditLog(supabase, {
+      user_id: user.id,
+      clinic_id: clinicId,
+      action: "appointment_checked_in_from_chat",
+      metadata: {
+        role,
+        appointmentId: draft.appointmentId,
+        mode: draft.mode,
+      },
+    });
+
+    return {
+      handled: true,
+      reply: "The patient was checked in successfully.",
+      actions: [
+        {
+          label: "View appointments",
+          route: "/manage-appointments",
           params: { clinicId, clinicName: clinicName || "" },
         },
       ],
@@ -1555,7 +1924,11 @@ async function handleAppointmentManagement(ctx: AppContext, bookingDraft?: Booki
 async function handleTriageFlow(ctx: AppContext, triageDraft?: TriageDraft | null) {
 
   const { supabase, message, clinicId, clinicName, role, user } = ctx;
-  let draft: TriageDraft = triageDraft?.active ? { ...triageDraft } : { active: true, step: "symptom", adaptiveIndex: 0, adaptiveAnswers: {} };
+  let draft: TriageDraft = triageDraft?.active
+    ? { ...triageDraft }
+    : { active: true, step: "symptom", adaptiveIndex: 0, adaptiveAnswers: {}, sessionStartedAt: new Date().toISOString(), messageCount: 0 };
+
+  draft.messageCount = (draft.messageCount || 0) + 1;
 
   if (wantsToExitActiveFlow(message)) {
     await saveAuditLog(supabase, {
@@ -1705,6 +2078,11 @@ async function handleTriageFlow(ctx: AppContext, triageDraft?: TriageDraft | nul
   draft.patientNote = buildTriagePatientNote(draft);
   draft.doctorSummary = buildTriageDoctorSummary(draft);
 
+  const confidence = calculateConfidence(draft);
+  const sessionDuration = draft.sessionStartedAt
+    ? Math.round((Date.now() - new Date(draft.sessionStartedAt).getTime()) / 1000)
+    : null;
+
   const triageId = await saveTriage(supabase, {
     user_id: user?.id ?? null,
     clinic_id: clinicId ?? null,
@@ -1719,6 +2097,9 @@ async function handleTriageFlow(ctx: AppContext, triageDraft?: TriageDraft | nul
     patient_note: draft.patientNote,
     doctor_summary: draft.doctorSummary,
     raw_draft: draft,
+    triage_confidence: confidence,
+    message_count: draft.messageCount ?? null,
+    session_duration_seconds: sessionDuration,
   });
 
   await saveAuditLog(supabase, {
@@ -1787,6 +2168,151 @@ async function handleTriageFlow(ctx: AppContext, triageDraft?: TriageDraft | nul
     bookingDraft: null,
     triageDraft: null,
   };
+
+}
+
+function handleRoleWorkflowHelp(ctx: AppContext) {
+
+  const { message, role, clinicId, clinicName } = ctx;
+  const params = clinicId ? { clinicId, clinicName: clinicName || "" } : undefined;
+
+  if (!clinicId && roleWorkflowNeedsClinic(message, role)) {
+  return selectClinicReply(role);
+}
+
+  if (role === "doctor") {
+    if (wantsMedicalRecordHelp(message)) {
+      return {
+        handled: true,
+        reply: "You can create a medical record from Manage Appointments. Open the relevant appointment, review the visit details, then add symptoms, diagnosis, vitals, treatment plan, prescription and follow-up notes. After saving, the record will appear in Patient History.",
+        actions: [
+          { label: "Manage appointments", route: "/manage-appointments", params },
+          { label: "Patient history", route: "/my-patients-history", params },
+        ],
+      };
+    }
+
+    if (wantsPatientHistoryHelp(message)) {
+      return {
+        handled: true,
+        reply: "You can review patient history, previous appointments, AI triage notes, onboarding summaries and patient documents from Patient History.",
+        actions: [
+          { label: "Open patient history", route: "/my-patients-history", params },
+          { label: "Open my patients", route: "/my-patients", params },
+        ],
+      };
+    }
+
+    if (wantsMessagesHelp(message)) {
+      return {
+        handled: true,
+        reply: "You can message patients from the Messages page. Conversations are linked to your clinic context.",
+        actions: [{ label: "Open messages", route: "/messages", params }],
+      };
+    }
+  }
+
+  if (role === "clinic_admin") {
+    if (asksHowToManageAppointments(message) || asksHowToCheckIn(message)) {
+  return {
+    handled: true,
+    reply:
+      "You can manage appointment status from Manage Appointments. There you can view appointment details, cancel or reschedule bookings, and check in patients when they arrive. Check-in marks the patient as arrived and updates the appointment status so the visit can continue smoothly.\n\nWould you like to open Manage Appointments, or do you want me to start one of these actions from chat?",
+    actions: [
+      { label: "Open appointments", route: "/manage-appointments", params },
+      { label: "Cancel from chat", message: "Start cancellation" },
+      { label: "Reschedule from chat", message: "Start reschedule" },
+      { label: "Check in from chat", message: "Start check in" },
+    ],
+  };
+}
+    if (wantsCancelAppointment(message) || wantsRescheduleAppointment(message) || wantsCheckInAppointment(message)) {
+      return {
+        handled: true,
+        reply: "You can manage appointment cancellation, rescheduling and patient check-in from Manage Appointments. For cancel or reschedule, I can also guide the flow directly from chat.",
+        actions: [{ label: "Manage appointments", route: "/manage-appointments", params }],
+      };
+    }
+
+    if (wantsUsersHelp(message)) {
+      return {
+        handled: true,
+        reply: "As a clinic admin, you can create clinic users, edit doctors, patients and clinic admins, update access and manage profile details from Manage Users.",
+        actions: [{ label: "Manage users", route: "/manage-users", params }],
+      };
+    }
+
+    if (wantsClinicContentHelp(message)) {
+      return {
+        handled: true,
+        reply: "You can edit clinic services, technologies and health tips from Manage Clinic Content.",
+        actions: [{ label: "Manage clinic content", route: "/manage-clinic-content", params }],
+      };
+    }
+
+    if (wantsClinicSettingsHelp(message)) {
+      return {
+        handled: true,
+        reply: "Clinic settings let you update clinic branding, logo, colors and clinic profile information.",
+        actions: [{ label: "Open clinic settings", route: "/clinic-settings", params }],
+      };
+    }
+  }
+
+  if (role === "platform_admin") {
+    if (asksHowToManageAppointments(message) || asksHowToCheckIn(message)) {
+      return {
+        handled: true,
+        reply:
+          "As a platform admin, you can review and manage appointment workflows in the selected clinic context. Manage Appointments lets you inspect bookings, review status, cancel or reschedule appointments, and check in patients. If no clinic is selected, choose a clinic first so the system knows which appointments to show.\n\nWould you like to open Manage Appointments, select a clinic, or start an action from chat?",
+        actions: [
+          clinicId
+            ? { label: "Open appointments", route: "/manage-appointments", params }
+            : { label: "Select clinic", route: "/clinic-selection" },
+          { label: "Cancel from chat", message: "Start cancellation" },
+          { label: "Reschedule from chat", message: "Start reschedule" },
+          { label: "Check in from chat", message: "Start check in" },
+        ],
+      };
+    }
+
+    if (wantsCancelAppointment(message) || wantsRescheduleAppointment(message) || wantsCheckInAppointment(message)) {
+      return {
+        handled: true,
+        reply: "As a platform admin, you can review appointment cancellation, rescheduling and check-in workflows from Manage Appointments. For cancel or reschedule, I can also start the management flow from chat when a clinic context is selected.",
+        actions: [{ label: "Manage appointments", route: "/manage-appointments", params }],
+      };
+    }
+
+    if (wantsUsersHelp(message)) {
+      return {
+        handled: true,
+        reply: "As a platform admin, you can manage users across the platform, assign clinic access, create admins, doctors and patients, and deactivate or delete users.",
+        actions: [{ label: "Manage users", route: "/manage-users", params }],
+      };
+    }
+
+    if (wantsAnalyticsHelp(message)) {
+      return {
+        handled: true,
+        reply: "You can view platform analytics, clinic activity, appointment trends and platform health from Analytics.",
+        actions: [
+          { label: "View analytics", route: "/analytics", params },
+          { label: "Dashboard", route: "/main-platform-admin", params },
+        ],
+      };
+    }
+
+    if (normalizeLoose(message).includes("clinic")) {
+      return {
+        handled: true,
+        reply: "You can create, edit and review clinics from Manage Clinics.",
+        actions: [{ label: "Manage clinics", route: "/manage-clinics", params }],
+      };
+    }
+  }
+
+  return { handled: false };
 
 }
 
@@ -2168,13 +2694,102 @@ async function handleBookingFlow(ctx: AppContext, bookingDraft?: BookingDraft | 
     const lowerNotes = normalize(message);
     draft.reason = lowerNotes === "no notes" || lowerNotes === "none" ? "Booked from MedSync Assistant" : message;
     draft.notes = lowerNotes === "no notes" || lowerNotes === "none" ? null : message;
+    draft.step = "onboarding_offer";
+
+  return {
+    handled: true,
+    reply: "Would you like to add onboarding details for the doctor before booking?",
+    actions: [
+      { label: "Yes, add onboarding", message: "Yes onboarding" },
+      { label: "No, skip", message: "No onboarding" },
+    ],
+    bookingDraft: draft,
+  };
+    }
+
+  if (draft.step === "onboarding_offer") {
+    const lower = normalizeLoose(message);
+
+    if (lower.includes("yes") || lower.includes("onboarding")) {
+      draft.onboardingAccepted = true;
+      draft.step = "onboarding_main";
+
+      return {
+        handled: true,
+        reply: "What is the main reason for your visit?",
+        actions: [],
+        bookingDraft: draft,
+      };
+    }
+
+    draft.onboardingAccepted = false;
     draft.step = "confirm";
+
     return {
       handled: true,
       reply: formatBookingConfirmation(draft),
       actions: [
         { label: "Confirm booking", message: "Confirm" },
-        { label: "Cancel", message: "Cancel booking" },
+        { label: "Cancel booking", message: "Cancel booking" },
+      ],
+      bookingDraft: draft,
+    };
+  }
+
+  if (draft.step === "onboarding_main") {
+    draft.onboardingMainConcern = message;
+    draft.step = "onboarding_symptoms";
+
+    return {
+      handled: true,
+      reply: "What symptoms are you currently experiencing?",
+      actions: [{ label: "No symptoms", message: "No symptoms" }],
+      bookingDraft: draft,
+    };
+  }
+
+  if (draft.step === "onboarding_symptoms") {
+    draft.onboardingSymptoms = message;
+    draft.step = "onboarding_medications";
+
+    return {
+      handled: true,
+      reply: "Are you currently taking any medications?",
+      actions: [{ label: "No medications", message: "No medications" }],
+      bookingDraft: draft,
+    };
+  }
+
+  if (draft.step === "onboarding_medications") {
+    draft.onboardingMedications = message;
+    draft.step = "onboarding_chronic";
+
+    return {
+      handled: true,
+      reply: "Do you have chronic conditions, allergies or relevant medical history?",
+      actions: [{ label: "None", message: "None" }],
+      bookingDraft: draft,
+    };
+  }
+
+  if (draft.step === "onboarding_chronic") {
+    draft.onboardingChronicConditions = message;
+
+    draft.aiTriagePatientNote = [
+      draft.onboardingMainConcern ? `Main concern: ${draft.onboardingMainConcern}` : "",
+      draft.onboardingSymptoms ? `Symptoms: ${draft.onboardingSymptoms}` : "",
+      draft.onboardingMedications ? `Medications: ${draft.onboardingMedications}` : "",
+      draft.onboardingChronicConditions ? `Chronic conditions: ${draft.onboardingChronicConditions}` : "",
+    ].filter(Boolean).join("\n");
+
+    draft.step = "confirm";
+
+    return {
+      handled: true,
+      reply: formatBookingConfirmation(draft),
+      actions: [
+        { label: "Confirm booking", message: "Confirm" },
+        { label: "Cancel booking", message: "Cancel booking" },
       ],
       bookingDraft: draft,
     };
@@ -2220,6 +2835,15 @@ async function handleBookingFlow(ctx: AppContext, bookingDraft?: BookingDraft | 
 
   if (rpcError) 
     return { handled: true, reply: `I could not create the appointment: ${rpcError.message}`, actions: [], bookingDraft: draft };
+
+  if (draft.triageId) {
+    try {
+      await supabase
+        .from("ai_triage_sessions")
+        .update({ completed: true })
+        .eq("id", draft.triageId);
+    } catch (_) {}
+  }
 
   await saveAuditLog(supabase, {
     user_id: user.id,
@@ -2424,28 +3048,54 @@ function buildNavigationActions({
   }
 
   if (role === "doctor") {
-
     if (lower.includes("appointment"))
       add("Manage appointments", "/manage-appointments");
+
+    if (lower.includes("patient"))
+      add("My patients", "/my-patients");
+
+    if (lower.includes("history") || lower.includes("summary") || lower.includes("chart"))
+      add("Patient history", "/my-patients-history");
 
     if (lower.includes("message") || lower.includes("chat"))
       add("Open messages", "/messages");
 
+    add("Doctor dashboard", "/main-doctor");
     add("Change clinic", "/clinic-selection");
   }
 
   if (role === "clinic_admin") {
-
-    if (lower.includes("appointment"))
+    if (lower.includes("appointment") || lower.includes("check"))
       add("Manage appointments", "/manage-appointments");
 
-    add("Open dashboard", "/clinic-dashboard");
+    if (lower.includes("user") || lower.includes("doctor") || lower.includes("patient"))
+      add("Manage users", "/manage-users");
 
+    if (lower.includes("content") || lower.includes("service") || lower.includes("technology") || lower.includes("tip"))
+      add("Manage clinic content", "/manage-clinic-content");
+
+    if (lower.includes("setting") || lower.includes("logo") || lower.includes("branding"))
+      add("Clinic settings", "/clinic-settings");
+
+    add("Clinic admin dashboard", "/main-clinic-admin");
     add("Change clinic", "/clinic-selection");
   }
 
-  if (role === "platform_admin")
-    add("Open admin dashboard", "/platform-dashboard");
+  if (role === "platform_admin") {
+    if (lower.includes("appointment") || lower.includes("check"))
+      add("Manage appointments", "/manage-appointments");
+
+    if (lower.includes("user"))
+      add("Manage users", "/manage-users");
+
+    if (lower.includes("clinic"))
+      add("Manage clinics", "/manage-clinics");
+
+    if (lower.includes("analytics") || lower.includes("stats") || lower.includes("overview") || lower.includes("platform health"))
+      add("View analytics", "/analytics");
+
+    add("Platform dashboard", "/main-platform-admin");
+  }
 
   return actions.slice(0, 7);
 }
@@ -2708,16 +3358,55 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (wantsCancelAppointment(message) || wantsRescheduleAppointment(message)) {
-      const result = await handleAppointmentManagement(ctx, null);
-      return json({
-        reply: result.reply,
-        actions: result.actions,
-        bookingDraft: result.bookingDraft,
-        triageDraft: null,
-        triage: { isTriage: false, level: "unknown" },
-      });
-    }
+if (
+  wantsStartCancellationFromChat(message) ||
+  wantsStartRescheduleFromChat(message) ||
+  wantsStartCheckInFromChat(message) ||
+  (
+    !asksHowToManageAppointments(message) &&
+    !asksHowToCheckIn(message) &&
+    (
+      wantsCancelAppointment(message) ||
+      wantsRescheduleAppointment(message) ||
+      wantsCheckInAppointment(message)
+    )
+  ) ||
+  (bookingDraft?.active && bookingDraft.mode !== "create")
+) {
+  let nextBookingDraft = bookingDraft;
+
+if (wantsStartCancellationFromChat(message)) {
+  nextBookingDraft = {
+    active: true,
+    mode: "cancel",
+    step: "select_appointment",
+  };
+}
+
+if (wantsStartRescheduleFromChat(message)) {
+  nextBookingDraft = {
+    active: true,
+    mode: "reschedule",
+    step: "select_appointment",
+  };
+}
+
+if (wantsStartCheckInFromChat(message)) {
+  nextBookingDraft = {
+    active: true,
+    mode: "check_in",
+    step: "select_appointment",
+  };
+}
+  const appointmentResult = await handleAppointmentManagement(ctx, nextBookingDraft);
+    return json({
+      reply: appointmentResult.reply,
+      actions: appointmentResult.actions || [],
+      bookingDraft: appointmentResult.bookingDraft || null,
+      triageDraft: triageDraft || null,
+      triage: getTriageLevel(message),
+    });
+  }
 
     if (bookingDraft?.active || wantsBooking(message)) {
       const result = await handleBookingFlow(ctx, bookingDraft);
@@ -2754,6 +3443,17 @@ Deno.serve(async (req) => {
           triage: getTriageLevel(message),
         });
       }
+    }
+
+    const roleHelp = handleRoleWorkflowHelp(ctx);
+    if (roleHelp.handled) {
+      return json({
+        reply: roleHelp.reply,
+        actions: roleHelp.actions || [],
+        bookingDraft: bookingDraft || null,
+        triageDraft: triageDraft || null,
+        triage: getTriageLevel(message),
+      });
     }
 
     const general = await generateGeminiReply({ message, history, supabase, clinicId, clinicName, role, geminiKey, });

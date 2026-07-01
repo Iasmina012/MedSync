@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
+import { rgbaFromHex } from '../theme/colors';
 
 export type ClinicTheme = {
 
@@ -27,29 +28,12 @@ const DEFAULT_THEME: ClinicTheme = {
 
 };
 
-function hexToRgba(hex: string, alpha: number) {
-
-  const clean = hex.replace('#', '');
-
-  if (clean.length !== 6) {
-    return `rgba(29, 78, 216, ${alpha})`;
-  }
-
-  const bigint = parseInt(clean, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-
-}
-
 function buildTheme(row?: ClinicThemeRow | null): ClinicTheme {
 
   const primary = row?.primary_color || DEFAULT_THEME.primary;
   const secondary = row?.secondary_color || DEFAULT_THEME.secondary;
-  const soft = row?.soft_color || hexToRgba(primary, 0.08);
-  const borderSoft = hexToRgba(primary, 0.20);
+  const soft = row?.soft_color || rgbaFromHex(primary, 0.08);
+  const borderSoft = rgbaFromHex(primary, 0.20);
 
   return {
     primary,
